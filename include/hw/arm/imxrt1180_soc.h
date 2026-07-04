@@ -55,8 +55,11 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 #define IMXRT1180_OCRAM1_SIZE     0x0007C000
 #define IMXRT1180_OCRAM2_BASE     0x20500000  /* OCRAM2                 256 KiB */
 #define IMXRT1180_OCRAM2_SIZE     0x00040000
-#define IMXRT1180_FLEXSPI1_BASE   0x28000000  /* FlexSPI1 NOR XIP window   8 MiB*/
-#define IMXRT1180_FLEXSPI1_SIZE   0x00800000
+#define IMXRT1180_FLEXSPI1_BASE   0x28000000  /* FlexSPI1 NOR XIP window (NS)   */
+#define IMXRT1180_FLEXSPI1_SIZE   0x01000000  /* 16 MiB (EVK flash)             */
+#define IMXRT1180_FLEXSPI1_S_BASE 0x38000000  /* secure alias (TZ-M)            */
+#define IMXRT1180_EXTRAM_BASE     0x14000000  /* ext RAM (Zephyr .data/.bss)    */
+#define IMXRT1180_EXTRAM_SIZE     0x00800000  /* 8 MiB                          */
 
 /*
  * Peripheral window.  The RT1180 is TrustZone-M with two power-domain aliases:
@@ -157,6 +160,9 @@ struct IMXRT1180State {
     MemoryRegion ocram1;     /* OCRAM1 @ 0x20484000 */
     MemoryRegion ocram2;     /* OCRAM2 @ 0x20500000 */
     MemoryRegion flexspi1;   /* FlexSPI1 NOR XIP @ 0x28000000 */
+    MemoryRegion flexspi1_s_alias; /* secure alias @ 0x38000000 */
+    MemoryRegion ext_ram;    /* external RAM @ 0x14000000 (Zephyr) */
+    MemoryRegion periph_secure; /* TZ-M secure peripheral aperture @ 0x50000000 */
 
     Clock       *sysclk;
     Clock       *refclk;

@@ -121,6 +121,17 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
                            IMXRT1180_FLEXSPI1_SIZE, &error_fatal);
     memory_region_add_subregion(system_memory, IMXRT1180_FLEXSPI1_BASE,
                                 &s->flexspi1);
+    /* TZ-M secure alias of the FlexSPI NOR XIP window (secure M33 / Zephyr). */
+    memory_region_init_alias(&s->flexspi1_s_alias, OBJECT(dev),
+                             "imxrt1180.flexspi1-nor.s", &s->flexspi1, 0,
+                             IMXRT1180_FLEXSPI1_SIZE);
+    memory_region_add_subregion(system_memory, IMXRT1180_FLEXSPI1_S_BASE,
+                                &s->flexspi1_s_alias);
+    /* External RAM window (0x14000000) — Zephyr .data/.bss. */
+    memory_region_init_ram(&s->ext_ram, OBJECT(dev), "imxrt1180.ext-ram",
+                           IMXRT1180_EXTRAM_SIZE, &error_fatal);
+    memory_region_add_subregion(system_memory, IMXRT1180_EXTRAM_BASE,
+                                &s->ext_ram);
 
     /* --- CPU cores + NVIC + SysTick -------------------------------------- *
      * Each ARMV7M wraps its "memory" link in its own private per-core
@@ -175,6 +186,19 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
      */
     create_unimplemented_device("imxrt1180.periph", IMXRT1180_PERIPH_BASE,
                                 IMXRT1180_PERIPH_SIZE);
+
+    /*
+     * TrustZone-M: the secure peripheral aperture (0x5000_0000..0x5FFF_FFFF)
+     * mirrors the non-secure one (0x4000_0000..0x4FFF_FFFF) — every peripheral
+     * has a secure alias 0x1000_0000 above its NS base.  Secure firmware (e.g.
+     * Zephyr on the secure M33) reaches peripherals through those aliases, so
+     * mirror the whole NS window there with a single alias (overrides the
+     * catch-all by priority; the modelled devices below it show through).
+     */
+    memory_region_init_alias(&s->periph_secure, OBJECT(dev),
+                             "imxrt1180.periph.s", system_memory,
+                             IMXRT1180_PERIPH_BASE, 0x10000000);
+    memory_region_add_subregion(system_memory, 0x50000000, &s->periph_secure);
 
     /* LPUART1 — debug console.  Binds host serial_hd(0); IRQ 19 -> M33 NVIC. */
     qdev_prop_set_chr(DEVICE(&s->lpuart1), "chardev", serial_hd(0));
