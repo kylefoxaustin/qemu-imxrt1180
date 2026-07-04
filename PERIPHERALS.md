@@ -35,6 +35,17 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
   (`tests/imxrt1180-dualcore`).
 - **Corpus harness** (`tests/imxrt1180-corpus/run.sh`) boots every prebuilt SDK
   cm33 demo and reports pass/run/fault.
+- **Real Zephyr RTOS** (`mimxrt1180_evk/mimxrt1189/cm33`, secure/TZ-M) boots and
+  runs multithreaded samples — `hello_world`, `synchronization` (threads +
+  semaphores), `philosophers` (threads + mutexes + timers), and
+  `cpp_synchronization` (C++ runtime).  Harness: `tests/imxrt1180-zephyr/run.sh`.
+
+### Open bugs surfaced by the Zephyr saturation run
+- **FPU:** images built with `CONFIG_FPU=y` fault (HardFault) — the Cortex-M33
+  FPU context path (CPACR / lazy FP stacking) needs work.
+- **ztest / condvar:** the ztest framework tests (and the condvar sample) hit an
+  early CPU-exception fatal before console init (not userspace/MPU — those
+  work).  Under investigation; fixing it unlocks the ztest PASS/FAIL corpus.
 
 ## Known gaps (surfaced by the demo corpus)
 
