@@ -271,6 +271,12 @@ config IMXRT1180_RTWDOG
 config IMXRT1180_S3MU
     bool
 
+config IMXRT1180_FLEXSPI
+    bool
+
+config IMXRT1180_CCM
+    bool
+
 config MCXN_SYSCON
     bool
 

@@ -61,6 +61,9 @@ static void imxrt1180_soc_instance_init(Object *obj)
         object_initialize_child(obj, name, &s->rtwdog[i], TYPE_IMXRT1180_RTWDOG);
     }
     object_initialize_child(obj, "mu-rt-s3", &s->mu_rt_s3, TYPE_IMXRT1180_S3MU);
+    object_initialize_child(obj, "flexspi1", &s->flexspi1_ctrl, TYPE_IMXRT1180_FLEXSPI);
+    object_initialize_child(obj, "ccm", &s->ccm, TYPE_IMXRT1180_CCM);
+    object_initialize_child(obj, "flexspi2", &s->flexspi2_ctrl, TYPE_IMXRT1180_FLEXSPI);
 
     s->sysclk = qdev_init_clock_in(DEVICE(s), "sysclk", NULL, NULL, 0);
     s->refclk = qdev_init_clock_in(DEVICE(s), "refclk", NULL, NULL, 0);
@@ -201,6 +204,26 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         return;
     }
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->mu_rt_s3), 0, IMXRT1180_MU_RT_S3MU_BASE);
+
+    /* FlexSPI1 controller — reports idle so board-init config/poll completes. */
+    if (!sysbus_realize(SYS_BUS_DEVICE(&s->flexspi1_ctrl), errp)) {
+        return;
+    }
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->flexspi1_ctrl), 0,
+                    IMXRT1180_FLEXSPI1_CTRL_BASE);
+
+    /* CCM — clock roots/gates report ready so the SDK clock code completes. */
+    if (!sysbus_realize(SYS_BUS_DEVICE(&s->ccm), errp)) {
+        return;
+    }
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->ccm), 0, IMXRT1180_CCM_BASE);
+
+    /* FlexSPI2 controller (same model as FlexSPI1). */
+    if (!sysbus_realize(SYS_BUS_DEVICE(&s->flexspi2_ctrl), errp)) {
+        return;
+    }
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->flexspi2_ctrl), 0,
+                    IMXRT1180_FLEXSPI2_CTRL_BASE);
 }
 
 static const Property imxrt1180_soc_properties[] = {
