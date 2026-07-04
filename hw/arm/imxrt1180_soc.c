@@ -64,6 +64,10 @@ static void imxrt1180_soc_instance_init(Object *obj)
     object_initialize_child(obj, "flexspi1", &s->flexspi1_ctrl, TYPE_IMXRT1180_FLEXSPI);
     object_initialize_child(obj, "ccm", &s->ccm, TYPE_IMXRT1180_CCM);
     object_initialize_child(obj, "flexspi2", &s->flexspi2_ctrl, TYPE_IMXRT1180_FLEXSPI);
+    for (int i = 0; i < IMXRT1180_NUM_RGPIO; i++) {
+        g_autofree char *rname = g_strdup_printf("rgpio%d", i + 1);
+        object_initialize_child(obj, rname, &s->rgpio[i], TYPE_IMXRT1180_RGPIO);
+    }
 
     s->sysclk = qdev_init_clock_in(DEVICE(s), "sysclk", NULL, NULL, 0);
     s->refclk = qdev_init_clock_in(DEVICE(s), "refclk", NULL, NULL, 0);
@@ -224,6 +228,22 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     }
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->flexspi2_ctrl), 0,
                     IMXRT1180_FLEXSPI2_CTRL_BASE);
+
+    /* RGPIO1..6 — functional GPIO (EVK user LED is RGPIO4[27]). */
+    static const hwaddr rgpio_base[IMXRT1180_NUM_RGPIO] = {
+        0x47400000, /* RGPIO1 */
+        0x43810000, /* RGPIO2 */
+        0x43820000, /* RGPIO3 */
+        0x43830000, /* RGPIO4 */
+        0x43840000, /* RGPIO5 */
+        0x43850000, /* RGPIO6 */
+    };
+    for (int i = 0; i < IMXRT1180_NUM_RGPIO; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->rgpio[i]), errp)) {
+            return;
+        }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->rgpio[i]), 0, rgpio_base[i]);
+    }
 }
 
 static const Property imxrt1180_soc_properties[] = {
