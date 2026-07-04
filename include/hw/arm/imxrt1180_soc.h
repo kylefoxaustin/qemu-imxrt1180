@@ -19,6 +19,7 @@
 #include "hw/char/imxrt1180_lpuart.h"
 #include "hw/misc/imxrt1180_anadig.h"
 #include "hw/misc/imxrt1180_rtwdog.h"
+#include "hw/misc/imxrt1180_s3mu.h"
 #include "hw/core/clock.h"
 #include "qom/object.h"
 
@@ -79,6 +80,9 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
  */
 #define IMXRT1180_NUM_RTWDOG      5
 
+/* Messaging Unit (RT domain) to the EdgeLock secure enclave (ELE/S3), NS base. */
+#define IMXRT1180_MU_RT_S3MU_BASE 0x47540000
+
 /* Per-core architectural configuration (M33 and M7 differ). */
 typedef struct IMXRT1180CoreConfig {
     const char *cpu_type;      /* ARM_CPU_TYPE_NAME("cortex-m33" | "cortex-m7") */
@@ -104,6 +108,7 @@ struct IMXRT1180State {
     IMXRT1180LPUARTState lpuart1;              /* debug console (LPUART1)      */
     IMXRT1180AnadigState anadig;               /* analog clock (OSC/PLL)       */
     IMXRT1180RTWDOGState rtwdog[IMXRT1180_NUM_RTWDOG]; /* RTWDOG1..5            */
+    IMXRT1180S3MUState   mu_rt_s3;             /* MU to EdgeLock enclave (ELE) */
 
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */
     MemoryRegion code_tcm;   /* ITCM  @ 0x0FFE0000 */
