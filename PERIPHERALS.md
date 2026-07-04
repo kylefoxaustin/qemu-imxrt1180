@@ -23,7 +23,7 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 | **SRC + BLK_CTRL_S_AONMIX** | 1 | 0x44460000 / 0x444F0000 | ✅ functional | M7 boot-vector (M7_CFG) + release (SCR.BT_RELEASE_M7), bottom-half start |
 | **FlexSPI** (controller) | 1, 2 | 0x425E0000, 0x445E0000 | ◐ readiness | STS0 idle + MCR0 self-reset; no flash command engine / XIP (flagged) |
 | **RGPIO** | 1..6 | 0x47400000, 0x4381/2/3/4/5 0000 | ✅ functional | PDOR/PSOR/PCOR/PTOR/PDDR/PDIR + per-pin qemu_irq out |
-| **TRDC** | 1..3 | 0x44270000, 0x42460000, 0x42810000 | ◐ config stub | HWCFG0 sane counts; no access enforcement (flagged) |
+| **TRDC** | 1..3 | 0x44270000, 0x42460000, 0x42810000 | ◐ config stub | HWCFG0 counts + per-master DACFG.NCM (fsl_trdc DAC setup); byte-access safe; no access enforcement (flagged) |
 | _everything else_ | — | 0x40000000–0x5FFFFFFF | catch-all | `unimplemented` region; `-d unimp` logs each access |
 
 ## Validated firmware
@@ -37,15 +37,15 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
   cm33 demo and reports pass/run/fault.
 - **Real Zephyr RTOS** (`mimxrt1180_evk/mimxrt1189/cm33`, secure/TZ-M) boots and
   runs multithreaded samples — `hello_world`, `synchronization` (threads +
-  semaphores), `philosophers` (threads + mutexes + timers), and
-  `cpp_synchronization` (C++ runtime).  Harness: `tests/imxrt1180-zephyr/run.sh`.
+  semaphores), `philosophers` (threads + mutexes + timers), `cpp_synchronization`
+  (C++ runtime), and `condvar`.  Harness: `tests/imxrt1180-zephyr/run.sh`.
+- **Zephyr ztest kernel corpus** — `tests/kernel/{common, sched/schedule_api,
+  semaphore, queue}` all report `PROJECT EXECUTION SUCCESSFUL` (325 test cases).
+  Needs the TRDC DACFG model (secure `CONFIG_ASSERT=y` builds exercise it).
 
 ### Open bugs surfaced by the Zephyr saturation run
 - **FPU:** images built with `CONFIG_FPU=y` fault (HardFault) — the Cortex-M33
-  FPU context path (CPACR / lazy FP stacking) needs work.
-- **ztest / condvar:** the ztest framework tests (and the condvar sample) hit an
-  early CPU-exception fatal before console init (not userspace/MPU — those
-  work).  Under investigation; fixing it unlocks the ztest PASS/FAIL corpus.
+  FPU context path (CPACR / lazy FP stacking) needs work.  Next frontier.
 
 ## Known gaps (surfaced by the demo corpus)
 
