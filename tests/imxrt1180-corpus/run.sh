@@ -28,19 +28,21 @@ printf "%-34s %-8s %s\n" "DEMO" "RESULT" "NOTE"
 printf "%-34s %-8s %s\n" "----" "------" "----"
 find "$FWDIR" -ipath '*evkmimxrt1180*cm33*.bin' | sort -u | while read -r bin; do
     name=$(echo "$bin" | sed -E 's|.*evkmimxrt1180/||; s|/cm33.*||')
-    out=$(mktemp)
+    out=$(mktemp); err=$(mktemp)
     timeout "$TIMEOUT" "$QEMU" -M mimxrt1180-evk -display none -monitor none \
         -kernel "$bin" -serial stdio -semihosting-config enable=on,target=native \
-        >"$out" 2>&1
+        >"$out" 2>"$err" </dev/null
     rc=$?
-    console=$(tr -d '\0' <"$out" | tr '\n' ' ' | sed -E 's/  +/ /g' | cut -c1-46)
-    if grep -qiE "Lockup|fatal|Aborted|assert" "$out"; then
-        res="FAULT"
+    console=$(tr -d '\0' <"$out" | tr '\n' ' ' | sed -E 's/  +/ /g' | cut -c1-44)
+    if grep -qiE "Lockup|fatal|Aborted" "$err"; then
+        res="FAULT"    # guest lockup / qemu abort (missing peripheral)
+    elif grep -qiE "assert" "$out"; then
+        res="ASSERT"   # firmware assertion (missing/zero register)
     elif [ "$rc" -eq 124 ]; then
-        res="RUN"     # still running at timeout (loop/blink/wait) or hang
+        res="RUN"      # still running at timeout (loop/blink/wait) or hang
     else
-        res="EXIT"
+        res="EXIT"     # semihosting exit
     fi
     printf "%-34s %-8s [%s]\n" "$name" "$res" "$console"
-    rm -f "$out"
+    rm -f "$out" "$err"
 done
