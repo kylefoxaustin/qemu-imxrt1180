@@ -283,6 +283,9 @@ config IMXRT1180_SRC
 config IMXRT1180_TRDC
     bool
 
+config IMXRT1180_MU
+    bool
+
 config MCXN_SYSCON
     bool
 

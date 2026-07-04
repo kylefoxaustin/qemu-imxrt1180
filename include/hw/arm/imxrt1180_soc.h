@@ -24,6 +24,7 @@
 #include "hw/misc/imxrt1180_ccm.h"
 #include "hw/misc/imxrt1180_src.h"
 #include "hw/misc/imxrt1180_trdc.h"
+#include "hw/misc/imxrt1180_mu.h"
 #include "hw/gpio/imxrt1180_rgpio.h"
 #include "hw/core/clock.h"
 #include "qom/object.h"
@@ -91,6 +92,11 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 /* Messaging Unit (RT domain) to the EdgeLock secure enclave (ELE/S3), NS base. */
 #define IMXRT1180_MU_RT_S3MU_BASE 0x47540000
 
+/* Inter-core MU1: MUA = CM33 side, MUB = CM7 side (NS bases); IRQ 21 each core. */
+#define IMXRT1180_MU1_MUA_BASE    0x44220000
+#define IMXRT1180_MU1_MUB_BASE    0x44230000
+#define IMXRT1180_MU1_IRQ         21
+
 /* FlexSPI1 controller registers (NS, WAKEUPMIX) — distinct from the XIP window. */
 #define IMXRT1180_FLEXSPI1_CTRL_BASE 0x425E0000
 
@@ -152,6 +158,7 @@ struct IMXRT1180State {
     IMXRT1180RGPIOState  rgpio[IMXRT1180_NUM_RGPIO];   /* RGPIO1..6            */
     IMXRT1180SRCState    src;                  /* SRC + BLK_CTRL: M7 release   */
     IMXRT1180TRDCState   trdc[IMXRT1180_NUM_TRDC];     /* TRDC1..3             */
+    IMXRT1180MUState     mu1;                          /* inter-core MU (M33<->M7) */
     MemoryRegion         cm7_tcm;              /* M7 TCM (system view @0x303C…)*/
 
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */

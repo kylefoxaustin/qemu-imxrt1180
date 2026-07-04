@@ -69,6 +69,7 @@ static void imxrt1180_soc_instance_init(Object *obj)
         object_initialize_child(obj, rname, &s->rgpio[i], TYPE_IMXRT1180_RGPIO);
     }
     object_initialize_child(obj, "src", &s->src, TYPE_IMXRT1180_SRC);
+    object_initialize_child(obj, "mu1", &s->mu1, TYPE_IMXRT1180_MU);
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
         g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
         object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
@@ -317,6 +318,22 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         }
         sysbus_mmio_map(SYS_BUS_DEVICE(&s->trdc[i]), 0, trdc_base[i]);
     }
+
+    /*
+     * Inter-core MU1: MMIO 0 = MUA (CM33 @ 0x4422_0000), MMIO 1 = MUB (CM7 @
+     * 0x4423_0000); IRQ 0 -> CM33 NVIC, IRQ 1 -> CM7 NVIC (both MU1_IRQn=21).
+     */
+    if (!sysbus_realize(SYS_BUS_DEVICE(&s->mu1), errp)) {
+        return;
+    }
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->mu1), 0, IMXRT1180_MU1_MUA_BASE);
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->mu1), 1, IMXRT1180_MU1_MUB_BASE);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->mu1), 0,
+                       qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
+                                        IMXRT1180_MU1_IRQ));
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->mu1), 1,
+                       qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M7]),
+                                        IMXRT1180_MU1_IRQ));
 }
 
 static const Property imxrt1180_soc_properties[] = {
