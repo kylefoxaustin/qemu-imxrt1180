@@ -17,6 +17,8 @@
 #include "hw/core/sysbus.h"
 #include "hw/arm/armv7m.h"
 #include "hw/char/imxrt1180_lpuart.h"
+#include "hw/misc/imxrt1180_anadig.h"
+#include "hw/misc/imxrt1180_rtwdog.h"
 #include "hw/core/clock.h"
 #include "qom/object.h"
 
@@ -68,6 +70,15 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 #define IMXRT1180_LPUART1_BASE    0x44380000
 #define IMXRT1180_LPUART1_IRQ     19
 
+/* ANADIG analog clock block (OSC + PLL + PMU), AONMIX non-secure. */
+#define IMXRT1180_ANADIG_BASE     0x44480000
+
+/*
+ * RTWDOG1..5 — 2 in the AON mix, 3 in the WAKEUP mix (non-secure bases).
+ * SystemInit unlocks + disables each early in boot.
+ */
+#define IMXRT1180_NUM_RTWDOG      5
+
 /* Per-core architectural configuration (M33 and M7 differ). */
 typedef struct IMXRT1180CoreConfig {
     const char *cpu_type;      /* ARM_CPU_TYPE_NAME("cortex-m33" | "cortex-m7") */
@@ -91,6 +102,8 @@ struct IMXRT1180State {
     MemoryRegion cpu_mem[IMXRT1180_MAX_CPUS];  /* per-core alias of the SoC map*/
 
     IMXRT1180LPUARTState lpuart1;              /* debug console (LPUART1)      */
+    IMXRT1180AnadigState anadig;               /* analog clock (OSC/PLL)       */
+    IMXRT1180RTWDOGState rtwdog[IMXRT1180_NUM_RTWDOG]; /* RTWDOG1..5            */
 
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */
     MemoryRegion code_tcm;   /* ITCM  @ 0x0FFE0000 */

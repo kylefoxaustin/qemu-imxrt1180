@@ -55,6 +55,11 @@ static void imxrt1180_soc_instance_init(Object *obj)
      * core count) is known — only the cores we actually realize are created,
      * so no half-built child trips qdev's realized-properly assert. */
     object_initialize_child(obj, "lpuart1", &s->lpuart1, TYPE_IMXRT1180_LPUART);
+    object_initialize_child(obj, "anadig", &s->anadig, TYPE_IMXRT1180_ANADIG);
+    for (int i = 0; i < IMXRT1180_NUM_RTWDOG; i++) {
+        g_autofree char *name = g_strdup_printf("rtwdog%d", i + 1);
+        object_initialize_child(obj, name, &s->rtwdog[i], TYPE_IMXRT1180_RTWDOG);
+    }
 
     s->sysclk = qdev_init_clock_in(DEVICE(s), "sysclk", NULL, NULL, 0);
     s->refclk = qdev_init_clock_in(DEVICE(s), "refclk", NULL, NULL, 0);
@@ -167,6 +172,28 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     sysbus_connect_irq(SYS_BUS_DEVICE(&s->lpuart1), 0,
                        qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
                                         IMXRT1180_LPUART1_IRQ));
+
+    /* ANADIG — analog clock block (OSC/PLL); reports clocks stable/locked so
+     * the SDK CLOCK_Init poll loops complete. */
+    if (!sysbus_realize(SYS_BUS_DEVICE(&s->anadig), errp)) {
+        return;
+    }
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->anadig), 0, IMXRT1180_ANADIG_BASE);
+
+    /* RTWDOG1..5 — SystemInit unlocks + disables each early in boot. */
+    static const hwaddr rtwdog_base[IMXRT1180_NUM_RTWDOG] = {
+        0x442D0000, /* RTWDOG1 (AON)    */
+        0x442E0000, /* RTWDOG2 (AON)    */
+        0x42490000, /* RTWDOG3 (WAKEUP) */
+        0x424A0000, /* RTWDOG4 (WAKEUP) */
+        0x424B0000, /* RTWDOG5 (WAKEUP) */
+    };
+    for (int i = 0; i < IMXRT1180_NUM_RTWDOG; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->rtwdog[i]), errp)) {
+            return;
+        }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->rtwdog[i]), 0, rtwdog_base[i]);
+    }
 }
 
 static const Property imxrt1180_soc_properties[] = {

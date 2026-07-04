@@ -169,6 +169,8 @@ system_ss.add(when: 'CONFIG_SBSA_REF', if_true: files('sbsa_ec.c'))
 # HPPA devices
 system_ss.add(when: 'CONFIG_LASI', if_true: files('lasi.c'))
 system_ss.add(when: 'CONFIG_MCXN_SCG', if_true: files('mcxn_scg.c'))
+system_ss.add(when: 'CONFIG_IMXRT1180_ANADIG', if_true: files('imxrt1180_anadig.c'))
+system_ss.add(when: 'CONFIG_IMXRT1180_RTWDOG', if_true: files('imxrt1180_rtwdog.c'))
 system_ss.add(when: 'CONFIG_MCXN_SYSCON', if_true: files('mcxn_syscon.c'))
 system_ss.add(when: 'CONFIG_MCXN_PORT', if_true: files('mcxn_port.c'))
 system_ss.add(when: 'CONFIG_MCXN_SPC', if_true: files('mcxn_spc.c'))

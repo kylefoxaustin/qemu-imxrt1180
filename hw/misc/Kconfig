@@ -262,6 +262,12 @@ source macio/Kconfig
 config MCXN_SCG
     bool
 
+config IMXRT1180_ANADIG
+    bool
+
+config IMXRT1180_RTWDOG
+    bool
+
 config MCXN_SYSCON
     bool
 

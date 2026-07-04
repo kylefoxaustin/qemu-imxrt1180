@@ -812,6 +812,8 @@ config IMXRT1180_SOC
     select ARM_V7M
     select UNIMP
     select IMXRT1180_LPUART
+    select IMXRT1180_ANADIG
+    select IMXRT1180_RTWDOG
 
 config MIMXRT1180_EVK
     bool
