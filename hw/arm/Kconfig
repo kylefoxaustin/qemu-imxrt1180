@@ -805,3 +805,16 @@ config FRDM_MCXN947
     default y
     depends on TCG && ARM
     select MCXN_SOC
+
+config IMXRT1180_SOC
+    bool
+    depends on TCG && ARM
+    select ARM_V7M
+    select UNIMP
+    select IMXRT1180_LPUART
+
+config MIMXRT1180_EVK
+    bool
+    default y
+    depends on TCG && ARM
+    select IMXRT1180_SOC

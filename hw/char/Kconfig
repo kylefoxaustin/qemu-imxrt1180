@@ -98,3 +98,6 @@ config IP_OCTAL_232
 
 config MCXN_LPUART
     bool
+
+config IMXRT1180_LPUART
+    bool
