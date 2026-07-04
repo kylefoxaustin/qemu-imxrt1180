@@ -21,6 +21,11 @@ struct IMXRT1180AnadigState {
     /*< public >*/
     MemoryRegion iomem;
     uint32_t regs[IMXRT1180_ANADIG_SIZE / 4];
+    /* Per-PFD-register "relock transient": the first read after a write to a
+     * SYS_PLLn_PFD register reports the PFD(s) as momentarily NOT stable, so the
+     * SDK's "wait for the stable bit to change" reconfigure loop terminates.
+     * bit0 = SYS_PLL3_PFD (0x4030), bit1 = SYS_PLL2_PFD (0x4070). */
+    uint8_t pfd_relock;
 };
 
 #endif /* HW_MISC_IMXRT1180_ANADIG_H */
