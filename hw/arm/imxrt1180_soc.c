@@ -69,6 +69,10 @@ static void imxrt1180_soc_instance_init(Object *obj)
         object_initialize_child(obj, rname, &s->rgpio[i], TYPE_IMXRT1180_RGPIO);
     }
     object_initialize_child(obj, "src", &s->src, TYPE_IMXRT1180_SRC);
+    for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
+        g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
+        object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
+    }
 
     s->sysclk = qdev_init_clock_in(DEVICE(s), "sysclk", NULL, NULL, 0);
     s->refclk = qdev_init_clock_in(DEVICE(s), "refclk", NULL, NULL, 0);
@@ -262,6 +266,19 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     /* Give the SRC the M7 CPU so BT_RELEASE_M7 can start it (cpu1 = M7). */
     if (ncpu > IMXRT1180_CPU_M7) {
         s->src.cm7 = s->armv7m[IMXRT1180_CPU_M7].cpu;
+    }
+
+    /* TRDC1..3 — return a sane HW config so eDMA/SAI drivers don't assert. */
+    static const hwaddr trdc_base[IMXRT1180_NUM_TRDC] = {
+        0x44270000, /* TRDC1 */
+        0x42460000, /* TRDC2 */
+        0x42810000, /* TRDC3 */
+    };
+    for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->trdc[i]), errp)) {
+            return;
+        }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->trdc[i]), 0, trdc_base[i]);
     }
 }
 

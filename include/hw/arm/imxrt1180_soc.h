@@ -23,6 +23,7 @@
 #include "hw/misc/imxrt1180_flexspi.h"
 #include "hw/misc/imxrt1180_ccm.h"
 #include "hw/misc/imxrt1180_src.h"
+#include "hw/misc/imxrt1180_trdc.h"
 #include "hw/gpio/imxrt1180_rgpio.h"
 #include "hw/core/clock.h"
 #include "qom/object.h"
@@ -99,6 +100,9 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 /* RGPIO1..6 controllers (NS). */
 #define IMXRT1180_NUM_RGPIO 6
 
+/* TRDC1..3 — Trusted Resource Domain Controller. */
+#define IMXRT1180_NUM_TRDC 3
+
 /* SRC_GENERAL + BLK_CTRL_S_AONMIX — Cortex-M7 boot/release control. */
 #define IMXRT1180_SRC_GENERAL_BASE   0x44460000
 #define IMXRT1180_BLK_CTRL_S_AON_BASE 0x444F0000
@@ -144,6 +148,7 @@ struct IMXRT1180State {
     IMXRT1180FlexSPIState flexspi2_ctrl;       /* FlexSPI2 controller regs     */
     IMXRT1180RGPIOState  rgpio[IMXRT1180_NUM_RGPIO];   /* RGPIO1..6            */
     IMXRT1180SRCState    src;                  /* SRC + BLK_CTRL: M7 release   */
+    IMXRT1180TRDCState   trdc[IMXRT1180_NUM_TRDC];     /* TRDC1..3             */
     MemoryRegion         cm7_tcm;              /* M7 TCM (system view @0x303C…)*/
 
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */

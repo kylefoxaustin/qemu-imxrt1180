@@ -280,6 +280,9 @@ config IMXRT1180_CCM
 config IMXRT1180_SRC
     bool
 
+config IMXRT1180_TRDC
+    bool
+
 config MCXN_SYSCON
     bool
 
