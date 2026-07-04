@@ -40,12 +40,11 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
   semaphores), `philosophers` (threads + mutexes + timers), `cpp_synchronization`
   (C++ runtime), and `condvar`.  Harness: `tests/imxrt1180-zephyr/run.sh`.
 - **Zephyr ztest kernel corpus** — `tests/kernel/{common, sched/schedule_api,
-  semaphore, queue}` all report `PROJECT EXECUTION SUCCESSFUL` (325 test cases).
-  Needs the TRDC DACFG model (secure `CONFIG_ASSERT=y` builds exercise it).
-
-### Open bugs surfaced by the Zephyr saturation run
-- **FPU:** images built with `CONFIG_FPU=y` fault (HardFault) — the Cortex-M33
-  FPU context path (CPACR / lazy FP stacking) needs work.  Next frontier.
+  semaphore, queue, fpu_sharing/generic}` all report `PROJECT EXECUTION
+  SUCCESSFUL` (327 test cases).  Needs the TRDC DACFG model (secure
+  `CONFIG_ASSERT=y` builds exercise it).
+- **FPU** validated by `fpu_sharing/generic` — FP load/store save/restore across
+  context switches (lazy stacking) + a 13 s π computation, both pass.
 
 ## Known gaps (surfaced by the demo corpus)
 
