@@ -292,13 +292,26 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         s->src.cm7 = s->armv7m[IMXRT1180_CPU_M7].cpu;
     }
 
-    /* TRDC1..3 — return a sane HW config so eDMA/SAI drivers don't assert. */
+    /*
+     * TRDC1..3 — return a sane HW config so eDMA/SAI drivers don't assert.
+     * ncm-mask marks each instance's non-CPU (DMA/peripheral) masters so the
+     * SoC TRDC-setup's Set{,Non}ProcessorDomainAssignment DACFG.NCM asserts pass
+     * (derived from the SoC master map + how the RT118x SoC init classifies each
+     * master): TRDC1 DMA3(2); TRDC2 DAP(2)/CoreSight(3)/DMA4(4); TRDC3
+     * USDHC1(0)/USDHC2(1)/Usb(3)/FlexspiFlr(4).
+     */
     static const hwaddr trdc_base[IMXRT1180_NUM_TRDC] = {
         0x44270000, /* TRDC1 */
         0x42460000, /* TRDC2 */
         0x42810000, /* TRDC3 */
     };
+    static const uint32_t trdc_ncm_mask[IMXRT1180_NUM_TRDC] = {
+        0x04,  /* TRDC1: DMA3 */
+        0x1C,  /* TRDC2: DAP, CoreSight, DMA4 */
+        0x1B,  /* TRDC3: USDHC1, USDHC2, Usb, FlexspiFlr */
+    };
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
+        qdev_prop_set_uint32(DEVICE(&s->trdc[i]), "ncm-mask", trdc_ncm_mask[i]);
         if (!sysbus_realize(SYS_BUS_DEVICE(&s->trdc[i]), errp)) {
             return;
         }
