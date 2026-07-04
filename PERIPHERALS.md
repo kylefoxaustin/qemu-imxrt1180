@@ -39,10 +39,13 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
   runs multithreaded samples — `hello_world`, `synchronization` (threads +
   semaphores), `philosophers` (threads + mutexes + timers), `cpp_synchronization`
   (C++ runtime), and `condvar`.  Harness: `tests/imxrt1180-zephyr/run.sh`.
-- **Zephyr ztest kernel corpus** — `tests/kernel/{common, sched/schedule_api,
-  semaphore, queue, fpu_sharing/generic}` all report `PROJECT EXECUTION
-  SUCCESSFUL` (327 test cases).  Needs the TRDC DACFG model (secure
-  `CONFIG_ASSERT=y` builds exercise it).
+- **Zephyr ztest kernel corpus** — 15 suites, ~615 test cases, all
+  `PROJECT EXECUTION SUCCESSFUL`: `common, sched/schedule_api, semaphore, queue,
+  fpu_sharing/generic, mutex/mutex_api, poll, workq/work, timer/timer_api,
+  mbox/mbox_api, fifo/fifo_api, lifo/lifo_api, stack/stack, mem_slab/mslab_api,
+  sleep`.  Covers scheduler, sync primitives, timers, work queues, IPC, memory
+  management, and FPU context sharing.  (Secure `CONFIG_ASSERT=y` builds exercise
+  the TRDC DACFG model.)
 - **FPU** validated by `fpu_sharing/generic` — FP load/store save/restore across
   context switches (lazy stacking) + a 13 s π computation, both pass.
 
