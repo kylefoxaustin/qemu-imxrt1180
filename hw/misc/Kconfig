@@ -277,6 +277,9 @@ config IMXRT1180_FLEXSPI
 config IMXRT1180_CCM
     bool
 
+config IMXRT1180_SRC
+    bool
+
 config MCXN_SYSCON
     bool
 

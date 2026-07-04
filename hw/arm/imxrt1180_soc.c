@@ -28,7 +28,7 @@
 static const IMXRT1180Config imxrt1180_configs[] = {
     {
         .name     = "MIMXRT1189",
-        .num_cpus = 1,   /* MVP: M33 boot core only; M7 is a follow-on step */
+        .num_cpus = 2,   /* M33 boot core + M7 (held off, released by the M33) */
         .num_irq  = 239,
         .core     = {
             [IMXRT1180_CPU_M33] = { ARM_CPU_TYPE_NAME("cortex-m33"), 3 },
@@ -68,6 +68,7 @@ static void imxrt1180_soc_instance_init(Object *obj)
         g_autofree char *rname = g_strdup_printf("rgpio%d", i + 1);
         object_initialize_child(obj, rname, &s->rgpio[i], TYPE_IMXRT1180_RGPIO);
     }
+    object_initialize_child(obj, "src", &s->src, TYPE_IMXRT1180_SRC);
 
     s->sysclk = qdev_init_clock_in(DEVICE(s), "sysclk", NULL, NULL, 0);
     s->refclk = qdev_init_clock_in(DEVICE(s), "refclk", NULL, NULL, 0);
@@ -243,6 +244,24 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
             return;
         }
         sysbus_mmio_map(SYS_BUS_DEVICE(&s->rgpio[i]), 0, rgpio_base[i]);
+    }
+
+    /* Cortex-M7 TCM in the system (M33) view — the M33 loads/clears the M7
+     * image here; a system-view M7 boot image lives in this window. */
+    memory_region_init_ram(&s->cm7_tcm, OBJECT(dev), "imxrt1180.cm7-tcm",
+                           IMXRT1180_CM7_TCM_SIZE, &error_fatal);
+    memory_region_add_subregion(system_memory, IMXRT1180_CM7_TCM_BASE,
+                                &s->cm7_tcm);
+
+    /* SRC + BLK_CTRL_S_AONMIX — the M33 releases the M7 through these. */
+    if (!sysbus_realize(SYS_BUS_DEVICE(&s->src), errp)) {
+        return;
+    }
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->src), 0, IMXRT1180_SRC_GENERAL_BASE);
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->src), 1, IMXRT1180_BLK_CTRL_S_AON_BASE);
+    /* Give the SRC the M7 CPU so BT_RELEASE_M7 can start it (cpu1 = M7). */
+    if (ncpu > IMXRT1180_CPU_M7) {
+        s->src.cm7 = s->armv7m[IMXRT1180_CPU_M7].cpu;
     }
 }
 

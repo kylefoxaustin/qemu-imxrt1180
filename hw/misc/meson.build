@@ -174,6 +174,7 @@ system_ss.add(when: 'CONFIG_IMXRT1180_RTWDOG', if_true: files('imxrt1180_rtwdog.
 system_ss.add(when: 'CONFIG_IMXRT1180_S3MU', if_true: files('imxrt1180_s3mu.c'))
 system_ss.add(when: 'CONFIG_IMXRT1180_FLEXSPI', if_true: files('imxrt1180_flexspi.c'))
 system_ss.add(when: 'CONFIG_IMXRT1180_CCM', if_true: files('imxrt1180_ccm.c'))
+system_ss.add(when: 'CONFIG_IMXRT1180_SRC', if_true: files('imxrt1180_src.c'))
 system_ss.add(when: 'CONFIG_MCXN_SYSCON', if_true: files('mcxn_syscon.c'))
 system_ss.add(when: 'CONFIG_MCXN_PORT', if_true: files('mcxn_port.c'))
 system_ss.add(when: 'CONFIG_MCXN_SPC', if_true: files('mcxn_spc.c'))

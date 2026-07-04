@@ -58,10 +58,11 @@ static void mimxrt1180_evk_machine_init(MachineClass *mc)
     mc->desc        = "NXP MIMXRT1180-EVK (i.MX RT1189, Cortex-M33 + Cortex-M7)";
     mc->init        = mimxrt1180_evk_init;
     mc->default_ram_size = 0;   /* SoC owns its memories */
-    /* MVP: single M33 boot core (M7 released by the M33 is a follow-on). */
-    mc->default_cpus = 1;
-    mc->min_cpus     = 1;
-    mc->max_cpus     = 1;
+    /* Heterogeneous dual-core: cpu0 = M33 (boots), cpu1 = M7 (released by the
+     * M33 via SRC/BLK_CTRL).  Lock the count so TCG provisions both contexts. */
+    mc->default_cpus = 2;
+    mc->min_cpus     = 2;
+    mc->max_cpus     = 2;
     /* Keep transaction failures visible so peripheral stubs are loud. */
     mc->ignore_memory_transaction_failures = false;
 }

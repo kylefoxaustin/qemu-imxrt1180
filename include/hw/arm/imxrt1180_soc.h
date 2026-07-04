@@ -22,6 +22,7 @@
 #include "hw/misc/imxrt1180_s3mu.h"
 #include "hw/misc/imxrt1180_flexspi.h"
 #include "hw/misc/imxrt1180_ccm.h"
+#include "hw/misc/imxrt1180_src.h"
 #include "hw/gpio/imxrt1180_rgpio.h"
 #include "hw/core/clock.h"
 #include "qom/object.h"
@@ -98,6 +99,20 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 /* RGPIO1..6 controllers (NS). */
 #define IMXRT1180_NUM_RGPIO 6
 
+/* SRC_GENERAL + BLK_CTRL_S_AONMIX — Cortex-M7 boot/release control. */
+#define IMXRT1180_SRC_GENERAL_BASE   0x44460000
+#define IMXRT1180_BLK_CTRL_S_AON_BASE 0x444F0000
+
+/*
+ * Cortex-M7 TCM as seen in the SYSTEM (M33) address view: ITCM @ 0x303C0000,
+ * DTCM @ 0x30400000 (each 256 KiB).  The M33 loads/clears the M7 image here
+ * (SDK InitCM7DMA clears 0x303C0000..0x30440000).  The M7's local view (ITCM
+ * @ 0x0) is a follow-on; a system-view M7 image (INITVTOR in this window) boots
+ * directly.
+ */
+#define IMXRT1180_CM7_TCM_BASE       0x303C0000
+#define IMXRT1180_CM7_TCM_SIZE       0x00080000
+
 /* Per-core architectural configuration (M33 and M7 differ). */
 typedef struct IMXRT1180CoreConfig {
     const char *cpu_type;      /* ARM_CPU_TYPE_NAME("cortex-m33" | "cortex-m7") */
@@ -128,6 +143,8 @@ struct IMXRT1180State {
     IMXRT1180CCMState    ccm;                  /* Clock Controller Module      */
     IMXRT1180FlexSPIState flexspi2_ctrl;       /* FlexSPI2 controller regs     */
     IMXRT1180RGPIOState  rgpio[IMXRT1180_NUM_RGPIO];   /* RGPIO1..6            */
+    IMXRT1180SRCState    src;                  /* SRC + BLK_CTRL: M7 release   */
+    MemoryRegion         cm7_tcm;              /* M7 TCM (system view @0x303C…)*/
 
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */
     MemoryRegion code_tcm;   /* ITCM  @ 0x0FFE0000 */
