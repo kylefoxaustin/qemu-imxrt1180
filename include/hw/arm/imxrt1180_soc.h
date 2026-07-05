@@ -35,6 +35,7 @@
 #include "hw/usb/imxrt1180_usb.h"
 #include "hw/misc/imxrt1180_pwm.h"
 #include "hw/misc/imxrt1180_eqdc.h"
+#include "hw/misc/imxrt1180_adc.h"
 #include "hw/gpio/imxrt1180_rgpio.h"
 #include "hw/core/clock.h"
 #include "qom/object.h"
@@ -145,6 +146,11 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 #define IMXRT1180_NUM_EQDC        4       /* EQDC1..4 @0x4271/2/3/4_0000 */
 #define IMXRT1180_EQDC1_BASE      0x42710000
 #define IMXRT1180_EQDC1_IRQ       185     /* EQDC1..4 = 185..188 */
+#define IMXRT1180_NUM_ADC         2       /* LPADC1 @0x42600000, LPADC2 @0x42E00000 */
+#define IMXRT1180_ADC1_BASE       0x42600000
+#define IMXRT1180_ADC2_BASE       0x42E00000
+#define IMXRT1180_ADC1_IRQ        93
+#define IMXRT1180_ADC2_IRQ        189
 
 /* FlexSPI1 controller registers (NS, WAKEUPMIX) — distinct from the XIP window. */
 #define IMXRT1180_FLEXSPI1_CTRL_BASE 0x425E0000
@@ -218,6 +224,7 @@ struct IMXRT1180State {
     IMXRT1180USBState    usb[IMXRT1180_NUM_USB];        /* USB_OTG1..2 (device) */
     IMXRT1180PWMState    pwm[IMXRT1180_NUM_PWM];         /* eFlexPWM1..4         */
     IMXRT1180EQDCState   eqdc[IMXRT1180_NUM_EQDC];       /* EQDC1..4 encoder     */
+    IMXRT1180ADCState    adc[IMXRT1180_NUM_ADC];          /* LPADC1..2            */
     MemoryRegion         cm7_tcm;              /* M7 TCM (system view @0x303C…)*/
 
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */

@@ -111,6 +111,10 @@ static void imxrt1180_soc_instance_init(Object *obj)
         g_autofree char *qname = g_strdup_printf("eqdc%d", i + 1);
         object_initialize_child(obj, qname, &s->eqdc[i], TYPE_IMXRT1180_EQDC);
     }
+    for (int i = 0; i < IMXRT1180_NUM_ADC; i++) {
+        g_autofree char *aname = g_strdup_printf("adc%d", i + 1);
+        object_initialize_child(obj, aname, &s->adc[i], TYPE_IMXRT1180_ADC);
+    }
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
         g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
         object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
@@ -545,6 +549,20 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
                         IMXRT1180_EQDC1_BASE + (hwaddr)i * 0x10000);
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->eqdc[i]), 0,
                            qdev_get_gpio_in(m33, IMXRT1180_EQDC1_IRQ + i));
+    }
+
+    /* LPADC1..2 — SAR ADC.  HW trigger inputs to be routed from PWM via XBAR. */
+    static const struct { hwaddr base; unsigned irq; } adc_cfg[IMXRT1180_NUM_ADC] = {
+        { IMXRT1180_ADC1_BASE, IMXRT1180_ADC1_IRQ },
+        { IMXRT1180_ADC2_BASE, IMXRT1180_ADC2_IRQ },
+    };
+    for (int i = 0; i < IMXRT1180_NUM_ADC; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->adc[i]), errp)) {
+            return;
+        }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->adc[i]), 0, adc_cfg[i].base);
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->adc[i]), 0,
+                           qdev_get_gpio_in(m33, adc_cfg[i].irq));
     }
 }
 
