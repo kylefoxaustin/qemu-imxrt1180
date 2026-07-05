@@ -34,6 +34,7 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 | **USBPHY** | 1..2 | 0x42CA0000, 0x42CB0000 | ✅ functional | USB-HS PHY PLL: RW/SET/CLR/TOG register bank; PLL_SIC.PLL_LOCK reported once powered (instant lock, like ANADIG); no UTMI/charger-detect |
 | **USB OTG** (device) | 1..2 | 0x42C80000, 0x42C90000 | ◐ device bring-up | ChipIdea USB-HS: CAPLENGTH/DCIVERSION/DCCPARAMS (device+host capable, 8 EP), USBCMD.RST self-clear, USBSTS/ENDPT* W1C; init+run complete. No host attached → no enumeration/transfers (flagged, not faked); IRQ 215/214 |
 | **eFlexPWM** | 1..4 | 0x42650000, 0x42660000, 0x42670000, 0x42680000 | ◐ functional | Motor-control PWM. 4 submodules/module; INIT+VAL0..5 double-buffered (commit on MCTRL.LDOK); MCTRL.RUN starts a ptimer-backed reload at modulo/(clk/prescaler); STS.RF + INTEN.RIE raise the submodule reload IRQ (the FOC loop clock); PWMA duty computed (per-mille). SM0..3 IRQ 24-27/171-174/176-179/181-184 + fault 23/170/175/180. No motor plant/encoder responds + ADC-sync XBAR routing not modelled (flagged) |
+| **EQDC** (encoder) | 1..4 | 0x42710000, 0x42720000, 0x42730000, 0x42740000 | ◐ functional | Quadrature decoder. CTRL.LDOK self-clearing load (SWIP preloads UPOS:LPOS from UINIT:LINIT); coherent 32-bit read (UPOS read snapshots LPOS/REV/POSD → hold registers); register-accurate position/rev/diff counters. IRQ 185-188. No encoder/plant drives the inputs → counters do not advance on their own (flagged) |
 | _everything else_ | — | 0x40000000–0x5FFFFFFF | catch-all | `unimplemented` region; `-d unimp` logs each access |
 
 ## Validated firmware
@@ -69,6 +70,9 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
   setup (as in the FOC `mc_periph_init`): INIT/VAL double-buffering commits on
   LDOK, the submodule reload IRQ fires periodically (the FOC control-loop clock),
   and the counter advances.  Register map from the MIMXRT1189 DFP `PERI_PWM.h`.
+- **EQDC** (`tests/imxrt1180-eqdc`, `EQDC: PASS`) — CTRL.LDOK self-clears, SWIP
+  preloads the position from UINIT:LINIT, and the coherent-read latch snapshots
+  LPOS/REV/POSD into the hold registers on a UPOS read.  Map from `PERI_EQDC.h`.
 
 ## Known gaps (surfaced by the demo corpus)
 
@@ -76,17 +80,17 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 |-----------|-------|------|--------|
 | sai | **SAI + eDMA** audio path | — | past the TRDC assert; data path not modelled |
 | usb_device_dfu | **USB host enumeration** | 0x42C80000 | controller inits + runs; no host attached, so the device does not enumerate (bridging to QEMU's USB host framework is future work) |
-| motor-control frontier | **EQDC encoder + ADC↔PWM sync + plant** | — | eFlexPWM done (PWM1-4, reload IRQ + duty); still need EQDC quadrature encoder, the XBAR-routed PWM→ADC trigger, and a virtual-motor plant to close a FOC loop |
+| motor-control frontier | **ADC↔PWM sync + virtual plant** | — | eFlexPWM + EQDC done; still need the ADC, the XBAR-routed PWM→ADC trigger, and a virtual-motor plant (duty → speed → EQDC count → ADC) to close a FOC loop |
 
 ## Roadmap
 
-The motor-control frontier is underway: **eFlexPWM** (PWM1-4) is modelled with
-the double-buffered compare registers and the periodic reload interrupt a FOC
-loop runs on.  Next on that track: the **EQDC** quadrature encoder, the
-**XBAR**-routed PWM→ADC sync trigger + the **ADC**, and finally a small
-virtual-motor plant (duty → velocity → EQDC count → ADC) so a FOC control loop
-can actually close in emulation — the distinguishing capability none of the
-fleet has.
+The motor-control frontier is underway: **eFlexPWM** (PWM1-4, double-buffered
+compare registers + the periodic reload interrupt a FOC loop runs on) and the
+**EQDC** quadrature encoder (position/rev counters + coherent read) are modelled.
+Next on that track: the **XBAR**-routed PWM→ADC sync trigger + the **ADC**, and
+finally a small virtual-motor plant (duty → velocity → EQDC count → ADC) so a
+FOC control loop can actually close in emulation — the distinguishing capability
+none of the fleet has.
 
 Remaining demo-corpus items are reference-blocked (fidelity-first): the SAI
 `sai.c:467` assert semantics have no source in the cache, and the

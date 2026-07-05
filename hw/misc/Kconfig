@@ -490,3 +490,6 @@ config IMXRT1180_USBPHY
 
 config IMXRT1180_PWM
     bool
+
+config IMXRT1180_EQDC
+    bool

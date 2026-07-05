@@ -107,6 +107,10 @@ static void imxrt1180_soc_instance_init(Object *obj)
         g_autofree char *wname = g_strdup_printf("pwm%d", i + 1);
         object_initialize_child(obj, wname, &s->pwm[i], TYPE_IMXRT1180_PWM);
     }
+    for (int i = 0; i < IMXRT1180_NUM_EQDC; i++) {
+        g_autofree char *qname = g_strdup_printf("eqdc%d", i + 1);
+        object_initialize_child(obj, qname, &s->eqdc[i], TYPE_IMXRT1180_EQDC);
+    }
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
         g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
         object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
@@ -530,6 +534,17 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         }
         sysbus_connect_irq(sbd, IMXRT1180_PWM_NSM,          /* fault */
             qdev_get_gpio_in(m33, pwm_cfg[i].fault_irq));
+    }
+
+    /* EQDC1..4 — quadrature encoder (register-accurate; no plant drives it). */
+    for (int i = 0; i < IMXRT1180_NUM_EQDC; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->eqdc[i]), errp)) {
+            return;
+        }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->eqdc[i]), 0,
+                        IMXRT1180_EQDC1_BASE + (hwaddr)i * 0x10000);
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->eqdc[i]), 0,
+                           qdev_get_gpio_in(m33, IMXRT1180_EQDC1_IRQ + i));
     }
 }
 

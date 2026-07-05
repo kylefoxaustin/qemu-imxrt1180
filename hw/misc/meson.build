@@ -245,3 +245,4 @@ system_ss.add(when: 'CONFIG_IMXRT1180_FLEXCAN', if_true: files('imxrt1180_flexca
 system_ss.add(when: 'CONFIG_IMXRT1180_SAI', if_true: files('imxrt1180_sai.c'))
 system_ss.add(when: 'CONFIG_IMXRT1180_USBPHY', if_true: files('imxrt1180_usbphy.c'))
 system_ss.add(when: 'CONFIG_IMXRT1180_PWM', if_true: files('imxrt1180_pwm.c'))
+system_ss.add(when: 'CONFIG_IMXRT1180_EQDC', if_true: files('imxrt1180_eqdc.c'))
