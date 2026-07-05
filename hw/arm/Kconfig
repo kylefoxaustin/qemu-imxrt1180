@@ -821,6 +821,7 @@ config IMXRT1180_SOC
     select IMXRT1180_SRC
     select IMXRT1180_TRDC
     select IMXRT1180_MU
+    select IMXRT1180_LPI2C
 
 config MIMXRT1180_EVK
     bool

@@ -25,6 +25,7 @@
 #include "hw/misc/imxrt1180_src.h"
 #include "hw/misc/imxrt1180_trdc.h"
 #include "hw/misc/imxrt1180_mu.h"
+#include "hw/i2c/imxrt1180_lpi2c.h"
 #include "hw/gpio/imxrt1180_rgpio.h"
 #include "hw/core/clock.h"
 #include "qom/object.h"
@@ -97,6 +98,9 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 #define IMXRT1180_MU1_MUB_BASE    0x44230000
 #define IMXRT1180_MU1_IRQ         21
 
+/* LPI2C1..4 — controller-mode I2C (NS bases).  LPI2C2 is the EVK sensor bus. */
+#define IMXRT1180_NUM_LPI2C       4
+
 /* FlexSPI1 controller registers (NS, WAKEUPMIX) — distinct from the XIP window. */
 #define IMXRT1180_FLEXSPI1_CTRL_BASE 0x425E0000
 
@@ -159,6 +163,7 @@ struct IMXRT1180State {
     IMXRT1180SRCState    src;                  /* SRC + BLK_CTRL: M7 release   */
     IMXRT1180TRDCState   trdc[IMXRT1180_NUM_TRDC];     /* TRDC1..3             */
     IMXRT1180MUState     mu1;                          /* inter-core MU (M33<->M7) */
+    IMXRT1180LPI2CState  lpi2c[IMXRT1180_NUM_LPI2C];   /* LPI2C1..4            */
     MemoryRegion         cm7_tcm;              /* M7 TCM (system view @0x303C…)*/
 
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */

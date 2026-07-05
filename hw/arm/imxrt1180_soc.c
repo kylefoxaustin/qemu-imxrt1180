@@ -70,6 +70,10 @@ static void imxrt1180_soc_instance_init(Object *obj)
     }
     object_initialize_child(obj, "src", &s->src, TYPE_IMXRT1180_SRC);
     object_initialize_child(obj, "mu1", &s->mu1, TYPE_IMXRT1180_MU);
+    for (int i = 0; i < IMXRT1180_NUM_LPI2C; i++) {
+        g_autofree char *iname = g_strdup_printf("lpi2c%d", i + 1);
+        object_initialize_child(obj, iname, &s->lpi2c[i], TYPE_IMXRT1180_LPI2C);
+    }
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
         g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
         object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
@@ -334,6 +338,23 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     sysbus_connect_irq(SYS_BUS_DEVICE(&s->mu1), 1,
                        qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M7]),
                                         IMXRT1180_MU1_IRQ));
+
+    /* LPI2C1..4 (controller mode); each exposes an I2C bus for device models. */
+    static const struct { hwaddr base; unsigned irq; } lpi2c_cfg[] = {
+        { 0x44340000, 13 },  /* LPI2C1 */
+        { 0x44350000, 14 },  /* LPI2C2 (EVK sensor bus) */
+        { 0x42530000, 62 },  /* LPI2C3 */
+        { 0x42540000, 63 },  /* LPI2C4 */
+    };
+    for (int i = 0; i < IMXRT1180_NUM_LPI2C; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->lpi2c[i]), errp)) {
+            return;
+        }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->lpi2c[i]), 0, lpi2c_cfg[i].base);
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->lpi2c[i]), 0,
+                           qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
+                                            lpi2c_cfg[i].irq));
+    }
 }
 
 static const Property imxrt1180_soc_properties[] = {
