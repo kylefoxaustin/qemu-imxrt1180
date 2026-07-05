@@ -6,6 +6,10 @@ config SIFIVE_SPI
     bool
     select SSI
 
+config IMXRT1180_LPSPI
+    bool
+    select SSI
+
 config SSI
     bool
 
