@@ -151,3 +151,7 @@ config MCXN_USBDEV
     bool
     # MCX N USB device-mode core (usbredir-server bridge to a remote USB host).
     # Requires libusbredirparser at build time (gated in hw/usb/meson.build).
+
+config IMXRT1180_USB
+    bool
+    # i.MX RT1180 USB-HS (ChipIdea) device-mode controller register model.

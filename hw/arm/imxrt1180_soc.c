@@ -95,6 +95,14 @@ static void imxrt1180_soc_instance_init(Object *obj)
         g_autofree char *aname = g_strdup_printf("sai%d", i + 1);
         object_initialize_child(obj, aname, &s->sai[i], TYPE_IMXRT1180_SAI);
     }
+    for (int i = 0; i < IMXRT1180_NUM_USBPHY; i++) {
+        g_autofree char *pname = g_strdup_printf("usbphy%d", i + 1);
+        object_initialize_child(obj, pname, &s->usbphy[i], TYPE_IMXRT1180_USBPHY);
+    }
+    for (int i = 0; i < IMXRT1180_NUM_USB; i++) {
+        g_autofree char *uname = g_strdup_printf("usb%d", i + 1);
+        object_initialize_child(obj, uname, &s->usb[i], TYPE_IMXRT1180_USB);
+    }
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
         g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
         object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
@@ -470,6 +478,32 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         sysbus_mmio_map(SYS_BUS_DEVICE(&s->sai[i]), 0, sai_cfg[i].base);
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->sai[i]), 0,
                            qdev_get_gpio_in(m33, sai_cfg[i].irq));
+    }
+
+    /* USBPHY1..2 — USB 2.0 HS PHY PLL readiness (lock reported once powered). */
+    static const hwaddr usbphy_base[IMXRT1180_NUM_USBPHY] = {
+        IMXRT1180_USBPHY1_BASE,
+        IMXRT1180_USBPHY2_BASE,
+    };
+    for (int i = 0; i < IMXRT1180_NUM_USBPHY; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->usbphy[i]), errp)) {
+            return;
+        }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->usbphy[i]), 0, usbphy_base[i]);
+    }
+
+    /* USB_OTG1..2 — ChipIdea USB-HS device-mode controller (no host attached). */
+    static const struct { hwaddr base; unsigned irq; } usb_cfg[IMXRT1180_NUM_USB] = {
+        { IMXRT1180_USB_OTG1_BASE, IMXRT1180_USB_OTG1_IRQ },
+        { IMXRT1180_USB_OTG2_BASE, IMXRT1180_USB_OTG2_IRQ },
+    };
+    for (int i = 0; i < IMXRT1180_NUM_USB; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->usb[i]), errp)) {
+            return;
+        }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->usb[i]), 0, usb_cfg[i].base);
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->usb[i]), 0,
+                           qdev_get_gpio_in(m33, usb_cfg[i].irq));
     }
 }
 

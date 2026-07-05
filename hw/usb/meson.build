@@ -85,6 +85,10 @@ if usbredir.found()
                 if_true: [usbredir, files('mcxn_usbdev.c')])
 endif
 
+# i.MX RT1180 USB-HS (ChipIdea) device-mode controller — register model, no
+# host framework dependency, linked directly by the SoC.
+system_ss.add(when: 'CONFIG_IMXRT1180_USB', if_true: files('imxrt1180_usb.c'))
+
 # usb pass-through
 if libusb.found()
   usbhost_ss = ss.source_set()

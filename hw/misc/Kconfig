@@ -484,3 +484,6 @@ config IMXRT1180_FLEXCAN
 
 config IMXRT1180_SAI
     bool
+
+config IMXRT1180_USBPHY
+    bool

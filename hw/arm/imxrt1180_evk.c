@@ -117,13 +117,41 @@ static void imxrt1180_load_and_boot(ARMCPU *m33, const char *filename)
     uint32_t entry = imxrt1180_load_elf_direct(filename, &is_elf);
 
     if (!is_elf) {
-        /* Raw image: goes to the code TCM (SDK .bin convention). */
-        if (load_image_targphys(filename, IMXRT1180_CODE_TCM_BASE,
-                                IMXRT1180_CODE_TCM_SIZE, NULL) < 0) {
+        /*
+         * Raw .bin: the SDK cm33 convention links the vector table to the code
+         * TCM, but not always to its base -- e.g. the usb_device_dfu images link
+         * at 0x0FFF0000, reserving the low 64 KiB of CODE_TCM as the DFU update
+         * slot, while hello_world/led_blinky/etc. link at 0x0FFE0000.  A flat
+         * blob carries no load address, so derive it from the image's own reset
+         * vector (file word[1] = reset PC): align it down to 64 KiB.  This puts
+         * the reset PC inside [base, base+size) for every SDK cm33 .bin.  Guard
+         * that the derived base sits within CODE_TCM; otherwise fall back.
+         */
+        hwaddr load_base = IMXRT1180_CODE_TCM_BASE;
+        g_autofree gchar *hdr = NULL;
+        gsize hlen = 0;
+        if (g_file_get_contents(filename, &hdr, &hlen, NULL) && hlen >= 8) {
+            uint32_t reset_pc = ldl_le_p(hdr + 4);
+            hwaddr cand = reset_pc & 0xFFFF0000u;
+            if (cand >= IMXRT1180_CODE_TCM_BASE &&
+                cand <  IMXRT1180_CODE_TCM_BASE + IMXRT1180_CODE_TCM_SIZE) {
+                load_base = cand;
+            }
+        }
+        hwaddr load_max = IMXRT1180_CODE_TCM_BASE + IMXRT1180_CODE_TCM_SIZE
+                          - load_base;
+        if (load_image_targphys(filename, load_base, load_max, NULL) < 0) {
             error_report("Could not load kernel '%s'", filename);
             exit(1);
         }
-        entry = 0;
+        /*
+         * load_image_targphys registers a ROM blob committed at reset, so the
+         * image is not yet visible in memory here -- vt_plausible() would read
+         * zeroes.  But load_base was derived from the image's own reset vector,
+         * so the vector table is known to land there: boot from it directly.
+         */
+        imxrt1180_set_boot(m33, load_base);
+        return;
     }
 
     /* The image is in memory now (immediate writes); find its vector table. */

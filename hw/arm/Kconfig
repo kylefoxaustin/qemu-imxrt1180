@@ -827,6 +827,8 @@ config IMXRT1180_SOC
     select IMXRT1180_FLEXCAN
     select IMXRT1180_EDMA
     select IMXRT1180_SAI
+    select IMXRT1180_USBPHY
+    select IMXRT1180_USB
 
 config MIMXRT1180_EVK
     bool

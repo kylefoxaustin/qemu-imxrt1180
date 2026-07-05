@@ -31,6 +31,8 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 | **FlexSPI** (controller) | 1, 2 | 0x425E0000, 0x445E0000 | ◐ readiness | STS0 idle + MCR0 self-reset; no flash command engine / XIP (flagged) |
 | **RGPIO** | 1..6 | 0x47400000, 0x4381/2/3/4/5 0000 | ✅ functional | PDOR/PSOR/PCOR/PTOR/PDDR/PDIR + per-pin qemu_irq out |
 | **TRDC** | 1..3 | 0x44270000, 0x42460000, 0x42810000 | ◐ config stub | HWCFG0 counts + per-master DACFG.NCM (fsl_trdc DAC setup); byte-access safe; no access enforcement (flagged) |
+| **USBPHY** | 1..2 | 0x42CA0000, 0x42CB0000 | ✅ functional | USB-HS PHY PLL: RW/SET/CLR/TOG register bank; PLL_SIC.PLL_LOCK reported once powered (instant lock, like ANADIG); no UTMI/charger-detect |
+| **USB OTG** (device) | 1..2 | 0x42C80000, 0x42C90000 | ◐ device bring-up | ChipIdea USB-HS: CAPLENGTH/DCIVERSION/DCCPARAMS (device+host capable, 8 EP), USBCMD.RST self-clear, USBSTS/ENDPT* W1C; init+run complete. No host attached → no enumeration/transfers (flagged, not faked); IRQ 215/214 |
 | _everything else_ | — | 0x40000000–0x5FFFFFFF | catch-all | `unimplemented` region; `-d unimp` logs each access |
 
 ## Validated firmware
@@ -55,18 +57,28 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
   the TRDC DACFG model.)
 - **FPU** validated by `fpu_sharing/generic` — FP load/store save/restore across
   context switches (lazy stacking) + a 13 s π computation, both pass.
+- **Stock SDK `usb_device_dfu` (bm / freertos / lite)** boot the USB HID-mouse
+  device stack to its `USB device HID mouse demo` banner: PHY PLL locks, the
+  ChipIdea controller initialises and runs, then idles waiting for a host (none
+  attached — the honest end-state).  Focused model test: `tests/imxrt1180-usb`
+  (`USB: PASS` — PHY PLL lock + controller reset/DCCPARAMS/run).  Note: raw SDK
+  `.bin` load base is derived from the image's own reset vector (the DFU images
+  link at 0x0FFF0000, reserving the low 64 KiB of CODE_TCM as the update slot).
 
 ## Known gaps (surfaced by the demo corpus)
 
 | Needed for | Block | Base | Status |
 |-----------|-------|------|--------|
 | sai | **SAI + eDMA** audio path | — | past the TRDC assert; data path not modelled |
-| usb_device_dfu | **USB OTG + PHY** | 0x42C80000 | not modelled → guest faults |
+| usb_device_dfu | **USB host enumeration** | 0x42C80000 | controller inits + runs; no host attached, so the device does not enumerate (bridging to QEMU's USB host framework is future work) |
 | motor-control frontier | **eFlexPWM + QDC encoder + ADC-sync** | — | the headline RT1180 feature; not yet modelled |
 
 ## Roadmap
 
-Model LPI2C, the inter-core MU (dual-core messaging), then SAI/eDMA and USB, to
-clear the demo corpus; then the motor-control block (the RT1180's distinguishing
+USB device controller + PHY now bring the DFU demos to their banner (idle,
+awaiting a host).  Remaining to fully clear the demo corpus: the SAI→eDMA audio
+streaming path, the `bubble_peripheral` I2C sensor, and the `multicore_trigger`
+inter-core XBAR.  Then the motor-control block (the RT1180's distinguishing
 silicon — eFlexPWM + quadrature encoder + ADC↔PWM sync), and a virtual-motor
-plant so a FOC control loop can close in emulation.
+plant so a FOC control loop can close in emulation.  Optionally, bridge the USB
+device controller to QEMU's USB host framework for real enumeration.
