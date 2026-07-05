@@ -36,6 +36,7 @@
 #include "hw/misc/imxrt1180_pwm.h"
 #include "hw/misc/imxrt1180_eqdc.h"
 #include "hw/misc/imxrt1180_adc.h"
+#include "hw/misc/imxrt1180_xbar.h"
 #include "hw/gpio/imxrt1180_rgpio.h"
 #include "hw/core/clock.h"
 #include "qom/object.h"
@@ -151,6 +152,10 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 #define IMXRT1180_ADC2_BASE       0x42E00000
 #define IMXRT1180_ADC1_IRQ        93
 #define IMXRT1180_ADC2_IRQ        189
+#define IMXRT1180_XBAR1_BASE      0x42750000
+/* XBAR1 signal indices (from the CMSIS xbar_input/output_signal_t enums). */
+#define IMXRT1180_XBAR1_IN_PWM1_TRIG0   74   /* Flexpwm1 Pwm(sm) OutTrig0 = 74+2*sm */
+#define IMXRT1180_XBAR1_OUT_ADC_HWTRIG0 140  /* Adc12HwTrig0..7 = 140..147          */
 
 /* FlexSPI1 controller registers (NS, WAKEUPMIX) — distinct from the XIP window. */
 #define IMXRT1180_FLEXSPI1_CTRL_BASE 0x425E0000
@@ -225,6 +230,7 @@ struct IMXRT1180State {
     IMXRT1180PWMState    pwm[IMXRT1180_NUM_PWM];         /* eFlexPWM1..4         */
     IMXRT1180EQDCState   eqdc[IMXRT1180_NUM_EQDC];       /* EQDC1..4 encoder     */
     IMXRT1180ADCState    adc[IMXRT1180_NUM_ADC];          /* LPADC1..2            */
+    IMXRT1180XBARState   xbar1;                           /* signal crossbar      */
     MemoryRegion         cm7_tcm;              /* M7 TCM (system view @0x303C…)*/
 
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */

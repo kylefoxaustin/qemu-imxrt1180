@@ -496,3 +496,6 @@ config IMXRT1180_EQDC
 
 config IMXRT1180_ADC
     bool
+
+config IMXRT1180_XBAR
+    bool

@@ -247,3 +247,4 @@ system_ss.add(when: 'CONFIG_IMXRT1180_USBPHY', if_true: files('imxrt1180_usbphy.
 system_ss.add(when: 'CONFIG_IMXRT1180_PWM', if_true: files('imxrt1180_pwm.c'))
 system_ss.add(when: 'CONFIG_IMXRT1180_EQDC', if_true: files('imxrt1180_eqdc.c'))
 system_ss.add(when: 'CONFIG_IMXRT1180_ADC', if_true: files('imxrt1180_adc.c'))
+system_ss.add(when: 'CONFIG_IMXRT1180_XBAR', if_true: files('imxrt1180_xbar.c'))

@@ -49,7 +49,8 @@
 #define R_STS       0x24
 #define R_INTEN     0x26
 #define R_DMAEN     0x28
-#define R_TCTRL     0x2A
+#define R_TCTRL     0x2A        /* output trigger control (OUT_TRIG_EN[5:0]) */
+#define TCTRL_OUT_TRIG_EN 0x003F
 
 /* Module-level register offsets. */
 #define R_OUTEN     0x180
@@ -149,6 +150,16 @@ static void pwm_sm_tick(void *opaque)
     *smreg(s, sm, R_STS) |= STS_RF;        /* reload flag */
     pwm_compute_duty(s, sm);
     pwm_update_irq(s, sm);
+
+    /*
+     * Output trigger: if any VALx compare is selected as a trigger source
+     * (TCTRL.OUT_TRIG_EN), emit a pulse once per PWM period.  Routed through the
+     * XBAR to the ADC for synchronised sampling.  (The exact intra-period
+     * compare instant is approximated by the reload boundary -- flagged.)
+     */
+    if (*smreg(s, sm, R_TCTRL) & TCTRL_OUT_TRIG_EN) {
+        qemu_irq_pulse(s->out_trig[sm]);
+    }
 }
 
 static uint64_t imxrt1180_pwm_read(void *opaque, hwaddr offset, unsigned size)
@@ -303,6 +314,7 @@ static void imxrt1180_pwm_realize(DeviceState *dev, Error **errp)
         sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq_sm[sm]);
     }
     sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq_fault);
+    qdev_init_gpio_out_named(dev, s->out_trig, "pwm-trig", IMXRT1180_PWM_NSM);
 }
 
 static const VMStateDescription vmstate_imxrt1180_pwm = {

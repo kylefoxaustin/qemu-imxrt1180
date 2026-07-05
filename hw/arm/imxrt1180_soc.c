@@ -16,6 +16,7 @@
 #include "hw/core/qdev-properties-system.h" /* qdev_prop_set_chr */
 #include "hw/core/qdev-clock.h"
 #include "hw/misc/unimp.h"
+#include "hw/core/irq.h"             /* qemu_allocate_irqs */
 #include "system/address-spaces.h"   /* get_system_memory() */
 #include "system/system.h"           /* serial_hd() */
 
@@ -115,6 +116,7 @@ static void imxrt1180_soc_instance_init(Object *obj)
         g_autofree char *aname = g_strdup_printf("adc%d", i + 1);
         object_initialize_child(obj, aname, &s->adc[i], TYPE_IMXRT1180_ADC);
     }
+    object_initialize_child(obj, "xbar1", &s->xbar1, TYPE_IMXRT1180_XBAR);
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
         g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
         object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
@@ -122,6 +124,21 @@ static void imxrt1180_soc_instance_init(Object *obj)
 
     s->sysclk = qdev_init_clock_in(DEVICE(s), "sysclk", NULL, NULL, 0);
     s->refclk = qdev_init_clock_in(DEVICE(s), "refclk", NULL, NULL, 0);
+}
+
+/*
+ * Fan an XBAR ADC12_HW_TRIG line out to both LPADCs' matching trigger input.
+ * `line` is the HW_TRIG index (0..7); the ADCs' per-trigger HTEN gate decides
+ * which one actually launches a conversion.
+ */
+static void imxrt1180_adc_trig_fanout(void *opaque, int line, int level)
+{
+    IMXRT1180State *s = opaque;
+
+    for (int i = 0; i < IMXRT1180_NUM_ADC; i++) {
+        qemu_set_irq(qdev_get_gpio_in_named(DEVICE(&s->adc[i]), "adc-trig", line),
+                     level);
+    }
 }
 
 static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
@@ -563,6 +580,32 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         sysbus_mmio_map(SYS_BUS_DEVICE(&s->adc[i]), 0, adc_cfg[i].base);
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->adc[i]), 0,
                            qdev_get_gpio_in(m33, adc_cfg[i].irq));
+    }
+
+    /* XBAR1 — signal crossbar (carries the eFlexPWM edge to the ADC). */
+    if (!sysbus_realize(SYS_BUS_DEVICE(&s->xbar1), errp)) {
+        return;
+    }
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->xbar1), 0, IMXRT1180_XBAR1_BASE);
+
+    /*
+     * Motor-control PWM->ADC sync wiring:
+     *   eFlexPWM1 submodule trigger outputs -> XBAR inputs (Flexpwm1 PwmN OutTrig0)
+     *   XBAR ADC12_HW_TRIG outputs -> both LPADCs' hardware trigger inputs
+     * (each HW_TRIG line reaches both ADCs; the per-trigger TCTRL.HTEN gate
+     * decides which one actually converts).
+     */
+    for (int sm = 0; sm < IMXRT1180_PWM_NSM; sm++) {
+        qdev_connect_gpio_out_named(DEVICE(&s->pwm[0]), "pwm-trig", sm,
+            qdev_get_gpio_in_named(DEVICE(&s->xbar1), "xbar-in",
+                                   IMXRT1180_XBAR1_IN_PWM1_TRIG0 + 2 * sm));
+    }
+    qemu_irq *adc_trig_fan = qemu_allocate_irqs(imxrt1180_adc_trig_fanout, s,
+                                                IMXRT1180_ADC_NTRIG);
+    for (int n = 0; n < IMXRT1180_ADC_NTRIG; n++) {
+        qdev_connect_gpio_out_named(DEVICE(&s->xbar1), "xbar-out",
+                                    IMXRT1180_XBAR1_OUT_ADC_HWTRIG0 + n,
+                                    adc_trig_fan[n]);
     }
 }
 

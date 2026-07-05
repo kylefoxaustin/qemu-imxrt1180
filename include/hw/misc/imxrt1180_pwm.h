@@ -33,6 +33,7 @@ struct IMXRT1180PWMState {
     MemoryRegion iomem;
     qemu_irq irq_sm[IMXRT1180_PWM_NSM];     /* per-submodule compare/reload */
     qemu_irq irq_fault;                     /* fault / reload-error         */
+    qemu_irq out_trig[IMXRT1180_PWM_NSM];   /* submodule output trigger (->XBAR) */
 
     ptimer_state   *timer[IMXRT1180_PWM_NSM];
     IMXRT1180PWMSub sub[IMXRT1180_PWM_NSM];
