@@ -87,6 +87,10 @@ static void imxrt1180_soc_instance_init(Object *obj)
         object_initialize_child(obj, cname, &s->flexcan[i],
                                 TYPE_IMXRT1180_FLEXCAN);
     }
+    for (int i = 0; i < IMXRT1180_NUM_EDMA; i++) {
+        g_autofree char *dname = g_strdup_printf("edma%d", i + 3);  /* eDMA3/4 */
+        object_initialize_child(obj, dname, &s->edma[i], TYPE_IMXRT1180_EDMA);
+    }
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
         g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
         object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
@@ -420,6 +424,32 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->flexcan[i]), 0,
                            qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
                                             flexcan_cfg[i].irq));
+    }
+
+    /*
+     * eDMA3 (32 channels, per-channel IRQ 95..126) and eDMA4 (64 channels,
+     * grouped IRQ: channels 2k/2k+1/2k+32/2k+33 share IRQ 128+k).  The model
+     * exposes one qemu_irq per channel; grouped channels connect to the same
+     * NVIC input (the NVIC ORs them).
+     */
+    DeviceState *m33 = DEVICE(&s->armv7m[IMXRT1180_CPU_M33]);
+    static const struct { hwaddr base; unsigned nch; } edma_cfg[] = {
+        { 0x44000000, 32 },  /* eDMA3 */
+        { 0x42000000, 64 },  /* eDMA4 */
+    };
+    for (int i = 0; i < IMXRT1180_NUM_EDMA; i++) {
+        qdev_prop_set_uint32(DEVICE(&s->edma[i]), "num-channels",
+                             edma_cfg[i].nch);
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->edma[i]), errp)) {
+            return;
+        }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->edma[i]), 0, edma_cfg[i].base);
+        for (unsigned ch = 0; ch < edma_cfg[i].nch; ch++) {
+            unsigned irq = (i == 0) ? (95 + ch)              /* eDMA3 per-ch */
+                                    : (128 + (ch % 32) / 2); /* eDMA4 grouped */
+            sysbus_connect_irq(SYS_BUS_DEVICE(&s->edma[i]), ch,
+                               qdev_get_gpio_in(m33, irq));
+        }
     }
 }
 

@@ -33,3 +33,6 @@ config XLNX_CSU_DMA
 
 config MCXN_EDMA
     bool
+
+config IMXRT1180_EDMA
+    bool

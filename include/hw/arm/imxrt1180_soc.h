@@ -29,6 +29,7 @@
 #include "hw/ssi/imxrt1180_lpspi.h"
 #include "hw/timer/imxrt1180_lpit.h"
 #include "hw/misc/imxrt1180_flexcan.h"
+#include "hw/dma/imxrt1180_edma.h"
 #include "hw/gpio/imxrt1180_rgpio.h"
 #include "hw/core/clock.h"
 #include "qom/object.h"
@@ -113,6 +114,9 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 /* FlexCAN1..3 — CAN-FD-capable CAN controllers (NS bases). */
 #define IMXRT1180_NUM_FLEXCAN     3
 
+/* eDMA3 (32ch) + eDMA4 (64ch) — enhanced DMA engines (NS bases). */
+#define IMXRT1180_NUM_EDMA        2
+
 /* FlexSPI1 controller registers (NS, WAKEUPMIX) — distinct from the XIP window. */
 #define IMXRT1180_FLEXSPI1_CTRL_BASE 0x425E0000
 
@@ -179,6 +183,7 @@ struct IMXRT1180State {
     IMXRT1180LPSPIState  lpspi[IMXRT1180_NUM_LPSPI];   /* LPSPI1..4            */
     IMXRT1180LPITState   lpit[IMXRT1180_NUM_LPIT];     /* LPIT1..3             */
     IMXRT1180FlexCanState flexcan[IMXRT1180_NUM_FLEXCAN]; /* FlexCAN1..3       */
+    IMXRT1180EDMAState   edma[IMXRT1180_NUM_EDMA];     /* eDMA3, eDMA4         */
     MemoryRegion         cm7_tcm;              /* M7 TCM (system view @0x303C…)*/
 
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */
