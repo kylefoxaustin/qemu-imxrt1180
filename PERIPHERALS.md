@@ -26,6 +26,7 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 | **LPIT** (periodic timer) | 1..3 | 0x442F0000, 0x424C0000, 0x42CC0000 | ✅ functional | 4-channel ptimer-backed 32-bit periodic down-counter; TVAL/CVAL + MSR.TIF W1C + MIER IRQ (15/64/149); validated (periodic IRQ + counter) |
 | **FlexCAN** (CAN/CAN-FD) | 1..3 | 0x443A0000, 0x425B0000, 0x445B0000 | ✅ functional | MCR freeze/disable/soft-reset handshakes; 96 message buffers (TX/RX CODE); real frames on a QEMU can-bus + internal loopback; IFLAG/IMASK IRQ (8/51/191); adapted from the MCX FlexCAN |
 | **eDMA** (enhanced DMA) | eDMA3 (32ch), eDMA4 (64ch) | 0x44000000, 0x42000000 | ✅ functional | TCD-driven mem-to-mem (SADDR/DADDR/SOFF/DOFF/ATTR/NBYTES/CITER); START triggers a real address_space transfer + DONE + INTMAJOR; per-ch IRQ (eDMA3 95+, eDMA4 grouped 128+); adapted from the MCX eDMA |
+| **SAI** (I2S audio) | 1..4 | 0x443B0000, 0x42BB0000, 0x42BC0000, 0x42BD0000 | ◐ bring-up | TCSR/RCSR SR+FR resets self-clear, TX FIFO advertises space (FWF), RX empty; init handshake settles; no audio streaming (flagged); IRQ 45/198/199/154; adapted from the MCX SAI |
 | **SRC + BLK_CTRL_S_AONMIX** | 1 | 0x44460000 / 0x444F0000 | ✅ functional | M7 boot-vector (M7_CFG) + release (SCR.BT_RELEASE_M7), bottom-half start |
 | **FlexSPI** (controller) | 1, 2 | 0x425E0000, 0x445E0000 | ◐ readiness | STS0 idle + MCR0 self-reset; no flash command engine / XIP (flagged) |
 | **RGPIO** | 1..6 | 0x47400000, 0x4381/2/3/4/5 0000 | ✅ functional | PDOR/PSOR/PCOR/PTOR/PDDR/PDIR + per-pin qemu_irq out |

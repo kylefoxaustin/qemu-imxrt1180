@@ -826,6 +826,7 @@ config IMXRT1180_SOC
     select IMXRT1180_LPIT
     select IMXRT1180_FLEXCAN
     select IMXRT1180_EDMA
+    select IMXRT1180_SAI
 
 config MIMXRT1180_EVK
     bool

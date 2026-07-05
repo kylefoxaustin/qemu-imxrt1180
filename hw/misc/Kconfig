@@ -481,3 +481,6 @@ config MCXN_NEUTRON
 config IMXRT1180_FLEXCAN
     bool
     select CAN_BUS
+
+config IMXRT1180_SAI
+    bool

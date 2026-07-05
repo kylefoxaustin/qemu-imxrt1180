@@ -30,6 +30,7 @@
 #include "hw/timer/imxrt1180_lpit.h"
 #include "hw/misc/imxrt1180_flexcan.h"
 #include "hw/dma/imxrt1180_edma.h"
+#include "hw/misc/imxrt1180_sai.h"
 #include "hw/gpio/imxrt1180_rgpio.h"
 #include "hw/core/clock.h"
 #include "qom/object.h"
@@ -117,6 +118,9 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 /* eDMA3 (32ch) + eDMA4 (64ch) — enhanced DMA engines (NS bases). */
 #define IMXRT1180_NUM_EDMA        2
 
+/* SAI1..4 — synchronous audio interface / I2S (NS bases). */
+#define IMXRT1180_NUM_SAI         4
+
 /* FlexSPI1 controller registers (NS, WAKEUPMIX) — distinct from the XIP window. */
 #define IMXRT1180_FLEXSPI1_CTRL_BASE 0x425E0000
 
@@ -184,6 +188,7 @@ struct IMXRT1180State {
     IMXRT1180LPITState   lpit[IMXRT1180_NUM_LPIT];     /* LPIT1..3             */
     IMXRT1180FlexCanState flexcan[IMXRT1180_NUM_FLEXCAN]; /* FlexCAN1..3       */
     IMXRT1180EDMAState   edma[IMXRT1180_NUM_EDMA];     /* eDMA3, eDMA4         */
+    IMXRT1180SAIState    sai[IMXRT1180_NUM_SAI];       /* SAI1..4             */
     MemoryRegion         cm7_tcm;              /* M7 TCM (system view @0x303C…)*/
 
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */

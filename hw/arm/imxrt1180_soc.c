@@ -91,6 +91,10 @@ static void imxrt1180_soc_instance_init(Object *obj)
         g_autofree char *dname = g_strdup_printf("edma%d", i + 3);  /* eDMA3/4 */
         object_initialize_child(obj, dname, &s->edma[i], TYPE_IMXRT1180_EDMA);
     }
+    for (int i = 0; i < IMXRT1180_NUM_SAI; i++) {
+        g_autofree char *aname = g_strdup_printf("sai%d", i + 1);
+        object_initialize_child(obj, aname, &s->sai[i], TYPE_IMXRT1180_SAI);
+    }
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
         g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
         object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
@@ -450,6 +454,22 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
             sysbus_connect_irq(SYS_BUS_DEVICE(&s->edma[i]), ch,
                                qdev_get_gpio_in(m33, irq));
         }
+    }
+
+    /* SAI1..4 (I2S) — control-register bring-up level. */
+    static const struct { hwaddr base; unsigned irq; } sai_cfg[] = {
+        { 0x443B0000, 45  },  /* SAI1 */
+        { 0x42BB0000, 198 },  /* SAI2 */
+        { 0x42BC0000, 199 },  /* SAI3 */
+        { 0x42BD0000, 154 },  /* SAI4 */
+    };
+    for (int i = 0; i < IMXRT1180_NUM_SAI; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->sai[i]), errp)) {
+            return;
+        }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->sai[i]), 0, sai_cfg[i].base);
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->sai[i]), 0,
+                           qdev_get_gpio_in(m33, sai_cfg[i].irq));
     }
 }
 
