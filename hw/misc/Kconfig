@@ -477,3 +477,7 @@ config MCXN_NPU
 
 config MCXN_NEUTRON
     bool
+
+config IMXRT1180_FLEXCAN
+    bool
+    select CAN_BUS

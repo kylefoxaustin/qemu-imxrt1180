@@ -82,6 +82,11 @@ static void imxrt1180_soc_instance_init(Object *obj)
         g_autofree char *tname = g_strdup_printf("lpit%d", i + 1);
         object_initialize_child(obj, tname, &s->lpit[i], TYPE_IMXRT1180_LPIT);
     }
+    for (int i = 0; i < IMXRT1180_NUM_FLEXCAN; i++) {
+        g_autofree char *cname = g_strdup_printf("flexcan%d", i + 1);
+        object_initialize_child(obj, cname, &s->flexcan[i],
+                                TYPE_IMXRT1180_FLEXCAN);
+    }
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
         g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
         object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
@@ -395,6 +400,26 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->lpit[i]), 0,
                            qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
                                             lpit_cfg[i].irq));
+    }
+
+    /*
+     * FlexCAN1..3.  Loopback works stand-alone; for board-to-board, link each
+     * instance's "canbus" property to a -object can-bus (bridged out with a
+     * can-host-chardev) — the model TXes/RXes real CAN frames when linked.
+     */
+    static const struct { hwaddr base; unsigned irq; } flexcan_cfg[] = {
+        { 0x443A0000, 8   },  /* FlexCAN1 */
+        { 0x425B0000, 51  },  /* FlexCAN2 */
+        { 0x445B0000, 191 },  /* FlexCAN3 */
+    };
+    for (int i = 0; i < IMXRT1180_NUM_FLEXCAN; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->flexcan[i]), errp)) {
+            return;
+        }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->flexcan[i]), 0, flexcan_cfg[i].base);
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->flexcan[i]), 0,
+                           qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
+                                            flexcan_cfg[i].irq));
     }
 }
 
