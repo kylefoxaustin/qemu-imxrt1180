@@ -27,6 +27,7 @@
 #include "hw/misc/imxrt1180_mu.h"
 #include "hw/i2c/imxrt1180_lpi2c.h"
 #include "hw/ssi/imxrt1180_lpspi.h"
+#include "hw/timer/imxrt1180_lpit.h"
 #include "hw/gpio/imxrt1180_rgpio.h"
 #include "hw/core/clock.h"
 #include "qom/object.h"
@@ -105,6 +106,9 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 /* LPSPI1..4 — controller-mode SPI (NS bases). */
 #define IMXRT1180_NUM_LPSPI       4
 
+/* LPIT1..3 — low-power periodic interrupt timers (NS bases). */
+#define IMXRT1180_NUM_LPIT        3
+
 /* FlexSPI1 controller registers (NS, WAKEUPMIX) — distinct from the XIP window. */
 #define IMXRT1180_FLEXSPI1_CTRL_BASE 0x425E0000
 
@@ -169,6 +173,7 @@ struct IMXRT1180State {
     IMXRT1180MUState     mu1;                          /* inter-core MU (M33<->M7) */
     IMXRT1180LPI2CState  lpi2c[IMXRT1180_NUM_LPI2C];   /* LPI2C1..4            */
     IMXRT1180LPSPIState  lpspi[IMXRT1180_NUM_LPSPI];   /* LPSPI1..4            */
+    IMXRT1180LPITState   lpit[IMXRT1180_NUM_LPIT];     /* LPIT1..3             */
     MemoryRegion         cm7_tcm;              /* M7 TCM (system view @0x303C…)*/
 
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */

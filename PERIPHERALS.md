@@ -23,6 +23,7 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 | **MU** (inter-core M33↔M7) | MU1 | 0x44220000 (MUA) / 0x44230000 (MUB) | ✅ functional | 4 TR/RR channels cross-wired + TSR/RSR flags; GCR/GSR doorbell w/ w1c handshake; per-side IRQ 21 to each NVIC |
 | **LPI2C** (controller mode) | 1..4 | 0x44340000, 0x44350000, 0x42530000, 0x42540000 | ✅ functional | command-FIFO master (START/TX/RX/STOP) on a real QEMU I2CBus — devices attach; MSR flags + NDF NACK detect + IRQ (13/14/62/63) |
 | **LPSPI** (controller mode) | 1..4 | 0x44360000, 0x44370000, 0x42550000, 0x42560000 | ✅ functional | full-duplex SPI master (TCR frame/PCS/CONT, TDR→SSIBus→RDR) with per-CS lines; validated vs a serial-flash JEDEC-ID read; IRQ (16/17/65/66) |
+| **LPIT** (periodic timer) | 1..3 | 0x442F0000, 0x424C0000, 0x42CC0000 | ✅ functional | 4-channel ptimer-backed 32-bit periodic down-counter; TVAL/CVAL + MSR.TIF W1C + MIER IRQ (15/64/149); validated (periodic IRQ + counter) |
 | **SRC + BLK_CTRL_S_AONMIX** | 1 | 0x44460000 / 0x444F0000 | ✅ functional | M7 boot-vector (M7_CFG) + release (SCR.BT_RELEASE_M7), bottom-half start |
 | **FlexSPI** (controller) | 1, 2 | 0x425E0000, 0x445E0000 | ◐ readiness | STS0 idle + MCR0 self-reset; no flash command engine / XIP (flagged) |
 | **RGPIO** | 1..6 | 0x47400000, 0x4381/2/3/4/5 0000 | ✅ functional | PDOR/PSOR/PCOR/PTOR/PDDR/PDIR + per-pin qemu_irq out |

@@ -78,6 +78,10 @@ static void imxrt1180_soc_instance_init(Object *obj)
         g_autofree char *sname = g_strdup_printf("lpspi%d", i + 1);
         object_initialize_child(obj, sname, &s->lpspi[i], TYPE_IMXRT1180_LPSPI);
     }
+    for (int i = 0; i < IMXRT1180_NUM_LPIT; i++) {
+        g_autofree char *tname = g_strdup_printf("lpit%d", i + 1);
+        object_initialize_child(obj, tname, &s->lpit[i], TYPE_IMXRT1180_LPIT);
+    }
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
         g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
         object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
@@ -375,6 +379,22 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->lpspi[i]), 0,
                            qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
                                             lpspi_cfg[i].irq));
+    }
+
+    /* LPIT1..3 (periodic interrupt timers). */
+    static const struct { hwaddr base; unsigned irq; } lpit_cfg[] = {
+        { 0x442F0000, 15  },  /* LPIT1 */
+        { 0x424C0000, 64  },  /* LPIT2 */
+        { 0x42CC0000, 149 },  /* LPIT3 */
+    };
+    for (int i = 0; i < IMXRT1180_NUM_LPIT; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->lpit[i]), errp)) {
+            return;
+        }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->lpit[i]), 0, lpit_cfg[i].base);
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->lpit[i]), 0,
+                           qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
+                                            lpit_cfg[i].irq));
     }
 }
 
