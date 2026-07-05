@@ -487,3 +487,6 @@ config IMXRT1180_SAI
 
 config IMXRT1180_USBPHY
     bool
+
+config IMXRT1180_PWM
+    bool

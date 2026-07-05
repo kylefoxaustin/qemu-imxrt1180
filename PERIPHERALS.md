@@ -33,6 +33,7 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 | **TRDC** | 1..3 | 0x44270000, 0x42460000, 0x42810000 | ◐ config stub | HWCFG0 counts + per-master DACFG.NCM (fsl_trdc DAC setup); byte-access safe; no access enforcement (flagged) |
 | **USBPHY** | 1..2 | 0x42CA0000, 0x42CB0000 | ✅ functional | USB-HS PHY PLL: RW/SET/CLR/TOG register bank; PLL_SIC.PLL_LOCK reported once powered (instant lock, like ANADIG); no UTMI/charger-detect |
 | **USB OTG** (device) | 1..2 | 0x42C80000, 0x42C90000 | ◐ device bring-up | ChipIdea USB-HS: CAPLENGTH/DCIVERSION/DCCPARAMS (device+host capable, 8 EP), USBCMD.RST self-clear, USBSTS/ENDPT* W1C; init+run complete. No host attached → no enumeration/transfers (flagged, not faked); IRQ 215/214 |
+| **eFlexPWM** | 1..4 | 0x42650000, 0x42660000, 0x42670000, 0x42680000 | ◐ functional | Motor-control PWM. 4 submodules/module; INIT+VAL0..5 double-buffered (commit on MCTRL.LDOK); MCTRL.RUN starts a ptimer-backed reload at modulo/(clk/prescaler); STS.RF + INTEN.RIE raise the submodule reload IRQ (the FOC loop clock); PWMA duty computed (per-mille). SM0..3 IRQ 24-27/171-174/176-179/181-184 + fault 23/170/175/180. No motor plant/encoder responds + ADC-sync XBAR routing not modelled (flagged) |
 | _everything else_ | — | 0x40000000–0x5FFFFFFF | catch-all | `unimplemented` region; `-d unimp` logs each access |
 
 ## Validated firmware
@@ -64,6 +65,10 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
   (`USB: PASS` — PHY PLL lock + controller reset/DCCPARAMS/run).  Note: raw SDK
   `.bin` load base is derived from the image's own reset vector (the DFU images
   link at 0x0FFF0000, reserving the low 64 KiB of CODE_TCM as the update slot).
+- **eFlexPWM** (`tests/imxrt1180-pwm`, `PWM: PASS`) — a center-aligned 3-phase
+  setup (as in the FOC `mc_periph_init`): INIT/VAL double-buffering commits on
+  LDOK, the submodule reload IRQ fires periodically (the FOC control-loop clock),
+  and the counter advances.  Register map from the MIMXRT1189 DFP `PERI_PWM.h`.
 
 ## Known gaps (surfaced by the demo corpus)
 
@@ -71,14 +76,20 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 |-----------|-------|------|--------|
 | sai | **SAI + eDMA** audio path | — | past the TRDC assert; data path not modelled |
 | usb_device_dfu | **USB host enumeration** | 0x42C80000 | controller inits + runs; no host attached, so the device does not enumerate (bridging to QEMU's USB host framework is future work) |
-| motor-control frontier | **eFlexPWM + QDC encoder + ADC-sync** | — | the headline RT1180 feature; not yet modelled |
+| motor-control frontier | **EQDC encoder + ADC↔PWM sync + plant** | — | eFlexPWM done (PWM1-4, reload IRQ + duty); still need EQDC quadrature encoder, the XBAR-routed PWM→ADC trigger, and a virtual-motor plant to close a FOC loop |
 
 ## Roadmap
 
-USB device controller + PHY now bring the DFU demos to their banner (idle,
-awaiting a host).  Remaining to fully clear the demo corpus: the SAI→eDMA audio
-streaming path, the `bubble_peripheral` I2C sensor, and the `multicore_trigger`
-inter-core XBAR.  Then the motor-control block (the RT1180's distinguishing
-silicon — eFlexPWM + quadrature encoder + ADC↔PWM sync), and a virtual-motor
-plant so a FOC control loop can close in emulation.  Optionally, bridge the USB
-device controller to QEMU's USB host framework for real enumeration.
+The motor-control frontier is underway: **eFlexPWM** (PWM1-4) is modelled with
+the double-buffered compare registers and the periodic reload interrupt a FOC
+loop runs on.  Next on that track: the **EQDC** quadrature encoder, the
+**XBAR**-routed PWM→ADC sync trigger + the **ADC**, and finally a small
+virtual-motor plant (duty → velocity → EQDC count → ADC) so a FOC control loop
+can actually close in emulation — the distinguishing capability none of the
+fleet has.
+
+Remaining demo-corpus items are reference-blocked (fidelity-first): the SAI
+`sai.c:467` assert semantics have no source in the cache, and the
+`bubble_peripheral` FXLS8974 sensor driver (register map) is absent.  Optionally,
+bridge the USB device controller to QEMU's USB host framework for real
+enumeration.

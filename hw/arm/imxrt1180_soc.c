@@ -103,6 +103,10 @@ static void imxrt1180_soc_instance_init(Object *obj)
         g_autofree char *uname = g_strdup_printf("usb%d", i + 1);
         object_initialize_child(obj, uname, &s->usb[i], TYPE_IMXRT1180_USB);
     }
+    for (int i = 0; i < IMXRT1180_NUM_PWM; i++) {
+        g_autofree char *wname = g_strdup_printf("pwm%d", i + 1);
+        object_initialize_child(obj, wname, &s->pwm[i], TYPE_IMXRT1180_PWM);
+    }
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
         g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
         object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
@@ -504,6 +508,28 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         sysbus_mmio_map(SYS_BUS_DEVICE(&s->usb[i]), 0, usb_cfg[i].base);
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->usb[i]), 0,
                            qdev_get_gpio_in(m33, usb_cfg[i].irq));
+    }
+
+    /* eFlexPWM1..4 — motor-control PWM.  Per module: SM0..3 IRQ then fault. */
+    static const struct { hwaddr base; unsigned sm0_irq, fault_irq; }
+        pwm_cfg[IMXRT1180_NUM_PWM] = {
+        { 0x42650000, IMXRT1180_PWM1_SM0_IRQ, IMXRT1180_PWM1_FAULT_IRQ },
+        { 0x42660000, IMXRT1180_PWM2_SM0_IRQ, IMXRT1180_PWM2_FAULT_IRQ },
+        { 0x42670000, IMXRT1180_PWM3_SM0_IRQ, IMXRT1180_PWM3_FAULT_IRQ },
+        { 0x42680000, IMXRT1180_PWM4_SM0_IRQ, IMXRT1180_PWM4_FAULT_IRQ },
+    };
+    for (int i = 0; i < IMXRT1180_NUM_PWM; i++) {
+        SysBusDevice *sbd = SYS_BUS_DEVICE(&s->pwm[i]);
+        if (!sysbus_realize(sbd, errp)) {
+            return;
+        }
+        sysbus_mmio_map(sbd, 0, pwm_cfg[i].base);
+        for (int sm = 0; sm < IMXRT1180_PWM_NSM; sm++) {   /* SM0..3 */
+            sysbus_connect_irq(sbd, sm,
+                qdev_get_gpio_in(m33, pwm_cfg[i].sm0_irq + sm));
+        }
+        sysbus_connect_irq(sbd, IMXRT1180_PWM_NSM,          /* fault */
+            qdev_get_gpio_in(m33, pwm_cfg[i].fault_irq));
     }
 }
 

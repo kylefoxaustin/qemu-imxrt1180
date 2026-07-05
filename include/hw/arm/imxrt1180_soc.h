@@ -33,6 +33,7 @@
 #include "hw/misc/imxrt1180_sai.h"
 #include "hw/misc/imxrt1180_usbphy.h"
 #include "hw/usb/imxrt1180_usb.h"
+#include "hw/misc/imxrt1180_pwm.h"
 #include "hw/gpio/imxrt1180_rgpio.h"
 #include "hw/core/clock.h"
 #include "qom/object.h"
@@ -130,6 +131,16 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 #define IMXRT1180_USB_OTG2_BASE   0x42C90000
 #define IMXRT1180_USB_OTG1_IRQ    215
 #define IMXRT1180_USB_OTG2_IRQ    214
+#define IMXRT1180_NUM_PWM         4       /* eFlexPWM1..4 @0x4265/6/7/8_0000 */
+/* Per module: 4 submodule IRQs (SM0..3) then the fault IRQ. */
+#define IMXRT1180_PWM1_SM0_IRQ    24      /* PWM1: SM0..3 = 24..27, fault = 23 */
+#define IMXRT1180_PWM1_FAULT_IRQ  23
+#define IMXRT1180_PWM2_SM0_IRQ    171     /* PWM2: SM0..3 = 171..174, fault = 170 */
+#define IMXRT1180_PWM2_FAULT_IRQ  170
+#define IMXRT1180_PWM3_SM0_IRQ    176     /* PWM3: SM0..3 = 176..179, fault = 175 */
+#define IMXRT1180_PWM3_FAULT_IRQ  175
+#define IMXRT1180_PWM4_SM0_IRQ    181     /* PWM4: SM0..3 = 181..184, fault = 180 */
+#define IMXRT1180_PWM4_FAULT_IRQ  180
 
 /* FlexSPI1 controller registers (NS, WAKEUPMIX) — distinct from the XIP window. */
 #define IMXRT1180_FLEXSPI1_CTRL_BASE 0x425E0000
@@ -201,6 +212,7 @@ struct IMXRT1180State {
     IMXRT1180SAIState    sai[IMXRT1180_NUM_SAI];       /* SAI1..4             */
     IMXRT1180USBPHYState usbphy[IMXRT1180_NUM_USBPHY];  /* USBPHY1..2 PLL       */
     IMXRT1180USBState    usb[IMXRT1180_NUM_USB];        /* USB_OTG1..2 (device) */
+    IMXRT1180PWMState    pwm[IMXRT1180_NUM_PWM];         /* eFlexPWM1..4         */
     MemoryRegion         cm7_tcm;              /* M7 TCM (system view @0x303C…)*/
 
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */

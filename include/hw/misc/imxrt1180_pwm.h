@@ -1,0 +1,50 @@
+/*
+ * NXP i.MX RT1180 eFlexPWM — enhanced FlexPWM (motor-control PWM).
+ *
+ * One PWM module = 4 submodules (SM0..3), each an up-counter (INIT..VAL1) that
+ * reloads periodically and drives a complementary PWMA/PWMB pair whose edges are
+ * set by VAL2..VAL5.  Backed by a QEMU ptimer per submodule for the periodic
+ * reload interrupt that clocks a field-oriented-control loop.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+#ifndef HW_MISC_IMXRT1180_PWM_H
+#define HW_MISC_IMXRT1180_PWM_H
+
+#include "hw/core/sysbus.h"
+#include "hw/core/ptimer.h"
+#include "qom/object.h"
+
+#define TYPE_IMXRT1180_PWM "imxrt1180-pwm"
+OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180PWMState, IMXRT1180_PWM)
+
+#define IMXRT1180_PWM_NSM    4              /* submodules per module      */
+#define IMXRT1180_PWM_SIZE   0x200          /* register window            */
+
+typedef struct IMXRT1180PWMSub {
+    IMXRT1180PWMState *pwm;
+    unsigned idx;
+} IMXRT1180PWMSub;
+
+struct IMXRT1180PWMState {
+    /*< private >*/
+    SysBusDevice parent_obj;
+    /*< public >*/
+    MemoryRegion iomem;
+    qemu_irq irq_sm[IMXRT1180_PWM_NSM];     /* per-submodule compare/reload */
+    qemu_irq irq_fault;                     /* fault / reload-error         */
+
+    ptimer_state   *timer[IMXRT1180_PWM_NSM];
+    IMXRT1180PWMSub sub[IMXRT1180_PWM_NSM];
+
+    uint16_t regs[IMXRT1180_PWM_SIZE / 2];  /* full 16-bit register file    */
+    /* Double-buffered (VALDE) registers: shadow written now, committed to
+     * regs[] on MCTRL.LDOK (or immediately in LDMOD). INIT + VAL0..VAL5. */
+    uint16_t buf_init[IMXRT1180_PWM_NSM];
+    uint16_t buf_val[IMXRT1180_PWM_NSM][6];
+
+    uint16_t duty[IMXRT1180_PWM_NSM];       /* computed PWMA duty, per-mille */
+    uint32_t pwm_clk;                       /* submodule counter clock (Hz)  */
+};
+
+#endif /* HW_MISC_IMXRT1180_PWM_H */

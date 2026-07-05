@@ -829,6 +829,7 @@ config IMXRT1180_SOC
     select IMXRT1180_SAI
     select IMXRT1180_USBPHY
     select IMXRT1180_USB
+    select IMXRT1180_PWM
 
 config MIMXRT1180_EVK
     bool
