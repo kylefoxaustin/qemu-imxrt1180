@@ -101,6 +101,7 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 |-----------|-------|------|--------|
 | sai | **audio codec + SAI↔eDMA streaming** | — | the stock `sai` demo is a codec loopback (SAI1 + DMA3 ch0/1 muxed to SAI1 Tx/Rx + a WM8962-class I2C codec). Needs the SAI FIFO→eDMA hardware-request handshake *and* a codec model; the demo's assert is codec-dependent, so it is deferred rather than faked |
 | usb_device_dfu | **USB host enumeration** | 0x42C80000 | controller inits + runs; no host attached, so the device does not enumerate (bridging to QEMU's USB host framework is future work) |
+| multicore_trigger | **boot-ROM AHAB container parse** | 0x38001000 | `BOARD_GetCore1ImageAddrSize` walks an AHAB container (tag 0x87) at FlexSPI+0x1000 for the CM7 image; our loader places the plain cm33 `.bin` in code-TCM and never populates that container. Needs boot-ROM container loading + the paired M7 image (the demo ships only the cm33 blob) — not faked |
 | motor-control frontier | ✅ **done** | — | eFlexPWM + EQDC + LPADC + PWM→XBAR→ADC sync + a calibrated dq PMSM plant: a FOC loop closes in emulation. Stretch: saturation/thermal effects + a time-varying load-torque profile |
 
 ## Roadmap
