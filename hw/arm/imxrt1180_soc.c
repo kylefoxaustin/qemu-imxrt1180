@@ -17,6 +17,8 @@
 #include "hw/core/qdev-clock.h"
 #include "hw/misc/unimp.h"
 #include "hw/core/irq.h"             /* qemu_allocate_irqs */
+#include "hw/i2c/i2c.h"             /* i2c_slave_create_simple */
+#include "hw/sensor/fxls8974.h"     /* TYPE_FXLS8974 */
 #include "system/address-spaces.h"   /* get_system_memory() */
 #include "system/system.h"           /* serial_hd() */
 
@@ -414,6 +416,9 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
                            qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
                                             lpi2c_cfg[i].irq));
     }
+
+    /* EVK on-board FXLS8974CF accelerometer (U115) on LPI2C2 at 0x19. */
+    i2c_slave_create_simple(s->lpi2c[1].bus, TYPE_FXLS8974, 0x19);
 
     /* LPSPI1..4 (controller mode); each exposes an SSI bus for device models. */
     static const struct { hwaddr base; unsigned irq; } lpspi_cfg[] = {

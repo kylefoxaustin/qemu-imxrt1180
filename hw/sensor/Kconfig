@@ -43,3 +43,6 @@ config ISL_PMBUS_VR
 config MAX31785
     bool
     depends on PMBUS
+
+config FXLS8974
+    bool
