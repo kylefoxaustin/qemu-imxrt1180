@@ -1,19 +1,22 @@
 /*
- * i.MX RT1180 virtual-motor plant — first-order PMSM model.
+ * i.MX RT1180 virtual-motor plant — calibrated dq PMSM model.
  *
  * Ties the motor-control peripherals into a closed physical loop:
  *
- *   eFlexPWM duty (A/B/C) --> phase voltages --> Clarke/Park --> (R-only) dq
- *   currents --> torque --> integrate mechanical velocity + angle -->
+ *   eFlexPWM duty (A/B/C) --> phase voltages --> Clarke/Park --> dq stator
+ *   currents (with stator-inductance dynamics + back-EMF) --> torque -->
+ *   integrate mechanical velocity + angle -->
  *      * EQDC position counter (rotor angle the guest reads back)
  *      * LPADC phase-current samples (what the ADC "measures")
  *
- * The electrical model is first-order (resistive, no stator-inductance dynamics)
- * with q-axis back-EMF; the mechanical model is a damped inertia.  It is a
- * lumped, normalised plant — enough to make a field-oriented-control loop close
- * and a virtual rotor spin/hold, NOT a calibrated model of a specific motor.
- * That approximation is deliberate and documented (a detailed dq/back-EMF model
- * with real parameters is future work).
+ * This is a full two-axis (dq) permanent-magnet-synchronous-motor model with
+ * saliency (Ld != Lq) and a settable constant load torque, parameterised from
+ * the MCUXpresso motor-control demo's M1 motor (the 24 V Teknic/Linix on the
+ * MIMXRT1180-EVK).  Real electrical dynamics: a step of stator voltage ramps the
+ * current with the L/R time constant, torque follows, and the rotor accelerates
+ * against its inertia and load.  Enough for a field-oriented-control loop to
+ * close and behave like the bench setup.  (A temperature/saturation-dependent
+ * model and a time-varying load profile remain future work, flagged not faked.)
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -21,22 +24,26 @@
 #include "qemu/log.h"
 #include <math.h>
 #include "hw/misc/imxrt1180_motor.h"
+#include "hw/core/qdev-properties.h"
 #include "migration/vmstate.h"
 
-/* Normalised lumped parameters, tuned for a stable, visible rotor response. */
-#define M_R        1.00      /* phase resistance                */
-#define M_KT       1.00      /* torque constant                 */
-#define M_KE       0.05      /* back-EMF constant               */
-#define M_J        0.0005    /* rotor inertia                   */
-#define M_B        0.001     /* viscous damping                 */
-#define M_POLES    1         /* pole pairs (1 -> elec == mech)  */
-#define M_TLOAD    0.0       /* load torque                     */
+/* M1 motor parameters (MCUXpresso mc_pmsm m1_pmsm_appconfig.h / MCAT). */
+#define M_PP       4          /* pole pairs                          */
+#define M_RS       0.54       /* phase resistance (ohm)              */
+#define M_LD       0.0003356  /* d-axis inductance (H)               */
+#define M_LQ       0.000218   /* q-axis inductance (H)               */
+#define M_KT       0.05477461 /* torque constant (N*m/A)             */
+#define M_PSI      (M_KT / (1.5 * M_PP))  /* PM flux linkage (Wb)    */
+#define M_J        0.00001    /* rotor inertia (kg*m^2)              */
+#define M_B        0.0001     /* viscous damping (N*m*s)             */
+#define M_VBUS     24.0       /* DC-bus voltage (V)                  */
+#define M_IMAX     8.25       /* rated peak current (A)              */
 
-#define M_CPR      4096      /* encoder counts per revolution   */
-#define M_CUR_FS   28672.0   /* ADC code span for +/-1.0 current */
+#define M_CPR      4096       /* encoder counts per revolution       */
 #define M_ADC_MID  0x8000
+#define M_CUR_FS   (0x7000 / M_IMAX)  /* ADC code span per amp (+/-Imax) */
 
-#define M_RATE_DEFAULT 20000u    /* physics steps/s */
+#define M_RATE_DEFAULT 50000u    /* physics steps/s (fast dq dynamics)  */
 
 #define TWO_PI (2.0 * M_PI)
 #define SQRT3_2 0.8660254037844386
@@ -72,16 +79,17 @@ static void motor_step(void *opaque)
      * non-motor workload uses are left exactly as firmware set them.  (Once
      * driven, the plant keeps updating while the rotor coasts down.)
      */
-    if (!run && fabs(s->omega) < 1e-4) {
-        return;
+    if (!run && fabs(s->omega) < 1e-4 &&
+        fabs(s->id) < 1e-3 && fabs(s->iq) < 1e-3) {
+        return;                        /* dormant: motor idle, currents decayed */
     }
 
     /* Phase voltages from the PWM duty (centred: 0.5 duty = 0 V). */
     double va = 0, vb = 0, vc = 0;
     if (run) {
-        va = imxrt1180_pwm_duty(s->pwm, 0) / 1000.0 - 0.5;
-        vb = imxrt1180_pwm_duty(s->pwm, 1) / 1000.0 - 0.5;
-        vc = imxrt1180_pwm_duty(s->pwm, 2) / 1000.0 - 0.5;
+        va = (imxrt1180_pwm_duty(s->pwm, 0) / 1000.0 - 0.5) * M_VBUS;
+        vb = (imxrt1180_pwm_duty(s->pwm, 1) / 1000.0 - 0.5) * M_VBUS;
+        vc = (imxrt1180_pwm_duty(s->pwm, 2) / 1000.0 - 0.5) * M_VBUS;
     }
 
     /* Amplitude-invariant Clarke transform. */
@@ -89,19 +97,28 @@ static void motor_step(void *opaque)
     double vbeta  = (vb - vc) / (2.0 * SQRT3_2);
 
     /* Park transform into the rotor (dq) frame. */
-    double theta_e = M_POLES * s->theta;
+    double theta_e = M_PP * s->theta;
     double c = cos(theta_e), sn = sin(theta_e);
     double vd =  valpha * c + vbeta * sn;
     double vq = -valpha * sn + vbeta * c;
 
-    /* First-order (resistive) currents; back-EMF opposes q. */
-    double omega_e = M_POLES * s->omega;
-    double id = vd / M_R;
-    double iq = (vq - M_KE * omega_e) / M_R;
+    /*
+     * dq stator-current dynamics (with cross-coupling + PM back-EMF):
+     *   L_d did/dt = v_d - R i_d + w_e L_q i_q
+     *   L_q diq/dt = v_q - R i_q - w_e L_d i_d - w_e psi_m
+     */
+    double omega_e = M_PP * s->omega;
+    double did = (vd - M_RS * s->id + omega_e * M_LQ * s->iq) / M_LD;
+    double diq = (vq - M_RS * s->iq - omega_e * M_LD * s->id
+                     - omega_e * M_PSI) / M_LQ;
+    s->id += did * dt;
+    s->iq += diq * dt;
+    double id = s->id, iq = s->iq;
 
-    /* Electromagnetic torque, then the mechanical integration. */
-    double te = M_KT * iq * M_POLES;
-    s->omega += (te - M_B * s->omega - M_TLOAD) / M_J * dt;
+    /* Electromagnetic torque (magnet + reluctance/saliency), then mechanics. */
+    double te = 1.5 * M_PP * (M_PSI * iq + (M_LD - M_LQ) * id * iq);
+    double t_load = s->load_mnm / 1000.0;
+    s->omega += (te - M_B * s->omega - t_load) / M_J * dt;
     s->theta += s->omega * dt;
 
     /* Inverse Park/Clarke -> phase currents for the ADC. */
@@ -139,6 +156,8 @@ static void imxrt1180_motor_reset(DeviceState *dev)
 
     s->theta = 0.0;
     s->omega = 0.0;
+    s->id = 0.0;
+    s->iq = 0.0;
     ptimer_transaction_begin(s->timer);
     ptimer_set_freq(s->timer, s->rate_hz);
     ptimer_set_limit(s->timer, 1, 1);
@@ -169,6 +188,12 @@ static const VMStateDescription vmstate_imxrt1180_motor = {
     },
 };
 
+static const Property imxrt1180_motor_properties[] = {
+    /* Constant mechanical load torque, in milli-N*m (a simple load profile). */
+    DEFINE_PROP_UINT32("load-mnm", IMXRT1180MotorState, load_mnm, 0),
+    DEFINE_PROP_UINT32("rate-hz", IMXRT1180MotorState, rate_hz, 0),
+};
+
 static void imxrt1180_motor_class_init(ObjectClass *klass, const void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
@@ -176,6 +201,7 @@ static void imxrt1180_motor_class_init(ObjectClass *klass, const void *data)
     dc->realize = imxrt1180_motor_realize;
     device_class_set_legacy_reset(dc, imxrt1180_motor_reset);
     dc->vmsd = &vmstate_imxrt1180_motor;
+    device_class_set_props(dc, imxrt1180_motor_properties);
     dc->user_creatable = false;
 }
 

@@ -42,8 +42,11 @@ struct IMXRT1180MotorState {
     /* Continuous state. */
     double theta;   /* mechanical rotor angle (rad, unbounded) */
     double omega;   /* mechanical angular velocity (rad/s)     */
+    double id;      /* d-axis stator current (A)               */
+    double iq;      /* q-axis stator current (A)               */
 
-    uint32_t rate_hz;   /* physics update rate */
+    uint32_t rate_hz;    /* physics update rate (Hz)          */
+    uint32_t load_mnm;   /* constant load torque (milli-N*m)  */
 };
 
 #endif /* HW_MISC_IMXRT1180_MOTOR_H */

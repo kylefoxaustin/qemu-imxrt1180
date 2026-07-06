@@ -37,7 +37,7 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 | **EQDC** (encoder) | 1..4 | 0x42710000, 0x42720000, 0x42730000, 0x42740000 | ◐ functional | Quadrature decoder. CTRL.LDOK self-clearing load (SWIP preloads UPOS:LPOS from UINIT:LINIT); coherent 32-bit read (UPOS read snapshots LPOS/REV/POSD → hold registers); register-accurate position/rev/diff counters. IRQ 185-188. No encoder/plant drives the inputs → counters do not advance on their own (flagged) |
 | **LPADC** | 1..2 | 0x42600000, 0x42E00000 | ◐ functional | 12/16-bit SAR ADC. CTRL soft-reset/FIFO-reset self-clear; CAL_REQ reports calibration done (STAT.CAL_RDY, GCR.RDY); SWTRIG + 8 HW-trigger inputs run the TCTRL/CMD command chain (CMDH.NEXT), pushing tagged results (VALID/TSRC/loop) into RESFIFO; FCTRL.FCOUNT + STAT.RDY + IE watermark IRQ (93/189). No analog front-end/plant → each result is a fixed mid-scale placeholder (flagged, not a fabricated current) |
 | **XBAR1** | 1 | 0x42750000 | ◐ functional | Signal crossbar. 111 SEL registers (two 8-bit output-source selects each) route any of 256 inputs to any of 221 outputs; an input level propagates to every output selecting it. Wired eFlexPWM1 trigger outputs → ADC HW-trigger inputs. CTRL[] edge/DMA modes stored but not behaviourally modelled (flagged) |
-| **Virtual-motor plant** | 1 | — (behavioural) | ✅ closes the loop | First-order PMSM tying PWM+EQDC+ADC together: reads eFlexPWM1 duty → Clarke/Park → (resistive) dq currents → torque → integrates rotor velocity/angle → drives EQDC1 position + injects phase currents into LPADC1/2. A FOC loop on the guest spins a virtual rotor and senses it back. Dormant until the PWM drives it. Lumped/normalised model, not a calibrated motor (flagged); detailed dq+back-EMF plant is future work |
+| **Virtual-motor plant** | 1 | — (behavioural) | ✅ closes the loop | Calibrated **dq PMSM** tying PWM+EQDC+ADC together: reads eFlexPWM1 duty → phase voltages (24 V bus) → Clarke/Park → dq stator-current dynamics (Ld/Lq + cross-coupling + PM back-EMF) → magnet+reluctance torque → integrates rotor velocity/angle → drives EQDC1 position + injects phase currents into LPADC1/2. Parameters from the MCUXpresso M1 motor (Pp=4, Rs=0.54Ω, Ld=336µH, Lq=218µH, Kt=0.0548, J=1e-5); settable constant load torque (`load-mnm`). A FOC loop on the guest spins/holds a virtual rotor and senses it back. Dormant until driven. Saturation/thermal + time-varying load profile are future work (flagged) |
 | _everything else_ | — | 0x40000000–0x5FFFFFFF | catch-all | `unimplemented` region; `-d unimp` logs each access |
 
 ## Validated firmware
@@ -94,7 +94,7 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 |-----------|-------|------|--------|
 | sai | **SAI + eDMA** audio path | — | past the TRDC assert; data path not modelled |
 | usb_device_dfu | **USB host enumeration** | 0x42C80000 | controller inits + runs; no host attached, so the device does not enumerate (bridging to QEMU's USB host framework is future work) |
-| motor-control frontier | ✅ **done (first-order)** | — | eFlexPWM + EQDC + LPADC + PWM→XBAR→ADC sync + a first-order virtual-motor plant: a FOC loop closes in emulation. Stretch: a detailed dq/back-EMF PMSM with calibrated parameters |
+| motor-control frontier | ✅ **done** | — | eFlexPWM + EQDC + LPADC + PWM→XBAR→ADC sync + a calibrated dq PMSM plant: a FOC loop closes in emulation. Stretch: saturation/thermal effects + a time-varying load-torque profile |
 
 ## Roadmap
 

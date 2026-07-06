@@ -1,15 +1,16 @@
 /*
  * Virtual-motor plant / closed-loop test (Cortex-M33).
  *
- * Drives the eFlexPWM with a fixed stator voltage vector (electrical angle 90
- * degrees) and lets the virtual PMSM plant respond: the rotor rotates to align
- * with the field, the EQDC position counter follows it, and the LPADC senses a
- * real phase current.  This exercises the whole motor-control frontier end to
- * end -- PWM duty -> plant physics -> EQDC position + ADC current.
+ * Drives the eFlexPWM with a small fixed stator voltage vector (electrical angle
+ * 90 degrees, ~1.5 V) and lets the calibrated dq PMSM plant respond: the rotor
+ * rotates to align its magnet with the field, the EQDC position follows it, and
+ * the LPADC senses a real phase current.  Exercises the whole motor-control
+ * frontier end to end -- PWM duty -> dq plant physics -> EQDC + ADC.
  *
  *   * with the PWM idle the rotor stands still (EQDC == 0, current == mid-scale)
- *   * with the vector applied the rotor turns toward ~1/4 revolution (CPR/4 =
- *     1024 counts) and a phase current flows.
+ *   * with the vector applied the rotor aligns at electrical 90 deg; for the
+ *     Pp = 4 M1 motor that is 90/4 = 22.5 deg mechanical = CPR*22.5/360 = 256
+ *     counts, and a bounded phase current flows.
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -87,10 +88,11 @@ void reset_handler(void)
     if (base_i != ADC_MID) { ok = 0; }
 
     /*
-     * Apply a stator voltage vector at electrical angle 90 deg, period 1000:
-     *   phase A duty 0.50, phase B 0.76, phase C 0.24  (VAL3 = duty*500).
+     * Apply a small stator voltage vector at electrical angle 90 deg (~1.5 V on
+     * a 24 V bus), period 1000: phase duties 0.50 / 0.554 / 0.446
+     * (VAL3 = duty*500 = 250 / 277 / 223).
      */
-    static const uint16_t val3[3] = { 250, 380, 120 };
+    static const uint16_t val3[3] = { 250, 277, 223 };
     for (int s = 0; s < 3; s++) {
         SM_INIT(s) = (uint16_t)(-500);
         SM_VAL1(s) = 499;
@@ -100,22 +102,25 @@ void reset_handler(void)
     PWM_MCTRL = MCTRL_LDOK;
     PWM_MCTRL = MCTRL_RUN012;
 
-    /* Let the rotor swing toward the field (~1024 counts). */
+    /* Let the rotor swing to alignment (~256 counts) and settle. */
     uint16_t pos = 0;
     uint32_t guard = 0;
-    while (pos < 600) {
+    while (pos < 200) {
         pos = EQDC1_LPOS;
         if (++guard > 300000000u) { ok = 0; break; }
     }
+    for (volatile int i = 0; i < 2000000; i++) {   /* let it settle */
+    }
+    pos = EQDC1_LPOS;
 
-    /* A phase current must now flow (channel 6 deviates from mid-scale). */
+    /* A bounded phase current must flow (channel 6 deviates from mid-scale). */
     uint32_t run_i = read_phaseB();
     int32_t di = (int32_t)run_i - ADC_MID;
     if (di < 0) { di = -di; }
-    if (di < 1000) { ok = 0; }
+    if (di < 1000 || di > 0x7000) { ok = 0; }      /* present but not railed */
 
-    if (ok && pos >= 600 && pos <= 1400) {
-        puts_("MOTOR: PASS - rotor spun to the commanded field + phase current sensed\r\n");
+    if (ok && pos >= 150 && pos <= 400) {
+        puts_("MOTOR: PASS - dq PMSM aligned to the field + bounded phase current sensed\r\n");
     } else {
         puts_("MOTOR: FAIL - plant did not close the loop\r\n");
     }
