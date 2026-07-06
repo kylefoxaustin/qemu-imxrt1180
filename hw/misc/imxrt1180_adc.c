@@ -137,13 +137,6 @@ static void adc_run_trigger(IMXRT1180ADCState *s, int t)
     if (!(REG(s, R_CTRL) & CTRL_ADCEN)) {
         return;
     }
-    if (!s->no_afe_logged) {
-        s->no_afe_logged = true;
-        qemu_log_mask(LOG_UNIMP, "%s: conversion with no analog front-end / motor "
-            "plant -- results are a fixed mid-scale placeholder (flagged)\n",
-            __func__);
-    }
-
     uint32_t tctrl = REG(s, R_TCTRL0 + 4 * t);
     unsigned cmd = (tctrl & TCTRL_TCMD_MASK) >> TCTRL_TCMD_SHIFT;   /* 1-based */
     int guard = 0;
@@ -152,11 +145,18 @@ static void adc_run_trigger(IMXRT1180ADCState *s, int t)
         uint32_t cmdh = REG(s, R_CMD0 + 8 * (cmd - 1) + 4);
         unsigned loops = ((cmdh & CMDH_LOOP_MASK) >> CMDH_LOOP_SHIFT) + 1;
 
+        unsigned ch = REG(s, R_CMD0 + 8 * (cmd - 1)) & 0x1F;   /* CMDL.ADCH */
+        uint16_t sample = s->channel_input[ch];                /* plant, or 0x8000 */
+        if (sample == ADC_RESULT_PLACEHOLDER && !s->no_afe_logged) {
+            s->no_afe_logged = true;
+            qemu_log_mask(LOG_UNIMP, "%s: no plant drives channel %u -- result is "
+                "a fixed mid-scale placeholder (flagged)\n", __func__, ch);
+        }
         for (unsigned l = 0; l < loops; l++) {
             uint32_t entry = RESFIFO_VALID |
                              ((uint32_t)t << RESFIFO_TSRC_SHIFT) |
                              ((uint32_t)l << RESFIFO_LOOPCNT_SHIFT) |
-                             ADC_RESULT_PLACEHOLDER;
+                             sample;
             adc_fifo_push(s, 0, entry);   /* single-ended results -> FIFO0 */
         }
         cmd = (cmdh & CMDH_NEXT_MASK) >> CMDH_NEXT_SHIFT;   /* 0 = end of chain */
@@ -277,8 +277,19 @@ static void imxrt1180_adc_reset(DeviceState *dev)
     for (int f = 0; f < IMXRT1180_ADC_NFIFO; f++) {
         s->fifo[f].head = s->fifo[f].count = 0;
     }
+    for (int c = 0; c < 32; c++) {
+        s->channel_input[c] = ADC_RESULT_PLACEHOLDER;   /* neutral until a plant */
+    }
     s->no_afe_logged = false;
     qemu_set_irq(s->irq, 0);
+}
+
+void imxrt1180_adc_set_channel_input(IMXRT1180ADCState *s, unsigned ch,
+                                     uint16_t code)
+{
+    if (ch < 32) {
+        s->channel_input[ch] = code;
+    }
 }
 
 static void imxrt1180_adc_realize(DeviceState *dev, Error **errp)
@@ -314,6 +325,7 @@ static const VMStateDescription vmstate_imxrt1180_adc = {
         VMSTATE_UINT32_ARRAY(regs, IMXRT1180ADCState, IMXRT1180_ADC_SIZE / 4),
         VMSTATE_STRUCT_ARRAY(fifo, IMXRT1180ADCState, IMXRT1180_ADC_NFIFO, 1,
                              vmstate_imxrt1180_adc_fifo, IMXRT1180ADCFifo),
+        VMSTATE_UINT16_ARRAY(channel_input, IMXRT1180ADCState, 32),
         VMSTATE_BOOL(no_afe_logged, IMXRT1180ADCState),
         VMSTATE_END_OF_LIST()
     },

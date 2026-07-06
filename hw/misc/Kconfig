@@ -499,3 +499,6 @@ config IMXRT1180_ADC
 
 config IMXRT1180_XBAR
     bool
+
+config IMXRT1180_MOTOR
+    bool

@@ -48,4 +48,8 @@ struct IMXRT1180PWMState {
     uint32_t pwm_clk;                       /* submodule counter clock (Hz)  */
 };
 
+/* Accessors for a virtual-motor plant. */
+uint16_t imxrt1180_pwm_duty(IMXRT1180PWMState *s, unsigned sm);   /* per-mille */
+bool     imxrt1180_pwm_running(IMXRT1180PWMState *s, unsigned sm);
+
 #endif /* HW_MISC_IMXRT1180_PWM_H */

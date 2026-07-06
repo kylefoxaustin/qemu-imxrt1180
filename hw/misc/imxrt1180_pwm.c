@@ -266,6 +266,17 @@ static void imxrt1180_pwm_write(void *opaque, hwaddr offset,
     s->regs[offset / 2] = v;
 }
 
+uint16_t imxrt1180_pwm_duty(IMXRT1180PWMState *s, unsigned sm)
+{
+    return sm < IMXRT1180_PWM_NSM ? s->duty[sm] : 0;
+}
+
+bool imxrt1180_pwm_running(IMXRT1180PWMState *s, unsigned sm)
+{
+    return sm < IMXRT1180_PWM_NSM &&
+           (s->regs[R_MCTRL / 2] & (1u << (sm + MCTRL_RUN_SHIFT)));
+}
+
 static const MemoryRegionOps imxrt1180_pwm_ops = {
     .read = imxrt1180_pwm_read,
     .write = imxrt1180_pwm_write,

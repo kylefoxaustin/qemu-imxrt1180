@@ -117,6 +117,7 @@ static void imxrt1180_soc_instance_init(Object *obj)
         object_initialize_child(obj, aname, &s->adc[i], TYPE_IMXRT1180_ADC);
     }
     object_initialize_child(obj, "xbar1", &s->xbar1, TYPE_IMXRT1180_XBAR);
+    object_initialize_child(obj, "motor", &s->motor, TYPE_IMXRT1180_MOTOR);
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
         g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
         object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
@@ -606,6 +607,19 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         qdev_connect_gpio_out_named(DEVICE(&s->xbar1), "xbar-out",
                                     IMXRT1180_XBAR1_OUT_ADC_HWTRIG0 + n,
                                     adc_trig_fan[n]);
+    }
+
+    /*
+     * Virtual-motor plant: a first-order PMSM wired to eFlexPWM1 (phase duties),
+     * EQDC1 (rotor position) and both LPADCs (phase-current samples).  It closes
+     * the FOC loop -- a running control loop actually spins a virtual rotor.
+     */
+    s->motor.pwm   = &s->pwm[0];
+    s->motor.eqdc  = &s->eqdc[0];
+    s->motor.adc_a = &s->adc[0];
+    s->motor.adc_c = &s->adc[1];
+    if (!sysbus_realize(SYS_BUS_DEVICE(&s->motor), errp)) {
+        return;
     }
 }
 

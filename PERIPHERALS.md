@@ -37,6 +37,7 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 | **EQDC** (encoder) | 1..4 | 0x42710000, 0x42720000, 0x42730000, 0x42740000 | ◐ functional | Quadrature decoder. CTRL.LDOK self-clearing load (SWIP preloads UPOS:LPOS from UINIT:LINIT); coherent 32-bit read (UPOS read snapshots LPOS/REV/POSD → hold registers); register-accurate position/rev/diff counters. IRQ 185-188. No encoder/plant drives the inputs → counters do not advance on their own (flagged) |
 | **LPADC** | 1..2 | 0x42600000, 0x42E00000 | ◐ functional | 12/16-bit SAR ADC. CTRL soft-reset/FIFO-reset self-clear; CAL_REQ reports calibration done (STAT.CAL_RDY, GCR.RDY); SWTRIG + 8 HW-trigger inputs run the TCTRL/CMD command chain (CMDH.NEXT), pushing tagged results (VALID/TSRC/loop) into RESFIFO; FCTRL.FCOUNT + STAT.RDY + IE watermark IRQ (93/189). No analog front-end/plant → each result is a fixed mid-scale placeholder (flagged, not a fabricated current) |
 | **XBAR1** | 1 | 0x42750000 | ◐ functional | Signal crossbar. 111 SEL registers (two 8-bit output-source selects each) route any of 256 inputs to any of 221 outputs; an input level propagates to every output selecting it. Wired eFlexPWM1 trigger outputs → ADC HW-trigger inputs. CTRL[] edge/DMA modes stored but not behaviourally modelled (flagged) |
+| **Virtual-motor plant** | 1 | — (behavioural) | ✅ closes the loop | First-order PMSM tying PWM+EQDC+ADC together: reads eFlexPWM1 duty → Clarke/Park → (resistive) dq currents → torque → integrates rotor velocity/angle → drives EQDC1 position + injects phase currents into LPADC1/2. A FOC loop on the guest spins a virtual rotor and senses it back. Dormant until the PWM drives it. Lumped/normalised model, not a calibrated motor (flagged); detailed dq+back-EMF plant is future work |
 | _everything else_ | — | 0x40000000–0x5FFFFFFF | catch-all | `unimplemented` region; `-d unimp` logs each access |
 
 ## Validated firmware
@@ -82,6 +83,10 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
   running eFlexPWM submodule emits an output trigger each period; the XBAR routes
   it (input 74 → output 140) to the LPADC hardware trigger, launching a
   synchronised conversion with no CPU involvement — the FOC current-sense path.
+- **Closed FOC loop** (`tests/imxrt1180-motor`, `MOTOR: PASS`) — applying a
+  stator voltage vector on the PWM makes the virtual PMSM rotor rotate to align
+  with the field: the EQDC position follows it (~CPR/4 for a 90° vector) and the
+  LPADC senses a real phase current.  Idle PWM → rotor still, mid-scale current.
 
 ## Known gaps (surfaced by the demo corpus)
 
@@ -89,19 +94,21 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 |-----------|-------|------|--------|
 | sai | **SAI + eDMA** audio path | — | past the TRDC assert; data path not modelled |
 | usb_device_dfu | **USB host enumeration** | 0x42C80000 | controller inits + runs; no host attached, so the device does not enumerate (bridging to QEMU's USB host framework is future work) |
-| motor-control frontier | **virtual-motor plant** | — | eFlexPWM + EQDC + LPADC + the PWM→XBAR→ADC sync trigger are all done; the one remaining piece to close a FOC loop is a small virtual plant (PWM duty → torque/velocity → EQDC position + ADC phase current) |
+| motor-control frontier | ✅ **done (first-order)** | — | eFlexPWM + EQDC + LPADC + PWM→XBAR→ADC sync + a first-order virtual-motor plant: a FOC loop closes in emulation. Stretch: a detailed dq/back-EMF PMSM with calibrated parameters |
 
 ## Roadmap
 
 The motor-control frontier is underway: **eFlexPWM** (PWM1-4, double-buffered
 compare registers + the periodic reload interrupt a FOC loop runs on) and the
 **EQDC** quadrature encoder (position/rev counters + coherent read) and the
-**LPADC** (command-chain conversion + result FIFO), and the **XBAR**-routed
-**PWM→ADC synchronised trigger** are all modelled — a running PWM now launches
-ADC conversions in hardware, synchronised to the PWM period.  The one remaining
-piece is a small virtual-motor plant (PWM duty → torque/velocity → EQDC position
-+ ADC phase current) so a FOC control loop can actually close in emulation — the
-distinguishing capability none of the fleet has.
+**LPADC** (command-chain conversion + result FIFO), the **XBAR**-routed
+**PWM→ADC synchronised trigger**, and a first-order **virtual-motor plant** are
+all modelled — so a field-oriented-control loop now closes in emulation: a stator
+voltage vector on the PWM spins a virtual PMSM rotor, the EQDC reports its angle,
+and the LPADC senses the phase current.  This is the distinguishing capability
+none of the fleet has.  Remaining stretch on this track: a detailed dq/back-EMF
+PMSM with calibrated parameters (and a load-torque profile) in place of the
+lumped first-order plant.
 
 Remaining demo-corpus items are reference-blocked (fidelity-first): the SAI
 `sai.c:467` assert semantics have no source in the cache, and the

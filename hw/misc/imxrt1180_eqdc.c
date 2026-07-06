@@ -67,6 +67,14 @@ static void eqdc_snapshot(IMXRT1180EQDCState *s)
     REG(s, R_LASTEDGEH) = REG(s, R_LASTEDGE);
 }
 
+void imxrt1180_eqdc_set_position(IMXRT1180EQDCState *s, uint32_t pos,
+                                 uint16_t rev)
+{
+    REG(s, R_LPOS) = pos & 0xFFFF;
+    REG(s, R_UPOS) = pos >> 16;
+    REG(s, R_REV)  = rev;
+}
+
 static uint64_t imxrt1180_eqdc_read(void *opaque, hwaddr offset, unsigned size)
 {
     IMXRT1180EQDCState *s = IMXRT1180_EQDC(opaque);

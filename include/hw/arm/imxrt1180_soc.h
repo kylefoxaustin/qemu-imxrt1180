@@ -37,6 +37,7 @@
 #include "hw/misc/imxrt1180_eqdc.h"
 #include "hw/misc/imxrt1180_adc.h"
 #include "hw/misc/imxrt1180_xbar.h"
+#include "hw/misc/imxrt1180_motor.h"
 #include "hw/gpio/imxrt1180_rgpio.h"
 #include "hw/core/clock.h"
 #include "qom/object.h"
@@ -231,6 +232,7 @@ struct IMXRT1180State {
     IMXRT1180EQDCState   eqdc[IMXRT1180_NUM_EQDC];       /* EQDC1..4 encoder     */
     IMXRT1180ADCState    adc[IMXRT1180_NUM_ADC];          /* LPADC1..2            */
     IMXRT1180XBARState   xbar1;                           /* signal crossbar      */
+    IMXRT1180MotorState  motor;                           /* virtual-motor plant  */
     MemoryRegion         cm7_tcm;              /* M7 TCM (system view @0x303C…)*/
 
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */

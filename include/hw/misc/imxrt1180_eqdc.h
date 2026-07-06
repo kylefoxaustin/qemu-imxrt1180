@@ -28,4 +28,8 @@ struct IMXRT1180EQDCState {
     uint16_t regs[IMXRT1180_EQDC_SIZE / 2];
 };
 
+/* Drive the position/revolution counters from a virtual-motor plant. */
+void imxrt1180_eqdc_set_position(IMXRT1180EQDCState *s, uint32_t pos,
+                                 uint16_t rev);
+
 #endif /* HW_MISC_IMXRT1180_EQDC_H */

@@ -39,6 +39,15 @@ struct IMXRT1180ADCState {
 
     uint32_t regs[IMXRT1180_ADC_SIZE / 4];
     IMXRT1180ADCFifo fifo[IMXRT1180_ADC_NFIFO];
+    uint16_t channel_input[32];   /* per-channel sample code (driven by a plant) */
 };
+
+/*
+ * Set the sample code a channel returns on its next conversion.  A virtual-motor
+ * plant calls this to inject phase-current samples; unset channels read back the
+ * neutral mid-scale placeholder.
+ */
+void imxrt1180_adc_set_channel_input(IMXRT1180ADCState *s, unsigned ch,
+                                     uint16_t code);
 
 #endif /* HW_MISC_IMXRT1180_ADC_H */
