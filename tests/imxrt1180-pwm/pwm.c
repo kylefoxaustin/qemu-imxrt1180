@@ -90,13 +90,16 @@ void reset_handler(void)
     /* (3) Start submodule 0. */
     PWM_MCTRL = MCTRL_RUN & (1u << 8);
 
+    /*
+     * Sample the counter across the whole "wait for 3 reloads" window: that is
+     * a long, host-speed-independent span in which the running counter is
+     * guaranteed to move (a short fixed busy-loop can be too fast to observe a
+     * change on a quick host).
+     */
     uint16_t c1 = SM0_CNT;
-    for (volatile int i = 0; i < 200; i++) {
-    }
-    uint16_t c2 = SM0_CNT;
-
     while (reloads < 3) {                      /* wait for periodic reloads */
     }
+    uint16_t c2 = SM0_CNT;
 
     if (ok && reloads >= 3 && c1 != c2) {
         puts_("PWM: PASS - double-buffer commit + periodic reload IRQ + counter runs\r\n");
