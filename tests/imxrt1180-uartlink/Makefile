@@ -2,11 +2,13 @@ CROSS ?= arm-none-eabi-
 CC    := $(CROSS)gcc
 CF    := -mthumb -mcpu=cortex-m33 -Os -ffreestanding -nostdlib -nostartfiles -Wall
 QEMU  ?= ../../build/qemu-system-arm
-all: uartlink.elf
+all: uartlink.elf passthrough.elf
 uartlink.elf: uartlink.c uartlink.ld
 	$(CC) $(CF) -T uartlink.ld uartlink.c -o $@
+passthrough.elf: passthrough.c uartlink.ld
+	$(CC) $(CF) -T uartlink.ld passthrough.c -o $@
 run: all
 	bash run.sh
 clean:
-	rm -f uartlink.elf
+	rm -f uartlink.elf passthrough.elf
 .PHONY: all run clean
