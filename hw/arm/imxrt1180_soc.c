@@ -58,6 +58,7 @@ static void imxrt1180_soc_instance_init(Object *obj)
      * core count) is known — only the cores we actually realize are created,
      * so no half-built child trips qdev's realized-properly assert. */
     object_initialize_child(obj, "lpuart1", &s->lpuart1, TYPE_IMXRT1180_LPUART);
+    object_initialize_child(obj, "lpuart2", &s->lpuart2, TYPE_IMXRT1180_LPUART);
     object_initialize_child(obj, "anadig", &s->anadig, TYPE_IMXRT1180_ANADIG);
     for (int i = 0; i < IMXRT1180_NUM_RTWDOG; i++) {
         g_autofree char *name = g_strdup_printf("rtwdog%d", i + 1);
@@ -275,6 +276,20 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     sysbus_connect_irq(SYS_BUS_DEVICE(&s->lpuart1), 0,
                        qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
                                         IMXRT1180_LPUART1_IRQ));
+
+    /*
+     * LPUART2 — board-to-board link port.  Binds host serial_hd(1) when the
+     * user supplies a second -serial (e.g. a socket chardev to another board);
+     * otherwise it is a stand-alone modelled UART.  IRQ 20 -> M33 NVIC.
+     */
+    qdev_prop_set_chr(DEVICE(&s->lpuart2), "chardev", serial_hd(1));
+    if (!sysbus_realize(SYS_BUS_DEVICE(&s->lpuart2), errp)) {
+        return;
+    }
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->lpuart2), 0, IMXRT1180_LPUART2_BASE);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->lpuart2), 0,
+                       qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
+                                        IMXRT1180_LPUART2_IRQ));
 
     /* ANADIG — analog clock block (OSC/PLL); reports clocks stable/locked so
      * the SDK CLOCK_Init poll loops complete. */

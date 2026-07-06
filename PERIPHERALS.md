@@ -15,7 +15,7 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 |-------|-----------|---------|------|-------|
 | **Cortex-M33** (boot/secure) | 1 | — | ✅ core | ARMV7M, 239 IRQs, prio-bits 3, TrustZone-M |
 | **Cortex-M7** (main) | 1 | — | ✅ core | released by the M33 (SRC/BLK_CTRL); no TZ-M |
-| **LPUART** (console) | LPUART1 | 0x44380000 | ✅ functional | TX + single-entry RX + IRQ 19; same IP as i.MX 93/95; byte-access safe (eDMA) |
+| **LPUART** | LPUART1, LPUART2 | 0x44380000, 0x44390000 | ✅ functional | TX + single-entry RX + IRQ 19/20; same IP as i.MX 93/95; byte-access safe (eDMA). LPUART1 = console (serial_hd(0)); LPUART2 = board-to-board link port (serial_hd(1), a socket chardev to a peer) |
 | **ANADIG** (OSC/PLL/PMU) | 1 | 0x44480000 | ✅ functional | OSC-stable + PLL-lock + PFD relock state machine (instant lock) |
 | **CCM** (clocks) | 1 | 0x44450000 | ✅ functional | register-backed roots; LPCG STATUS0 mirrors DIRECT.ON; OBSERVE freq nominal non-zero |
 | **RTWDOG** | 1..5 | 0x442D/2E0000, 0x42490/A/B0000 | ✅ functional | unlock (0xC520/0xD928) + disable; no bite modelled (flagged) |
@@ -88,12 +88,18 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
   stator voltage vector on the PWM makes the virtual PMSM rotor rotate to align
   with the field: the EQDC position follows it (~CPR/4 for a 90° vector) and the
   LPADC senses a real phase current.  Idle PWM → rotor still, mid-scale current.
+- **Board-to-board UART** (`tests/imxrt1180-uartlink`, `UARTLINK: PASS`) — LPUART2
+  on a socket chardev links to a peer with a resend-until-connected GO handshake,
+  then a 32-byte pattern echoes byte-exact.  Wires the RT1180 into holobench as a
+  b2b node (the fleet's proven UART transport).
+- **Bubble** (`bubble_peripheral`) — the FXLS8974 on LPI2C2 initialises and the
+  demo reads a level orientation (`x=0 y=0`).
 
 ## Known gaps (surfaced by the demo corpus)
 
 | Needed for | Block | Base | Status |
 |-----------|-------|------|--------|
-| sai | **SAI + eDMA** audio path | — | past the TRDC assert; data path not modelled |
+| sai | **audio codec + SAI↔eDMA streaming** | — | the stock `sai` demo is a codec loopback (SAI1 + DMA3 ch0/1 muxed to SAI1 Tx/Rx + a WM8962-class I2C codec). Needs the SAI FIFO→eDMA hardware-request handshake *and* a codec model; the demo's assert is codec-dependent, so it is deferred rather than faked |
 | usb_device_dfu | **USB host enumeration** | 0x42C80000 | controller inits + runs; no host attached, so the device does not enumerate (bridging to QEMU's USB host framework is future work) |
 | motor-control frontier | ✅ **done** | — | eFlexPWM + EQDC + LPADC + PWM→XBAR→ADC sync + a calibrated dq PMSM plant: a FOC loop closes in emulation. Stretch: saturation/thermal effects + a time-varying load-torque profile |
 

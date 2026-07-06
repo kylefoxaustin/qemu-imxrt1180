@@ -92,6 +92,8 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
  */
 #define IMXRT1180_LPUART1_BASE    0x44380000
 #define IMXRT1180_LPUART1_IRQ     19
+#define IMXRT1180_LPUART2_BASE    0x44390000   /* b2b link port (serial_hd(1)) */
+#define IMXRT1180_LPUART2_IRQ     20
 
 /* ANADIG analog clock block (OSC + PLL + PMU), AONMIX non-secure. */
 #define IMXRT1180_ANADIG_BASE     0x44480000
@@ -210,6 +212,7 @@ struct IMXRT1180State {
     MemoryRegion cpu_mem[IMXRT1180_MAX_CPUS];  /* per-core alias of the SoC map*/
 
     IMXRT1180LPUARTState lpuart1;              /* debug console (LPUART1)      */
+    IMXRT1180LPUARTState lpuart2;              /* board-to-board link (LPUART2)*/
     IMXRT1180AnadigState anadig;               /* analog clock (OSC/PLL)       */
     IMXRT1180RTWDOGState rtwdog[IMXRT1180_NUM_RTWDOG]; /* RTWDOG1..5            */
     IMXRT1180S3MUState   mu_rt_s3;             /* MU to EdgeLock enclave (ELE) */
