@@ -147,6 +147,7 @@ static void imxrt1180_soc_instance_init(Object *obj)
         object_initialize_child(obj, n, &s->cmp[i], TYPE_IMXRT1180_CMP);
     }
     object_initialize_child(obj, "vref", &s->vref, TYPE_IMXRT1180_VREF);
+    object_initialize_child(obj, "netc", &s->netc, TYPE_IMXRT1180_NETC);
     for (int i = 0; i < IMXRT1180_NUM_USDHC; i++) {
         g_autofree char *n = g_strdup_printf("usdhc%d", i + 1);
         object_initialize_child(obj, n, &s->usdhc[i], TYPE_IMX_USDHC);
@@ -307,6 +308,17 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
                              "imxrt1180.periph.s", system_memory,
                              IMXRT1180_PERIPH_BASE, 0x10000000);
     memory_region_add_subregion(system_memory, 0x50000000, &s->periph_secure);
+
+    /*
+     * NETC (integrated PCIe Ethernet controller + ENETC + switch + PTP) lives at
+     * 0x6000_0000, outside the peripheral window.  The model covers the ENETC
+     * endpoint path (IERB/PCI/capability registers, EMDIO+PHY, TX->RX BD
+     * loopback) exercised by the netc_txrx_transfer example.
+     */
+    if (!sysbus_realize(SYS_BUS_DEVICE(&s->netc), errp)) {
+        return;
+    }
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->netc), 0, IMXRT1180_NETC_BASE);
 
     /* LPUART1 — debug console.  Binds host serial_hd(0); IRQ 19 -> M33 NVIC. */
     qdev_prop_set_chr(DEVICE(&s->lpuart1), "chardev", serial_hd(0));
