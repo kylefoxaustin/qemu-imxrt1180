@@ -147,6 +147,10 @@ static void imxrt1180_soc_instance_init(Object *obj)
         object_initialize_child(obj, n, &s->cmp[i], TYPE_IMXRT1180_CMP);
     }
     object_initialize_child(obj, "vref", &s->vref, TYPE_IMXRT1180_VREF);
+    for (int i = 0; i < IMXRT1180_NUM_USDHC; i++) {
+        g_autofree char *n = g_strdup_printf("usdhc%d", i + 1);
+        object_initialize_child(obj, n, &s->usdhc[i], TYPE_IMX_USDHC);
+    }
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
         g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
         object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
@@ -728,6 +732,16 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     }
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->vref), errp)) { return; }
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->vref), 0, 0x42E30000);
+
+    /* USDHC1..2 — SD/MMC host controllers (upstream imx-usdhc model). */
+    static const struct { hwaddr base; unsigned irq; } usdhc_cfg[IMXRT1180_NUM_USDHC] = {
+        { 0x42850000, 86 }, { 0x42860000, 87 } };
+    for (int i = 0; i < IMXRT1180_NUM_USDHC; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->usdhc[i]), errp)) { return; }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->usdhc[i]), 0, usdhc_cfg[i].base);
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->usdhc[i]), 0,
+                           qdev_get_gpio_in(m33, usdhc_cfg[i].irq));
+    }
 
     /*
      * Register-accurate readiness blocks for peripherals whose data path is not

@@ -16,6 +16,10 @@
 #include "hw/core/qdev-clock.h"
 #include "hw/arm/boot.h"
 #include "hw/arm/imxrt1180_soc.h"
+#include "hw/sd/sd.h"
+#include "hw/core/qdev-properties-system.h"  /* qdev_prop_set_drive_err */
+#include "system/blockdev.h"                  /* drive_get / IF_SD */
+#include "system/block-backend.h"             /* blk_by_legacy_dinfo */
 #include "hw/arm/machines-qom.h"   /* DEFINE_MACHINE_ARM / arm_machine_interfaces */
 #include "hw/core/loader.h"        /* load_elf / load_image_targphys */
 #include "system/reset.h"          /* qemu_register_reset */
@@ -200,6 +204,23 @@ static void mimxrt1180_evk_init(MachineState *machine)
     qdev_connect_clock_in(dev, "sysclk", sysclk);
     qdev_connect_clock_in(dev, "refclk", refclk);
     sysbus_realize(SYS_BUS_DEVICE(soc), &error_fatal);
+
+    /*
+     * Attach an SD card to each USDHC controller that has a backing drive
+     * (-drive if=sd,index=N,...).  With no drive the controller reports no card
+     * inserted, which is the honest state.
+     */
+    for (int i = 0; i < IMXRT1180_NUM_USDHC; i++) {
+        DriveInfo *di = drive_get(IF_SD, 0, i);
+        if (!di) {
+            continue;
+        }
+        DeviceState *card = qdev_new(TYPE_SD_CARD);
+        qdev_prop_set_drive_err(card, "drive", blk_by_legacy_dinfo(di),
+                                &error_fatal);
+        qdev_realize_and_unref(card,
+            qdev_get_child_bus(DEVICE(&soc->usdhc[i]), "sd-bus"), &error_fatal);
+    }
 
     /*
      * Load the firmware (immediate writes) + resolve the boot vector, then let

@@ -45,6 +45,7 @@
 #include "hw/misc/imxrt1180_sema42.h"
 #include "hw/misc/imxrt1180_cmp.h"
 #include "hw/misc/imxrt1180_vref.h"
+#include "hw/sd/sdhci.h"
 #include "hw/gpio/imxrt1180_rgpio.h"
 #include "hw/core/clock.h"
 #include "qom/object.h"
@@ -170,6 +171,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 #define IMXRT1180_NUM_TPM         6       /* TPM1..6   */
 #define IMXRT1180_NUM_SEMA42      2       /* SEMA1..2  */
 #define IMXRT1180_NUM_CMP         4       /* CMP1..4   */
+#define IMXRT1180_NUM_USDHC       2       /* USDHC1..2 */
 /* XBAR1 signal indices (from the CMSIS xbar_input/output_signal_t enums). */
 #define IMXRT1180_XBAR1_IN_PWM1_TRIG0   74   /* Flexpwm1 Pwm(sm) OutTrig0 = 74+2*sm */
 #define IMXRT1180_XBAR1_OUT_ADC_HWTRIG0 140  /* Adc12HwTrig0..7 = 140..147          */
@@ -257,6 +259,7 @@ struct IMXRT1180State {
     IMXRT1180Sema42State sema42[IMXRT1180_NUM_SEMA42];    /* SEMA1..2 semaphores  */
     IMXRT1180CmpState    cmp[IMXRT1180_NUM_CMP];          /* CMP1..4 comparators  */
     IMXRT1180VrefState   vref;                            /* voltage reference    */
+    SDHCIState           usdhc[IMXRT1180_NUM_USDHC];      /* SD/MMC host (imx-usdhc)*/
     MemoryRegion         cm7_tcm;              /* M7 TCM (system view @0x303C…)*/
 
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */
