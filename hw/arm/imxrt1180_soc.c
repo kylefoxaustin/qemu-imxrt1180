@@ -744,6 +744,12 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     imxrt1180_add_rdy(s, "i3c2",  0x42520000, 0x1000);
     imxrt1180_add_rdy(s, "usbnc1", 0x42C80200, 0x100);
     imxrt1180_add_rdy(s, "usbnc2", 0x42C90200, 0x100);
+    for (int i = 0; i < 6; i++) {          /* MSGINTR1..6 message-interrupt routers */
+        g_autofree char *n = g_strdup_printf("msgintr%d", i + 1);
+        imxrt1180_add_rdy(s, n, 0x428A0000 + (hwaddr)i * 0x10000, 0x1000);
+    }
+    imxrt1180_add_rdy(s, "flexio1", 0x425C0000, 0x1000);  /* flexible I/O engine */
+    imxrt1180_add_rdy(s, "flexio2", 0x425D0000, 0x1000);
 }
 
 static const Property imxrt1180_soc_properties[] = {
