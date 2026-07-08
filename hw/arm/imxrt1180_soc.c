@@ -19,6 +19,7 @@
 #include "hw/core/irq.h"             /* qemu_allocate_irqs */
 #include "hw/i2c/i2c.h"             /* i2c_slave_create_simple */
 #include "hw/sensor/fxls8974.h"     /* TYPE_FXLS8974 */
+#include "hw/misc/imxrt1180_periphrdy.h"
 #include "system/address-spaces.h"   /* get_system_memory() */
 #include "system/system.h"           /* serial_hd() */
 
@@ -168,6 +169,17 @@ static void imxrt1180_adc_trig_fanout(void *opaque, int line, int level)
         qemu_set_irq(qdev_get_gpio_in_named(DEVICE(&s->adc[i]), "adc-trig", line),
                      level);
     }
+}
+
+/* Create a register-backed readiness block (see imxrt1180_periphrdy). */
+static void imxrt1180_add_rdy(IMXRT1180State *s, const char *name, hwaddr base,
+                              uint32_t size)
+{
+    DeviceState *d = qdev_new(TYPE_IMXRT1180_PERIPHRDY);
+    qdev_prop_set_uint32(d, "mmsize", size);
+    object_property_add_child(OBJECT(s), name, OBJECT(d));
+    sysbus_realize_and_unref(SYS_BUS_DEVICE(d), &error_fatal);
+    sysbus_mmio_map(SYS_BUS_DEVICE(d), 0, base);
 }
 
 static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
@@ -716,6 +728,22 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     }
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->vref), errp)) { return; }
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->vref), 0, 0x42E30000);
+
+    /*
+     * Register-accurate readiness blocks for peripherals whose data path is not
+     * modelled (config sticks + reads back; no transfers) -- SINC (Sigma-Delta),
+     * SPDIF, PDM (audio), SEMC (ext memory ctrl), I3C, USBNC (USB non-core).
+     */
+    imxrt1180_add_rdy(s, "sinc1", 0x42BF0000, 0x1000);
+    imxrt1180_add_rdy(s, "sinc2", 0x42C00000, 0x1000);
+    imxrt1180_add_rdy(s, "sinc3", 0x42C10000, 0x1000);
+    imxrt1180_add_rdy(s, "spdif", 0x42BA0000, 0x1000);
+    imxrt1180_add_rdy(s, "pdm",   0x42BE0000, 0x1000);
+    imxrt1180_add_rdy(s, "semc",  0x42910000, 0x1000);
+    imxrt1180_add_rdy(s, "i3c1",  0x44330000, 0x1000);
+    imxrt1180_add_rdy(s, "i3c2",  0x42520000, 0x1000);
+    imxrt1180_add_rdy(s, "usbnc1", 0x42C80200, 0x100);
+    imxrt1180_add_rdy(s, "usbnc2", 0x42C90200, 0x100);
 }
 
 static const Property imxrt1180_soc_properties[] = {
