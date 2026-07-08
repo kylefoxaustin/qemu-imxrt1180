@@ -502,3 +502,6 @@ config IMXRT1180_XBAR
 
 config IMXRT1180_MOTOR
     bool
+
+config IMXRT1180_TMR
+    bool

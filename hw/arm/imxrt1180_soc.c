@@ -121,6 +121,10 @@ static void imxrt1180_soc_instance_init(Object *obj)
     }
     object_initialize_child(obj, "xbar1", &s->xbar1, TYPE_IMXRT1180_XBAR);
     object_initialize_child(obj, "motor", &s->motor, TYPE_IMXRT1180_MOTOR);
+    for (int i = 0; i < IMXRT1180_NUM_TMR; i++) {
+        g_autofree char *tn = g_strdup_printf("tmr%d", i + 1);
+        object_initialize_child(obj, tn, &s->tmr[i], TYPE_IMXRT1180_TMR);
+    }
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
         g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
         object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
@@ -640,6 +644,18 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     s->motor.adc_c = &s->adc[1];
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->motor), errp)) {
         return;
+    }
+
+    /* QuadTimer TMR1..8 — 4-channel 16-bit timers. */
+    static const unsigned tmr_irq[IMXRT1180_NUM_TMR] = { 0, 233, 164, 151, 4, 5, 6, 7 };
+    for (int i = 0; i < IMXRT1180_NUM_TMR; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->tmr[i]), errp)) {
+            return;
+        }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->tmr[i]), 0,
+                        IMXRT1180_TMR1_BASE + (hwaddr)i * 0x10000);
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->tmr[i]), 0,
+                           qdev_get_gpio_in(m33, tmr_irq[i]));
     }
 }
 
