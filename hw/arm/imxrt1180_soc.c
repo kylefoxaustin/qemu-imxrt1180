@@ -125,6 +125,18 @@ static void imxrt1180_soc_instance_init(Object *obj)
         g_autofree char *tn = g_strdup_printf("tmr%d", i + 1);
         object_initialize_child(obj, tn, &s->tmr[i], TYPE_IMXRT1180_TMR);
     }
+    for (int i = 0; i < IMXRT1180_NUM_LPTMR; i++) {
+        g_autofree char *n = g_strdup_printf("lptmr%d", i + 1);
+        object_initialize_child(obj, n, &s->lptmr[i], TYPE_IMXRT1180_LPTMR);
+    }
+    for (int i = 0; i < IMXRT1180_NUM_GPT; i++) {
+        g_autofree char *n = g_strdup_printf("gpt%d", i + 1);
+        object_initialize_child(obj, n, &s->gpt[i], TYPE_IMXRT1180_GPT);
+    }
+    for (int i = 0; i < IMXRT1180_NUM_TPM; i++) {
+        g_autofree char *n = g_strdup_printf("tpm%d", i + 1);
+        object_initialize_child(obj, n, &s->tpm[i], TYPE_IMXRT1180_TPM);
+    }
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
         g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
         object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
@@ -656,6 +668,30 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
                         IMXRT1180_TMR1_BASE + (hwaddr)i * 0x10000);
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->tmr[i]), 0,
                            qdev_get_gpio_in(m33, tmr_irq[i]));
+    }
+
+    /* LPTMR1..3, GPT1..2, TPM1..6 — low-power / general / PWM timers. */
+    static const struct { hwaddr base; unsigned irq; } lptmr_cfg[IMXRT1180_NUM_LPTMR] = {
+        { 0x44300000, 18 }, { 0x424D0000, 67 }, { 0x42CD0000, 150 } };
+    for (int i = 0; i < IMXRT1180_NUM_LPTMR; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->lptmr[i]), errp)) { return; }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->lptmr[i]), 0, lptmr_cfg[i].base);
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->lptmr[i]), 0, qdev_get_gpio_in(m33, lptmr_cfg[i].irq));
+    }
+    static const struct { hwaddr base; unsigned irq; } gpt_cfg[IMXRT1180_NUM_GPT] = {
+        { 0x446C0000, 209 }, { 0x42EC0000, 210 } };
+    for (int i = 0; i < IMXRT1180_NUM_GPT; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->gpt[i]), errp)) { return; }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->gpt[i]), 0, gpt_cfg[i].base);
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->gpt[i]), 0, qdev_get_gpio_in(m33, gpt_cfg[i].irq));
+    }
+    static const struct { hwaddr base; unsigned irq; } tpm_cfg[IMXRT1180_NUM_TPM] = {
+        { 0x44310000, 36 }, { 0x44320000, 37 }, { 0x424E0000, 75 },
+        { 0x424F0000, 76 }, { 0x42500000, 77 }, { 0x42510000, 78 } };
+    for (int i = 0; i < IMXRT1180_NUM_TPM; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->tpm[i]), errp)) { return; }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->tpm[i]), 0, tpm_cfg[i].base);
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->tpm[i]), 0, qdev_get_gpio_in(m33, tpm_cfg[i].irq));
     }
 }
 

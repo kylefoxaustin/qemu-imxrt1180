@@ -39,6 +39,9 @@
 #include "hw/misc/imxrt1180_xbar.h"
 #include "hw/misc/imxrt1180_motor.h"
 #include "hw/timer/imxrt1180_tmr.h"
+#include "hw/timer/imxrt1180_lptmr.h"
+#include "hw/timer/imxrt1180_gpt.h"
+#include "hw/timer/imxrt1180_tpm.h"
 #include "hw/gpio/imxrt1180_rgpio.h"
 #include "hw/core/clock.h"
 #include "qom/object.h"
@@ -159,6 +162,9 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 #define IMXRT1180_XBAR1_BASE      0x42750000
 #define IMXRT1180_NUM_TMR         8       /* QuadTimer TMR1..8 @0x42690000 + i*0x10000 */
 #define IMXRT1180_TMR1_BASE       0x42690000
+#define IMXRT1180_NUM_LPTMR       3       /* LPTMR1..3 */
+#define IMXRT1180_NUM_GPT         2       /* GPT1..2   */
+#define IMXRT1180_NUM_TPM         6       /* TPM1..6   */
 /* XBAR1 signal indices (from the CMSIS xbar_input/output_signal_t enums). */
 #define IMXRT1180_XBAR1_IN_PWM1_TRIG0   74   /* Flexpwm1 Pwm(sm) OutTrig0 = 74+2*sm */
 #define IMXRT1180_XBAR1_OUT_ADC_HWTRIG0 140  /* Adc12HwTrig0..7 = 140..147          */
@@ -240,6 +246,9 @@ struct IMXRT1180State {
     IMXRT1180XBARState   xbar1;                           /* signal crossbar      */
     IMXRT1180MotorState  motor;                           /* virtual-motor plant  */
     IMXRT1180TMRState    tmr[IMXRT1180_NUM_TMR];          /* QuadTimer TMR1..8    */
+    IMXRT1180LPTMRState  lptmr[IMXRT1180_NUM_LPTMR];      /* LPTMR1..3            */
+    IMXRT1180GPTState    gpt[IMXRT1180_NUM_GPT];          /* GPT1..2              */
+    IMXRT1180TPMState    tpm[IMXRT1180_NUM_TPM];          /* TPM1..6              */
     MemoryRegion         cm7_tcm;              /* M7 TCM (system view @0x303C…)*/
 
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */

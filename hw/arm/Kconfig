@@ -835,6 +835,9 @@ config IMXRT1180_SOC
     select IMXRT1180_XBAR
     select IMXRT1180_MOTOR
     select IMXRT1180_TMR
+    select IMXRT1180_TPM
+    select IMXRT1180_GPT
+    select IMXRT1180_LPTMR
     select FXLS8974
 
 config MIMXRT1180_EVK
