@@ -48,6 +48,19 @@ static uint32_t imxrt1180_anadig_status(hwaddr offset, uint32_t v)
     switch (offset) {
     case 0x4320:                   /* OSC_24M_CTRL: 24M OSC always stable */
         return v | OSC_24M_STABLE;
+    /*
+     * TMPSNS temperature sensor (aliased into the ANADIG_TEMPSENSOR window).
+     * The fsl_tempsensor driver derives the 25C calibration reference s_Ts25c
+     * from TEMPSNS_OTP_TRIM_VALUE.TEMP_VAL (bits 21:10) and asserts the alarm
+     * code it computes is >= 0 -- a zero trim makes that go negative.  Report a
+     * plausible factory trim (code 1900), and make STATUS0 read conversion-done
+     * (FINISH) with the same 1900 code so GetCurrentTemperature() resolves to
+     * ~25 C (measured code == calibration code => exactly 25 C by construction).
+     */
+    case 0x4530:                   /* TEMPSNS_OTP_TRIM_VALUE: TEMP_VAL=1900 */
+        return 1900u << 10;
+    case 0x45D0:                   /* TMPSNS STATUS0 (+0x4580+0x50): FINISH|1900 */
+        return 0x10000u | 1900u;
     case 0x4000:                   /* ARM_PLL_CTRL   */
     case 0x4010:                   /* SYS_PLL3_CTRL  */
     case 0x4040:                   /* SYS_PLL2_CTRL  */
