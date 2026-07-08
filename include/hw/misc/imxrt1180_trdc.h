@@ -12,7 +12,14 @@
 #define TYPE_IMXRT1180_TRDC "imxrt1180-trdc"
 OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180TRDCState, IMXRT1180_TRDC)
 
-#define IMXRT1180_TRDC_SIZE 0x1000
+/*
+ * The TRDC aperture spans the control block plus the MBC (memory block checker)
+ * and MRC (memory region checker) managed-region descriptors, which sit well
+ * above the base (e.g. MRC region descriptors at +0x14000).  fsl_trdc writes a
+ * descriptor then asserts the readback matches, so the whole aperture must be
+ * register-backed -- size it to cover it.
+ */
+#define IMXRT1180_TRDC_SIZE 0x20000
 
 struct IMXRT1180TRDCState {
     /*< private >*/
