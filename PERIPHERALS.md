@@ -154,7 +154,22 @@ Known gaps (honest — firmware ran and reported these):
   read 0 — the boot config leaves the audio PLL down in the RAM build) **plus**
   the ASRC sample-rate-converter data path and the WM8962 codec. An audio
   subsystem, not a point fix — not faked.
-- **cache** (self-test fail): XCACHE is a functional no-op; the example's
-  invalidate/coherency self-check expects real cache behaviour.
-- **mecc** (self-test fail): MECC ECC error-*injection* self-test needs a real
-  ECC model.
+- **cache** (self-test fail — *documented QEMU architectural limitation, WONTFIX*):
+  the XCACHE example demonstrates cache *incoherence* — CPU caches a value, eDMA
+  overwrites physical RAM behind it, and the test proves the CPU read the stale
+  cached copy until `DCACHE_InvalidateByRange`. QEMU/TCG has no guest-visible CPU
+  data cache (memory is always coherent), so there is never stale data and the
+  "was it stale?" branch is never taken → the demo reports failure. Fixing it
+  would require modelling the Cortex-M33 L1 D-cache inside QEMU's CPU core, which
+  QEMU deliberately does not do. **This does not affect real firmware:**
+  `DCACHE_Clean/Invalidate` are harmless no-ops on coherent memory, so a
+  customer's cache-managed DMA driver works correctly — only this
+  incoherence-*demonstration* self-test cannot pass. Not chased by design.
+- **mecc** (self-test fail — *optional, low priority*): the MECC example injects
+  an OCRAM ECC error and checks the controller detects/corrects it and fires the
+  SingleError IRQ. QEMU's OCRAM is plain RAM with no ECC, so injection is inert.
+  Modellable (promote the readiness block to a memory-controller that sits in the
+  OCRAM path: compute ECC on write, honour the injection registers on read, latch
+  syndrome/address + raise the IRQ) — ~a day — but it is a RAS fault-injection
+  diagnostic most firmware never exercises. Left as a readiness block; revisit
+  only if ECC fault-injection becomes a user requirement.
