@@ -12,6 +12,7 @@
 #include "qemu/units.h"
 #include "qapi/error.h"
 #include "hw/arm/imxrt1180_soc.h"
+#include "net/net.h"
 #include "hw/core/qdev-properties.h"
 #include "hw/core/qdev-properties-system.h" /* qdev_prop_set_chr */
 #include "hw/core/qdev-clock.h"
@@ -319,6 +320,7 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
      * endpoint path (IERB/PCI/capability registers, EMDIO+PHY, TX->RX BD
      * loopback) exercised by the netc_txrx_transfer example.
      */
+    qemu_configure_nic_device(DEVICE(&s->netc), true, NULL);
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->netc), errp)) {
         return;
     }

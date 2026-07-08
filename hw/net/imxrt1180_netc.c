@@ -28,6 +28,8 @@
 #include "system/address-spaces.h"
 #include "exec/memattrs.h"
 #include "qemu/bswap.h"
+#include "net/net.h"
+#include "hw/core/qdev-properties.h"
 #include "migration/vmstate.h"
 
 /* ---- Region-relative block offsets (base 0x6000_0000) -------------------- */
@@ -70,6 +72,7 @@
 #define PHY_ID1_VAL        0x001Cu
 #define PHY_ID2_VAL        0xC816u
 #define PHY_BMCR_RESET     0x8000u
+#define PHY_BMCR_LOOPBACK  0x4000u   /* BMCR bit14: PHY local loopback */
 /* BMSR: link-up (0x4) + auto-neg-complete (0x20) + capability bits. */
 #define PHY_BMSR_VAL       0x782Du
 
@@ -239,12 +242,44 @@ static void netc_do_tx(IMXRT1180NETCState *s)
         wb = cpu_to_le32(TXBD_WB_WRITTEN);       /* written=1, status=success */
         dma_memory_write(s->dma_as, bd + 8, &wb, 4, MEMTXATTRS_UNSPECIFIED);
 
-        netc_deliver_rx(s, frame, flen);
+        if (s->phy_regs[0] & PHY_BMCR_LOOPBACK) {
+            /* PHY local loopback: the frame U-turns back into our own RX ring
+             * (this is what the SDK netc_txrx_transfer example relies on). */
+            netc_deliver_rx(s, frame, flen);
+        } else {
+            /* Normal operation: put the frame on the wire (the netdev). */
+            qemu_send_packet(qemu_get_queue(s->nic), frame, flen);
+        }
         cir = (cir + 1) % tlen;
     }
     netc_backing_write(s, R_TBCIR, cir, 4);
     netc_emit_msix(s, netc_reg(s, R_SIMSITRVR0));
 }
+
+/* ---- Ethernet backend (netdev) ------------------------------------------ */
+static bool netc_can_receive(NetClientState *nc)
+{
+    IMXRT1180NETCState *s = qemu_get_nic_opaque(nc);
+    /* Ready once the RX ring is configured with at least one BD. */
+    return (netc_reg(s, R_RBLENR) & BDR_LEN_MASK) != 0;
+}
+
+static ssize_t netc_receive(NetClientState *nc, const uint8_t *buf, size_t size)
+{
+    IMXRT1180NETCState *s = qemu_get_nic_opaque(nc);
+    uint32_t len = size > NETC_FRAME_MAX ? NETC_FRAME_MAX : (uint32_t)size;
+
+    /* Inbound frame from the wire -> into the RX ring (+ RX MSI-X). */
+    netc_deliver_rx(s, buf, len);
+    return size;
+}
+
+static NetClientInfo netc_net_info = {
+    .type = NET_CLIENT_DRIVER_NIC,
+    .size = sizeof(NICState),
+    .can_receive = netc_can_receive,
+    .receive = netc_receive,
+};
 
 static uint64_t netc_read(void *opaque, hwaddr off, unsigned size)
 {
@@ -325,6 +360,12 @@ static void netc_realize(DeviceState *dev, Error **errp)
     memory_region_init_io(&s->iomem, OBJECT(s), &netc_ops, s,
                           TYPE_IMXRT1180_NETC, IMXRT1180_NETC_SIZE);
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
+
+    qemu_macaddr_default_if_unset(&s->conf.macaddr);
+    s->nic = qemu_new_nic(&netc_net_info, &s->conf,
+                          object_get_typename(OBJECT(dev)), dev->id,
+                          &dev->mem_reentrancy_guard, s);
+    qemu_format_nic_info_str(qemu_get_queue(s->nic), s->conf.macaddr.a);
 }
 
 static void netc_unrealize(DeviceState *dev)
@@ -344,6 +385,10 @@ static const VMStateDescription vmstate_netc = {
     },
 };
 
+static const Property netc_properties[] = {
+    DEFINE_NIC_PROPERTIES(IMXRT1180NETCState, conf),
+};
+
 static void netc_class_init(ObjectClass *klass, const void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
@@ -351,6 +396,7 @@ static void netc_class_init(ObjectClass *klass, const void *data)
     dc->unrealize = netc_unrealize;
     device_class_set_legacy_reset(dc, netc_reset);
     dc->vmsd = &vmstate_netc;
+    device_class_set_props(dc, netc_properties);
 }
 
 static const TypeInfo netc_types[] = {

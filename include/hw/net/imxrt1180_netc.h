@@ -13,6 +13,7 @@
 #define HW_NET_IMXRT1180_NETC_H
 
 #include "hw/core/sysbus.h"
+#include "net/net.h"
 #include "qom/object.h"
 
 #define TYPE_IMXRT1180_NETC "imxrt1180-netc"
@@ -29,6 +30,11 @@ struct IMXRT1180NETCState {
     MemoryRegion iomem;
     AddressSpace *dma_as;      /* system memory, for BD/frame DMA */
     uint8_t *backing;          /* flat RW register store over the region */
+
+    /* L2 Ethernet backend: TX egresses here (unless the PHY is in local
+     * loopback), and inbound frames are delivered into the RX ring. */
+    NICState *nic;
+    NICConf conf;
 
     /* EMDIO / behavioural PHY responder */
     uint32_t mdio_reg;         /* PHY register addressed by the last EMDIO_CTL */
