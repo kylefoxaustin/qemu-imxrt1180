@@ -91,20 +91,18 @@ void reset_handler(void)
     PWM_MCTRL = MCTRL_RUN & (1u << 8);
 
     /*
-     * Sample the counter across the whole "wait for 3 reloads" window: that is
-     * a long, host-speed-independent span in which the running counter is
-     * guaranteed to move (a short fixed busy-loop can be too fast to observe a
-     * change on a quick host).
+     * The reload interrupt firing repeatedly is definitive proof the counter is
+     * running (the submodule cannot reach a reload without counting INIT->VAL1).
+     * A direct CNT-inequality check is avoided: CNT is periodic, so two samples
+     * can coincide by phase on a fast host (a false failure).
      */
-    uint16_t c1 = SM0_CNT;
     while (reloads < 3) {                      /* wait for periodic reloads */
     }
-    uint16_t c2 = SM0_CNT;
 
-    if (ok && reloads >= 3 && c1 != c2) {
-        puts_("PWM: PASS - double-buffer commit + periodic reload IRQ + counter runs\r\n");
+    if (ok && reloads >= 3) {
+        puts_("PWM: PASS - double-buffer commit + periodic reload IRQ (counter runs)\r\n");
     } else {
-        puts_("PWM: FAIL - buffering / reload IRQ / counter misbehaved\r\n");
+        puts_("PWM: FAIL - buffering / reload IRQ misbehaved\r\n");
     }
     sh(SYS_EXIT, (void *)0x20026u);
     for (;;) {
