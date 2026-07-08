@@ -506,6 +506,15 @@ config IMXRT1180_MOTOR
 config IMXRT1180_TMR
     bool
 
+config IMXRT1180_VREF
+    bool
+
+config IMXRT1180_CMP
+    bool
+
+config IMXRT1180_SEMA42
+    bool
+
 config IMXRT1180_TPM
     bool
 

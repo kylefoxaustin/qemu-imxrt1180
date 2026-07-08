@@ -137,6 +137,15 @@ static void imxrt1180_soc_instance_init(Object *obj)
         g_autofree char *n = g_strdup_printf("tpm%d", i + 1);
         object_initialize_child(obj, n, &s->tpm[i], TYPE_IMXRT1180_TPM);
     }
+    for (int i = 0; i < IMXRT1180_NUM_SEMA42; i++) {
+        g_autofree char *n = g_strdup_printf("sema%d", i + 1);
+        object_initialize_child(obj, n, &s->sema42[i], TYPE_IMXRT1180_SEMA42);
+    }
+    for (int i = 0; i < IMXRT1180_NUM_CMP; i++) {
+        g_autofree char *n = g_strdup_printf("cmp%d", i + 1);
+        object_initialize_child(obj, n, &s->cmp[i], TYPE_IMXRT1180_CMP);
+    }
+    object_initialize_child(obj, "vref", &s->vref, TYPE_IMXRT1180_VREF);
     for (int i = 0; i < IMXRT1180_NUM_TRDC; i++) {
         g_autofree char *tname = g_strdup_printf("trdc%d", i + 1);
         object_initialize_child(obj, tname, &s->trdc[i], TYPE_IMXRT1180_TRDC);
@@ -693,6 +702,20 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         sysbus_mmio_map(SYS_BUS_DEVICE(&s->tpm[i]), 0, tpm_cfg[i].base);
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->tpm[i]), 0, qdev_get_gpio_in(m33, tpm_cfg[i].irq));
     }
+
+    /* SEMA1..2 (hardware semaphores), CMP1..4 (comparators), VREF. */
+    static const hwaddr sema_base[IMXRT1180_NUM_SEMA42] = { 0x44260000, 0x42450000 };
+    for (int i = 0; i < IMXRT1180_NUM_SEMA42; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->sema42[i]), errp)) { return; }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->sema42[i]), 0, sema_base[i]);
+    }
+    for (int i = 0; i < IMXRT1180_NUM_CMP; i++) {
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->cmp[i]), errp)) { return; }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->cmp[i]), 0, 0x42DC0000 + (hwaddr)i * 0x10000);
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->cmp[i]), 0, qdev_get_gpio_in(m33, 200 + i));
+    }
+    if (!sysbus_realize(SYS_BUS_DEVICE(&s->vref), errp)) { return; }
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->vref), 0, 0x42E30000);
 }
 
 static const Property imxrt1180_soc_properties[] = {
