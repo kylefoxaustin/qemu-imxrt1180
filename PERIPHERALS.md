@@ -147,8 +147,13 @@ the whole corpus); GPT `CR.SWR` self-clear + TPM `CONTROLS[]` backing (fsl-audit
 TMPSNS calibration → `tempsensor` reports 25.0 C.
 
 Known gaps (honest — firmware ran and reported these):
-- **netc** (HANG): the TSN Gigabit switch is not modelled — a deferred standalone
-  subsystem (see `ref-rt1180-tsn-stack`).
+- **netc** ✅ (ENETC endpoint): the NETC PCIe Ethernet block is modelled at
+  0x6000_0000 — IERB/PCI/capability register semantics, a behavioural EMDIO +
+  RTL8201 PHY (link-up), and a TX->RX buffer-descriptor MAC loopback with MSI-X
+  completion via the MSGINTR router. NXP's netc_txrx_transfer runs end-to-end
+  (20/20 frames, byte-exact). NOT yet modelled: the L2 switch path (SW0_*, FDB),
+  multiple/virtual Station Interfaces, and the PTP 1588 timer — follow-on work
+  toward the full TSN stack (see `ref-rt1180-tsn-stack`).
 - **asrc** (assert): needs the Audio-PLL clock tree brought up (SAI1 root reads
   576 kHz vs the 1.536 MHz the driver requires; `AUDIO_PLL.CTRL0/NUMER/DENOM`
   read 0 — the boot config leaves the audio PLL down in the RAM build) **plus**
