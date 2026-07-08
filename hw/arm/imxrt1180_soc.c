@@ -148,6 +148,10 @@ static void imxrt1180_soc_instance_init(Object *obj)
     }
     object_initialize_child(obj, "vref", &s->vref, TYPE_IMXRT1180_VREF);
     object_initialize_child(obj, "netc", &s->netc, TYPE_IMXRT1180_NETC);
+    for (int i = 0; i < 6; i++) {
+        g_autofree char *mn = g_strdup_printf("msgintr%d", i + 1);
+        object_initialize_child(obj, mn, &s->msgintr[i], TYPE_IMXRT1180_MSGINTR);
+    }
     for (int i = 0; i < IMXRT1180_NUM_USDHC; i++) {
         g_autofree char *n = g_strdup_printf("usdhc%d", i + 1);
         object_initialize_child(obj, n, &s->usdhc[i], TYPE_IMX_USDHC);
@@ -771,8 +775,14 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     imxrt1180_add_rdy(s, "usbnc1", 0x42C80200, 0x100);
     imxrt1180_add_rdy(s, "usbnc2", 0x42C90200, 0x100);
     for (int i = 0; i < 6; i++) {          /* MSGINTR1..6 message-interrupt routers */
-        g_autofree char *n = g_strdup_printf("msgintr%d", i + 1);
-        imxrt1180_add_rdy(s, n, 0x428A0000 + (hwaddr)i * 0x10000, 0x1000);
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->msgintr[i]), errp)) {
+            return;
+        }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->msgintr[i]), 0,
+                        0x428A0000 + (hwaddr)i * 0x10000);
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->msgintr[i]), 0,
+                           qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
+                                            218 + i));   /* MSGINTR1..6 = 218..223 */
     }
     imxrt1180_add_rdy(s, "flexio1", 0x425C0000, 0x1000);  /* flexible I/O engine */
     imxrt1180_add_rdy(s, "flexio2", 0x425D0000, 0x1000);

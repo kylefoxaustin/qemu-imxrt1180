@@ -46,6 +46,7 @@
 #include "hw/misc/imxrt1180_cmp.h"
 #include "hw/misc/imxrt1180_vref.h"
 #include "hw/net/imxrt1180_netc.h"
+#include "hw/intc/imxrt1180_msgintr.h"
 #include "hw/sd/sdhci.h"
 #include "hw/gpio/imxrt1180_rgpio.h"
 #include "hw/core/clock.h"
@@ -261,6 +262,7 @@ struct IMXRT1180State {
     IMXRT1180CmpState    cmp[IMXRT1180_NUM_CMP];          /* CMP1..4 comparators  */
     IMXRT1180VrefState   vref;                            /* voltage reference    */
     IMXRT1180NETCState   netc;                            /* PCIe Ethernet (ENETC) */
+    IMXRT1180MSGINTRState msgintr[6];                     /* message-interrupt routers */
     SDHCIState           usdhc[IMXRT1180_NUM_USDHC];      /* SD/MMC host (imx-usdhc)*/
     MemoryRegion         cm7_tcm;              /* M7 TCM (system view @0x303C…)*/
 

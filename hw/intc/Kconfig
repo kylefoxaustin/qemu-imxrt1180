@@ -117,3 +117,6 @@ config LOONGARCH_EXTIOI
 
 config LOONGARCH_DINTC
     bool
+
+config IMXRT1180_MSGINTR
+    bool
