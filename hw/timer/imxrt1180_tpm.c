@@ -59,6 +59,11 @@ static uint64_t tpm_read(void *opaque, hwaddr off, unsigned size)
     case R_STATUS: return s->status;
     case R_CNT: return (s->mod & 0xFFFF) - (uint16_t)ptimer_get_count(s->timer);
     }
+    /* CONTROLS[] channel regs + others: register-backed so read-back matches
+     * (TPM_SetupPwm polls `while (cnv != base->CONTROLS[].CnV)`). */
+    if (off + 4 <= sizeof(s->regs)) {
+        return s->regs[off / 4];
+    }
     return 0;
 }
 static void tpm_write(void *opaque, hwaddr off, uint64_t v, unsigned size)
@@ -75,6 +80,9 @@ static void tpm_write(void *opaque, hwaddr off, uint64_t v, unsigned size)
     case R_CNT: tpm_run(s); break;                          /* any write resets count */
     case R_MOD: s->mod = v; if (s->sc & SC_CMOD) { tpm_run(s); } break;
     case R_STATUS: s->status &= ~(uint32_t)v; break;        /* W1C */
+    default:
+        if (off + 4 <= sizeof(s->regs)) { s->regs[off / 4] = v; }
+        break;
     }
 }
 static const MemoryRegionOps tpm_ops = {
@@ -85,6 +93,7 @@ static void tpm_reset(DeviceState *dev)
 {
     IMXRT1180TPMState *s = IMXRT1180_TPM(dev);
     s->sc = s->mod = s->status = 0;
+    memset(s->regs, 0, sizeof(s->regs));
     ptimer_transaction_begin(s->timer); ptimer_stop(s->timer); ptimer_transaction_commit(s->timer);
     qemu_set_irq(s->irq, 0);
 }
@@ -101,7 +110,9 @@ static const VMStateDescription vmstate_tpm = {
     .name = TYPE_IMXRT1180_TPM, .version_id = 1, .minimum_version_id = 1,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32(sc, IMXRT1180TPMState), VMSTATE_UINT32(mod, IMXRT1180TPMState),
-        VMSTATE_UINT32(status, IMXRT1180TPMState), VMSTATE_PTIMER(timer, IMXRT1180TPMState),
+        VMSTATE_UINT32(status, IMXRT1180TPMState),
+        VMSTATE_UINT32_ARRAY(regs, IMXRT1180TPMState, 0x100/4),
+        VMSTATE_PTIMER(timer, IMXRT1180TPMState),
         VMSTATE_END_OF_LIST() } };
 static void tpm_class_init(ObjectClass *k, const void *d)
 {

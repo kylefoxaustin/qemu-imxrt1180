@@ -21,6 +21,7 @@
 #define R_OCR1 0x10
 #define R_CNT 0x24
 #define CR_EN 0x1
+#define CR_SWR 0x8000        /* software reset (self-clearing) */
 #define SR_OF1 0x1
 #define IR_OF1IE 0x1
 #define GPT_CLK_DEFAULT 24000000u
@@ -64,7 +65,16 @@ static void gpt_write(void *opaque, hwaddr off, uint64_t v, unsigned size)
 {
     IMXRT1180GPTState *s = opaque;
     switch (off) {
-    case R_CR: { bool was = s->cr & CR_EN; s->cr = v; if ((v & CR_EN) != was) { gpt_run(s); } break; }
+    case R_CR:
+        if (v & CR_SWR) {                 /* GPT_SoftwareReset: reset + self-clear */
+            s->pr = s->sr = s->ir = s->ocr1 = 0;
+            gpt_run(s);
+            s->cr = v & ~CR_SWR;
+            gpt_update(s);
+            break;
+        }
+        { bool was = s->cr & CR_EN; s->cr = v; if ((v & CR_EN) != was) { gpt_run(s); } }
+        break;
     case R_PR: s->pr = v; if (s->cr & CR_EN) { gpt_run(s); } break;
     case R_SR: s->sr &= ~(uint32_t)v; gpt_update(s); break;   /* W1C */
     case R_IR: s->ir = v; gpt_update(s); break;

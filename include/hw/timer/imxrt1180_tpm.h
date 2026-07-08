@@ -15,6 +15,7 @@ struct IMXRT1180TPMState {
     qemu_irq irq;
     ptimer_state *timer;
     uint32_t sc, mod, status;
+    uint32_t regs[0x100 / 4];   /* backing for CONTROLS[] etc. (read-back match) */
     uint32_t clk;
 };
 #endif
