@@ -28,7 +28,7 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 | **eDMA** (enhanced DMA) | eDMA3 (32ch), eDMA4 (64ch) | 0x44000000, 0x42000000 | ✅ functional | TCD-driven mem-to-mem (SADDR/DADDR/SOFF/DOFF/ATTR/NBYTES/CITER); START triggers a real address_space transfer + DONE + INTMAJOR; per-ch IRQ (eDMA3 95+, eDMA4 grouped 128+); adapted from the MCX eDMA |
 | **SAI** (I2S audio) | 1..4 | 0x443B0000, 0x42BB0000, 0x42BC0000, 0x42BD0000 | ◐ bring-up | TCSR/RCSR SR+FR resets self-clear, TX FIFO advertises space (FWF), RX empty; init handshake settles; no audio streaming (flagged); IRQ 45/198/199/154; adapted from the MCX SAI |
 | **SRC + BLK_CTRL_S_AONMIX** | 1 | 0x44460000 / 0x444F0000 | ✅ functional | M7 boot-vector (M7_CFG) + release (SCR.BT_RELEASE_M7), bottom-half start |
-| **FlexSPI** (controller) | 1, 2 | 0x425E0000, 0x445E0000 | ◐ readiness | STS0 idle + MCR0 self-reset; no flash command engine / XIP (flagged) |
+| **FlexSPI** (controller) | 1, 2 | 0x425E0000, 0x445E0000 | ● functional | LUT-driven IP command engine over SSI + AHB/XIP window; real `m25p80` NOR on FlexSPI1 (16 MiB, `-drive if=mtd`). Storage-write-verified: erase→program→read-back byte-exact, and program-without-erase correctly only clears bits. FlexSPI2 has no flash on the EVK, so its AHB window is deliberately unmapped |
 | **RGPIO** | 1..6 | 0x47400000, 0x4381/2/3/4/5 0000 | ✅ functional | PDOR/PSOR/PCOR/PTOR/PDDR/PDIR + per-pin qemu_irq out |
 | **TRDC** | 1..3 | 0x44270000, 0x42460000, 0x42810000 | ◐ config stub | HWCFG0 counts + per-master DACFG.NCM (fsl_trdc DAC setup); byte-access safe; no access enforcement (flagged) |
 | **USBPHY** | 1..2 | 0x42CA0000, 0x42CB0000 | ✅ functional | USB-HS PHY PLL: RW/SET/CLR/TOG register bank; PLL_SIC.PLL_LOCK reported once powered (instant lock, like ANADIG); no UTMI/charger-detect |
@@ -138,9 +138,18 @@ enumeration.
 Built 47 representative `examples/driver_examples/*` from source (west/armgcc,
 `--config debug`/RAM) and ran each on the model. **33 ran correctly** against the
 unmodified `fsl_*` drivers, covering every modelled peripheral: eDMA3/4, EQDC,
-FlexCAN, FlexIO, FlexSPI, GPT, I3C, LPADC, LPI2C, LPIT, LPSPI, LPTMR, LPUART,
+FlexCAN, FlexIO, GPT, I3C, LPADC, LPI2C, LPIT, LPSPI, LPTMR, LPUART,
 PDM, RGPIO, RTWDOG, S3MU, SAI, SEMC, SINC, SPDIF, TPM, eFlexPWM. Harness:
 `tools/sdk-run.sh`.
+
+**Correction (2026-07-11):** an earlier version of this list also named *FlexSPI*.
+That was wrong for the serial-NOR path and is retracted. `flexspi/nor/polling_transfer`
+did **not** run — it hung in `flexspi_nor_get_vendor_id`, because the controller was
+a readiness stub with no IP command engine. It now genuinely passes (see the FlexSPI
+row above and `tests/imxrt1180-flexspi/run.sh`), but it was never validated at the
+time it was claimed. Flagging rather than quietly correcting: a peripheral listed as
+driver-validated when it wasn't is the same class of false green this repo exists to
+avoid.
 
 Fixes the sweep drove: TRDC aperture 0x1000→0x20000 (readback assert unblocked
 the whole corpus); GPT `CR.SWR` self-clear + TPM `CONTROLS[]` backing (fsl-audit);
