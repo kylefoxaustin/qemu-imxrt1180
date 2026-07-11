@@ -52,6 +52,38 @@
 #define CH_PHASE_A 5      /* ADC1 */
 #define CH_PHASE_B 6      /* ADC1 */
 #define CH_PHASE_C 2      /* ADC2 */
+#define CH_UDCB    4      /* ADC1 — DC-bus voltage (mc_pmsm: M1_ADC1_UDCB = 4) */
+
+/*
+ * DC-bus voltage sense.  Full scale of the EVK's divider is M1_U_DCB_MAX =
+ * 60.8 V (mc_pmsm m1_pmsm_appconfig.h), unipolar: code = V / 60.8 * 0xFFFF.
+ *
+ * This channel MUST be driven by the plant.  Left at the ADC's neutral
+ * mid-scale placeholder it reads 0x8000 -> 30.4 V, which is a *plausible* bus
+ * voltage (and, as it happens, just over the demo's 30.0 V overvoltage trip) --
+ * the dangerous kind of fake: an FOC loop normalises its duty cycles by U_DCB
+ * and runs its under/over-voltage protection off it, so a fabricated value has
+ * the loop regulating against, and protecting against, a number nothing
+ * measured.  Reporting the bus voltage the plant *actually applies* to the
+ * phases makes it a real measurement of the modelled system rather than a
+ * constant.
+ *
+ * (The bus is ideal/stiff: no sag under load, since that needs bus capacitance
+ * and inverter DC-link current.  Flagged as future work, not faked.)
+ */
+#define M_UDCB_FS  60.8   /* M1_U_DCB_MAX (V) — ADC full scale */
+
+static uint16_t voltage_to_code(double v)
+{
+    double code = (v / M_UDCB_FS) * 65535.0;
+
+    if (code < 0) {
+        code = 0;
+    } else if (code > 65535.0) {
+        code = 65535.0;
+    }
+    return (uint16_t)code;
+}
 
 static uint16_t current_to_code(double i)
 {
@@ -131,6 +163,9 @@ static void motor_step(void *opaque)
     if (s->adc_a) {
         imxrt1180_adc_set_channel_input(s->adc_a, CH_PHASE_A, current_to_code(ia));
         imxrt1180_adc_set_channel_input(s->adc_a, CH_PHASE_B, current_to_code(ib));
+        /* The bus voltage the plant actually drives the phases with. */
+        imxrt1180_adc_set_channel_input(s->adc_a, CH_UDCB,
+                                        voltage_to_code(M_VBUS));
     }
     if (s->adc_c) {
         imxrt1180_adc_set_channel_input(s->adc_c, CH_PHASE_C, current_to_code(ic));

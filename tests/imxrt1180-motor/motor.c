@@ -63,13 +63,38 @@ void (* const vt[])(void) = {
     [1] = reset_handler,
 };
 
-/* Read phase-B (channel 6) current code via a software-triggered conversion. */
-static uint32_t read_phaseB(void)
+/* Software-trigger one conversion of ADC1 channel `ch` and pop its result. */
+static uint32_t read_ch(unsigned ch)
 {
+    ADC_CMDL0 = ch;
+    ADC_CMDH0 = 0;
     ADC_SWTRIG = 1u;
     while ((ADC_FCTRL0 & 0x1Fu) == 0u) {
     }
     return ADC_RESFIFO0 & 0xFFFF;
+}
+
+/* Read phase-B (channel 6) current code via a software-triggered conversion. */
+static uint32_t read_phaseB(void)
+{
+    return read_ch(6);
+}
+
+/*
+ * DC-bus voltage sense (channel 4 = mc_pmsm's M1_ADC1_UDCB), full scale
+ * M1_U_DCB_MAX = 60.8 V.  This must be a REAL measurement of the bus the plant
+ * drives (24 V), not the ADC's un-driven mid-scale placeholder.  0x8000 would
+ * decode to 30.4 V -- a plausible-looking bus voltage that nothing measured,
+ * and one an FOC loop would happily normalise its duty cycles against and run
+ * its over/under-voltage protection off.  Guard against that regressing.
+ */
+#define UDCB_CH        4
+#define UDCB_FS_MV     60800            /* 60.8 V full scale, in mV */
+#define UDCB_EXPECT_MV 24000            /* the plant's bus voltage  */
+
+static uint32_t udcb_mv(void)
+{
+    return (read_ch(UDCB_CH) * UDCB_FS_MV) / 0xFFFFu;
 }
 
 void reset_handler(void)
@@ -119,8 +144,23 @@ void reset_handler(void)
     if (di < 0) { di = -di; }
     if (di < 1000 || di > 0x7000) { ok = 0; }      /* present but not railed */
 
+    /*
+     * DC-bus sense must report the plant's real bus (24 V +/- 1 V) -- and must
+     * NOT be the un-driven mid-scale placeholder (which decodes to 30.4 V).
+     */
+    int udcb_ok = 1;
+    uint32_t vbus = udcb_mv();
+    if (read_ch(UDCB_CH) == ADC_MID) { udcb_ok = 0; }   /* still a placeholder! */
+    if (vbus < UDCB_EXPECT_MV - 1000u || vbus > UDCB_EXPECT_MV + 1000u) {
+        udcb_ok = 0;
+    }
+    if (!udcb_ok) { ok = 0; }
+
     if (ok && pos >= 150 && pos <= 400) {
         puts_("MOTOR: PASS - dq PMSM aligned to the field + bounded phase current sensed\r\n");
+        puts_("MOTOR: PASS - DC-bus sense reads the plant's real 24V bus (not a placeholder)\r\n");
+    } else if (!udcb_ok) {
+        puts_("MOTOR: FAIL - DC-bus channel is not driven by the plant\r\n");
     } else {
         puts_("MOTOR: FAIL - plant did not close the loop\r\n");
     }
