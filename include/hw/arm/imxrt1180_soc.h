@@ -20,7 +20,7 @@
 #include "hw/misc/imxrt1180_anadig.h"
 #include "hw/misc/imxrt1180_rtwdog.h"
 #include "hw/misc/imxrt1180_s3mu.h"
-#include "hw/misc/imxrt1180_flexspi.h"
+#include "hw/ssi/imxrt1180_flexspi.h"
 #include "hw/misc/imxrt1180_ccm.h"
 #include "hw/misc/imxrt1180_src.h"
 #include "hw/misc/imxrt1180_trdc.h"
@@ -180,12 +180,14 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 
 /* FlexSPI1 controller registers (NS, WAKEUPMIX) — distinct from the XIP window. */
 #define IMXRT1180_FLEXSPI1_CTRL_BASE 0x425E0000
+#define IMXRT1180_FLEXSPI1_IRQ       55      /* CMSIS FLEXSPI1_IRQn */
 
 /* CCM — Clock Controller Module (AONMIX, NS). */
 #define IMXRT1180_CCM_BASE           0x44450000
 
 /* FlexSPI2 controller registers (NS, AONMIX). */
 #define IMXRT1180_FLEXSPI2_CTRL_BASE 0x445E0000
+#define IMXRT1180_FLEXSPI2_IRQ       56      /* CMSIS FLEXSPI2_IRQn */
 
 /* RGPIO1..6 controllers (NS). */
 #define IMXRT1180_NUM_RGPIO 6
@@ -271,7 +273,11 @@ struct IMXRT1180State {
     MemoryRegion sys_tcm;    /* DTCM  @ 0x20000000 */
     MemoryRegion ocram1;     /* OCRAM1 @ 0x20484000 */
     MemoryRegion ocram2;     /* OCRAM2 @ 0x20500000 */
-    MemoryRegion flexspi1;   /* FlexSPI1 NOR XIP @ 0x28000000 */
+    /*
+     * No MemoryRegion for the FlexSPI1 NOR XIP window: it is the FlexSPI
+     * controller's own AHB window (flexspi1_ctrl.ahb) backed by a real m25p80
+     * SPI-NOR, not RAM.  Only the secure alias of it lives here.
+     */
     MemoryRegion flexspi1_s_alias; /* secure alias @ 0x38000000 */
     MemoryRegion ext_ram;    /* external RAM @ 0x14000000 (Zephyr) */
     MemoryRegion periph_secure; /* TZ-M secure peripheral aperture @ 0x50000000 */

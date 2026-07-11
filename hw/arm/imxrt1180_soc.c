@@ -19,6 +19,8 @@
 #include "hw/misc/unimp.h"
 #include "hw/core/irq.h"             /* qemu_allocate_irqs */
 #include "hw/i2c/i2c.h"             /* i2c_slave_create_simple */
+#include "hw/ssi/ssi.h"             /* SSI_GPIO_CS */
+#include "system/blockdev.h"        /* drive_get, blk_by_legacy_dinfo */
 #include "hw/sensor/fxls8974.h"     /* TYPE_FXLS8974 */
 #include "hw/misc/imxrt1180_periphrdy.h"
 #include "system/address-spaces.h"   /* get_system_memory() */
@@ -231,16 +233,17 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     memory_region_add_subregion(system_memory, IMXRT1180_OCRAM2_BASE,
                                 &s->ocram2);
 
-    memory_region_init_ram(&s->flexspi1, OBJECT(dev), "imxrt1180.flexspi1-nor",
-                           IMXRT1180_FLEXSPI1_SIZE, &error_fatal);
-    memory_region_add_subregion(system_memory, IMXRT1180_FLEXSPI1_BASE,
-                                &s->flexspi1);
-    /* TZ-M secure alias of the FlexSPI NOR XIP window (secure M33 / Zephyr). */
-    memory_region_init_alias(&s->flexspi1_s_alias, OBJECT(dev),
-                             "imxrt1180.flexspi1-nor.s", &s->flexspi1, 0,
-                             IMXRT1180_FLEXSPI1_SIZE);
-    memory_region_add_subregion(system_memory, IMXRT1180_FLEXSPI1_S_BASE,
-                                &s->flexspi1_s_alias);
+    /*
+     * NOTE: the FlexSPI1 NOR XIP window (0x28000000) is NOT a memory region
+     * here.  It is the FlexSPI controller's AHB window, mapped in the device
+     * section below, with a real SPI-NOR (m25p80) behind it.  Backing it with
+     * RAM would let guest stores into flash address space simply land, which
+     * silently hides whatever the flash write path actually does -- and makes
+     * any firmware that programs flash "work" in the model while failing on
+     * silicon.  On silicon that window is read-only; programming goes through
+     * the FlexSPI IP command path.
+     */
+
     /* External RAM window (0x14000000) — Zephyr .data/.bss. */
     memory_region_init_ram(&s->ext_ram, OBJECT(dev), "imxrt1180.ext-ram",
                            IMXRT1180_EXTRAM_SIZE, &error_fatal);
@@ -378,12 +381,56 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     }
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->mu_rt_s3), 0, IMXRT1180_MU_RT_S3MU_BASE);
 
-    /* FlexSPI1 controller — reports idle so board-init config/poll completes. */
-    if (!sysbus_realize(SYS_BUS_DEVICE(&s->flexspi1_ctrl), errp)) {
-        return;
+    /*
+     * FlexSPI1 + the EVK's serial NOR flash.
+     *
+     * mmio 0 = control registers; mmio 1 = the AHB (XIP) window at 0x28000000,
+     * aliased secure at 0x38000000.  The flash itself is a real m25p80 SPI-NOR
+     * on the controller's SSI bus, so erase/program physics (erase-before-write,
+     * bits only 1->0, program-without-erase fails) come from QEMU's NOR model
+     * instead of being hand-rolled -- and a guest store into the XIP window is
+     * correctly a no-op rather than silently landing.
+     *
+     * The MIMXRT1180-EVK populates a Winbond W25Q128JW (16 MiB quad NOR), which
+     * QEMU's m25p80 does not model; is25wp128 is the closest part it does have
+     * -- same 16 MiB geometry, same 4 KiB/64 KiB erase and page-program command
+     * set.  Only the JEDEC vendor id differs (ISSI 0x9D vs Winbond 0xEF), which
+     * the SDK's flexspi_nor example prints but does not act on.  Back it with a
+     * real image using -drive if=mtd,format=raw,file=<flash.bin>.
+     */
+    {
+        SysBusDevice *fsbd = SYS_BUS_DEVICE(&s->flexspi1_ctrl);
+        DriveInfo *dinfo = drive_get(IF_MTD, 0, 0);
+        DeviceState *flash;
+
+        qdev_prop_set_uint32(DEVICE(&s->flexspi1_ctrl), "ahb-size",
+                             IMXRT1180_FLEXSPI1_SIZE);
+        if (!sysbus_realize(fsbd, errp)) {
+            return;
+        }
+        sysbus_mmio_map(fsbd, 0, IMXRT1180_FLEXSPI1_CTRL_BASE);
+        sysbus_mmio_map(fsbd, 1, IMXRT1180_FLEXSPI1_BASE);
+        sysbus_connect_irq(fsbd, 0,
+                           qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
+                                            IMXRT1180_FLEXSPI1_IRQ));
+
+        /* TZ-M secure alias of the XIP window (secure M33 / Zephyr). */
+        memory_region_init_alias(&s->flexspi1_s_alias, OBJECT(dev),
+                                 "imxrt1180.flexspi1-nor.s",
+                                 &s->flexspi1_ctrl.ahb, 0,
+                                 IMXRT1180_FLEXSPI1_SIZE);
+        memory_region_add_subregion(system_memory, IMXRT1180_FLEXSPI1_S_BASE,
+                                    &s->flexspi1_s_alias);
+
+        flash = qdev_new("is25wp128");
+        if (dinfo) {
+            qdev_prop_set_drive(flash, "drive", blk_by_legacy_dinfo(dinfo));
+        }
+        qdev_realize_and_unref(flash, BUS(s->flexspi1_ctrl.bus), &error_abort);
+        qdev_connect_gpio_out_named(DEVICE(&s->flexspi1_ctrl), "cs", 0,
+                                    qdev_get_gpio_in_named(flash, SSI_GPIO_CS,
+                                                           0));
     }
-    sysbus_mmio_map(SYS_BUS_DEVICE(&s->flexspi1_ctrl), 0,
-                    IMXRT1180_FLEXSPI1_CTRL_BASE);
 
     /* CCM — clock roots/gates report ready so the SDK clock code completes. */
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->ccm), errp)) {
@@ -391,12 +438,21 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     }
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->ccm), 0, IMXRT1180_CCM_BASE);
 
-    /* FlexSPI2 controller (same model as FlexSPI1). */
+    /*
+     * FlexSPI2 controller (same model).  Only the register window is mapped:
+     * the EVK populates no FlexSPI2 serial NOR (the second FlexSPI is wired to
+     * the HyperRAM/octal footprint), so there is no flash on its bus and its
+     * AHB window (0x04000000) is deliberately left unmapped rather than backed
+     * by an empty device that would return plausible-looking zeros.
+     */
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->flexspi2_ctrl), errp)) {
         return;
     }
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->flexspi2_ctrl), 0,
                     IMXRT1180_FLEXSPI2_CTRL_BASE);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->flexspi2_ctrl), 0,
+                       qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
+                                        IMXRT1180_FLEXSPI2_IRQ));
 
     /* RGPIO1..6 — functional GPIO (EVK user LED is RGPIO4[27]). */
     static const hwaddr rgpio_base[IMXRT1180_NUM_RGPIO] = {

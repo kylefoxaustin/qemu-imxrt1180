@@ -10,6 +10,10 @@ config IMXRT1180_LPSPI
     bool
     select SSI
 
+config IMXRT1180_FLEXSPI
+    bool
+    select SSI
+
 config SSI
     bool
 
