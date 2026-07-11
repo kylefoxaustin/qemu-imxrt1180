@@ -16,8 +16,20 @@
 #  2. SPEED -- the XIP window must be a rom_device, so reads/instruction fetches
 #     come from a RAM mirror and TCG can cache translations.  Backing it with an
 #     MMIO (init_io) window is functionally correct but ~100x slower, because
-#     every instruction fetch turns into an SPI read shifted over the SSI bus.
-#     A regression to that is silent apart from the clock, so we time it.
+#     QEMU refuses to CACHE a translation block on an MMIO code page (see
+#     accel/tcg/translator.c) and caps it at one instruction, so every fetch is a
+#     fresh translation + a fresh SPI read shifted over the SSI bus.  A regression
+#     to that still BOOTS and still PRINTS PASS -- its only signature is the wall
+#     clock, which no functional test looks at.  So we time it.
+#
+# THE BUDGET IS MEASURED, NOT GUESSED, AND IT IS NEGATIVE-TESTED.  Both paths were
+# timed on this 3,000,000-iteration in-place loop:
+#     rom_device (correct)      0.22 s
+#     init_io    (regressed)   25.2 s
+# and the 8s budget was verified to actually FAIL the regressed build (it reports
+# "XIP speed: FAIL ... regressed to MMIO", exit 1) while passing the correct one.
+# An unmeasured threshold is a decoration: a budget you never proved can fail is
+# a guard that cannot fail.  If you retune it, re-run both sides.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 set -u
