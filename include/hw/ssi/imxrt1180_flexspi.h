@@ -66,4 +66,13 @@ struct IMXRT1180FlexSPIState {
     Fifo8 tx;               /* bytes to program     (TFDR unpacks 4/word)  */
 };
 
+/*
+ * Program firmware into the attached NOR -- "flash the board".  The board loader
+ * uses this for image segments linked into the XIP window, so that -kernel of an
+ * XIP image means what it does on real hardware: the content is IN the flash,
+ * not merely visible in the memory-mapped view of it.
+ */
+void imxrt1180_flexspi_flash_program(IMXRT1180FlexSPIState *s, uint32_t off,
+                                     const uint8_t *buf, uint32_t len);
+
 #endif /* HW_SSI_IMXRT1180_FLEXSPI_H */

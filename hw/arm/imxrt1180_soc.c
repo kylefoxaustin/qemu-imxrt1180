@@ -439,12 +439,13 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->ccm), 0, IMXRT1180_CCM_BASE);
 
     /*
-     * FlexSPI2 controller (same model).  Only the register window is mapped:
-     * the EVK populates no FlexSPI2 serial NOR (the second FlexSPI is wired to
-     * the HyperRAM/octal footprint), so there is no flash on its bus and its
-     * AHB window (0x04000000) is deliberately left unmapped rather than backed
-     * by an empty device that would return plausible-looking zeros.
+     * FlexSPI2 controller (same model).  Only the register window exists: the
+     * EVK populates no FlexSPI2 serial NOR (the second FlexSPI is wired to the
+     * HyperRAM/octal footprint), so there is no flash on its bus.  ahb-size=0
+     * means no XIP window is created at all -- better than mapping an empty one
+     * that would hand the guest plausible-looking zeros.
      */
+    qdev_prop_set_uint32(DEVICE(&s->flexspi2_ctrl), "ahb-size", 0);
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->flexspi2_ctrl), errp)) {
         return;
     }

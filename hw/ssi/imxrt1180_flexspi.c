@@ -30,6 +30,27 @@
  * path actually does.  Erase/program physics -- erase-before-write, bits only
  * 1->0, program-without-erase fails -- come from m25p80, not from us.)
  *
+ * WHY THE XIP WINDOW IS A rom_device AND NOT init_io
+ * --------------------------------------------------
+ * The RT1180 is a crossover MCU: real firmware EXECUTES IN PLACE from this
+ * window.  An init_io window is functionally CORRECT -- TCG *can* fetch
+ * instructions through MMIO, and an XIP image really does run -- but it is far
+ * too slow to live with: an MMIO page's reads cannot be cached, so every
+ * instruction fetch becomes a fresh SPI read sequence shifted byte-by-byte over
+ * the SSI bus.  Measured, XIP image executing a 3,000,000-iteration loop in
+ * place out of the NOR:
+ *
+ *      init_io AHB window : 25.6 s
+ *      rom_device         :  0.22 s        (~116x)
+ *
+ * So the window is a rom_device: reads and instruction fetches go straight to
+ * a RAM mirror (fast, and TCG can cache translations), while stores are routed
+ * to our write op and refused.  The m25p80 remains the sole AUTHORITY for flash
+ * contents and physics; the mirror is just a coherent, executable view of it,
+ * re-synced from the flash after any IP command that modifies it and published
+ * with memory_region_flush_rom_device() so stale TBs are invalidated.  This is
+ * the same shape hw/block/pflash_cfi01.c uses.
+ *
  * PADS ARE NOT MODELLED.  QEMU's SSI bus shifts whole bytes, so 1/2/4/8-pad
  * (SDR) sequences all become the same byte stream; that is fine for NOR command
  * sequences, whose semantics do not depend on lane count.  DDR opcodes are not
@@ -109,13 +130,110 @@
 #define LUT_DUMMY_SDR   0x0c
 #define LUT_JUMP_ON_CS  0x1f
 
-#define FLASH_CMD_READ  0x03            /* AHB (XIP) reads use a plain 03h */
+#define FLASH_CMD_READ  0x03            /* mirror refills use a plain 03h read */
+
+/*
+ * Standard JEDEC SPI-NOR erase opcodes.  The controller has no business knowing
+ * NOR command semantics -- the m25p80 is the authority and actually performs the
+ * erase.  We decode them for ONE reason: to know which span of the executable
+ * mirror a sequence just invalidated.  Anything we do not recognise that could
+ * have modified flash falls back to re-syncing the whole device (see
+ * flexspi_dirty_span), so an unknown command can never leave a stale mirror --
+ * it can only be slow.
+ */
+#define NOR_CMD_ERASE_4K    0x20
+#define NOR_CMD_ERASE_32K   0x52
+#define NOR_CMD_ERASE_64K   0xd8
+#define NOR_CMD_ERASE_CHIP1 0xc7
+#define NOR_CMD_ERASE_CHIP2 0x60
 
 static void flexspi_update_irq(IMXRT1180FlexSPIState *s)
 {
     uint32_t active = s->regs[FSPI_INTR >> 2] & s->regs[FSPI_INTEN >> 2];
 
     qemu_set_irq(s->irq, !!active);
+}
+
+/* Read `len` bytes at `off` out of the attached flash with a plain 03h read. */
+static void flexspi_flash_read(IMXRT1180FlexSPIState *s, uint32_t off,
+                               uint8_t *buf, uint32_t len)
+{
+    uint32_t i;
+
+    qemu_set_irq(s->cs[0], 0);
+    ssi_transfer(s->bus, FLASH_CMD_READ);
+    ssi_transfer(s->bus, (off >> 16) & 0xff);
+    ssi_transfer(s->bus, (off >> 8) & 0xff);
+    ssi_transfer(s->bus, off & 0xff);
+    for (i = 0; i < len; i++) {
+        buf[i] = ssi_transfer(s->bus, 0);
+    }
+    qemu_set_irq(s->cs[0], 1);
+}
+
+/*
+ * Re-sync [off, off+len) of the executable mirror from the flash, and publish
+ * it: memory_region_flush_rom_device() marks the pages dirty so TCG drops any
+ * translation blocks it had cached for code in that range.  Without that a
+ * firmware that reprograms code it is about to jump to would execute the OLD
+ * bytes -- a silent-wrong.
+ */
+static void flexspi_sync_mirror(IMXRT1180FlexSPIState *s, uint32_t off,
+                                uint32_t len)
+{
+    uint8_t *mirror;
+
+    if (!s->ahb_size || off >= s->ahb_size) {
+        return;             /* no XIP window (e.g. FlexSPI2: no flash on board) */
+    }
+    len = MIN(len, s->ahb_size - off);
+
+    mirror = memory_region_get_ram_ptr(&s->ahb);
+    flexspi_flash_read(s, off, mirror + off, len);
+    memory_region_flush_rom_device(&s->ahb, off, len);
+}
+
+/*
+ * Decide what a just-executed sequence invalidated in the mirror.
+ * `wrote` = bytes actually shifted out by a WRITE_SDR, `cmd` = the sequence's
+ * command byte, `addr` = IPCR0.  Returns false if flash cannot have changed.
+ *
+ * Every real way to modify NOR content is covered:
+ *   - a program (02h/32h/38h page program, any pad count) SHIFTS DATA, so it is
+ *     caught by `wrote` without us having to know its opcode; and
+ *   - an erase shifts no data, so it is caught by opcode.
+ * A command that neither shifts write data nor is a known erase (WREN, WRDI,
+ * status polls, JEDEC id, reads, reset, ...) cannot have changed flash content.
+ * WRSR (01h/31h) does shift data but only into the status register, so it
+ * re-syncs a couple of harmless bytes rather than being wrongly ignored.
+ *
+ * A vendor-specific modifying command that shifts no data and is not an erase
+ * would be missed -- it is flagged once (LOG_UNIMP) rather than silently
+ * tolerated, because a stale executable mirror is a silent-wrong.
+ */
+static bool flexspi_dirty_span(IMXRT1180FlexSPIState *s, uint8_t cmd,
+                               uint32_t addr, uint32_t wrote,
+                               uint32_t *off, uint32_t *len)
+{
+    if (wrote) {                        /* program: exactly what we shifted out */
+        *off = addr;
+        *len = wrote;
+        return true;
+    }
+
+    switch (cmd) {
+    case NOR_CMD_ERASE_4K:
+        *off = addr & ~0xfffu;   *len = 0x1000;   return true;
+    case NOR_CMD_ERASE_32K:
+        *off = addr & ~0x7fffu;  *len = 0x8000;   return true;
+    case NOR_CMD_ERASE_64K:
+        *off = addr & ~0xffffu;  *len = 0x10000;  return true;
+    case NOR_CMD_ERASE_CHIP1:
+    case NOR_CMD_ERASE_CHIP2:
+        *off = 0;                *len = s->ahb_size; return true;
+    default:
+        return false;
+    }
 }
 
 /* Fill level in 8-byte entries, as IPRXFSTS/IPTXFSTS report it. The FlexSPI
@@ -145,6 +263,9 @@ static void flexspi_run_seq(IMXRT1180FlexSPIState *s, int seqid)
     uint32_t addr = s->regs[FSPI_IPCR0 >> 2];
     uint32_t ipcr1 = s->regs[FSPI_IPCR1 >> 2];
     uint32_t datasz = ipcr1 & IPCR1_IDATSZ_MASK;
+    uint32_t dirty_off, dirty_len;
+    uint32_t wrote = 0;                 /* bytes shifted out by a WRITE_SDR */
+    uint8_t cmd_byte = 0;               /* the sequence's command opcode      */
     bool err = false;
     int i;
 
@@ -165,6 +286,7 @@ static void flexspi_run_seq(IMXRT1180FlexSPIState *s, int seqid)
             break;
 
         case LUT_CMD_SDR:
+            cmd_byte = operand;
             ssi_transfer(s->bus, operand);
             break;
 
@@ -224,6 +346,7 @@ static void flexspi_run_seq(IMXRT1180FlexSPIState *s, int seqid)
                     break;
                 }
                 ssi_transfer(s->bus, fifo8_pop(&s->tx));
+                wrote++;
             }
             break;
 
@@ -237,8 +360,96 @@ static void flexspi_run_seq(IMXRT1180FlexSPIState *s, int seqid)
 
     qemu_set_irq(s->cs[0], 1);          /* deassert chip-select */
 
+    /*
+     * If that sequence changed flash content, refresh the executable XIP mirror
+     * for the span it touched.  The flash (m25p80) stays the authority; this
+     * only republishes what it now holds, and invalidates any TBs TCG had
+     * cached for code in that span.
+     */
+    if (flexspi_dirty_span(s, cmd_byte, addr, wrote, &dirty_off, &dirty_len)) {
+        flexspi_sync_mirror(s, dirty_off, dirty_len);
+    }
+
     s->regs[FSPI_INTR >> 2] |= INTR_IPCMDDONE | (err ? INTR_IPCMDERR : 0);
     flexspi_update_irq(s);
+}
+
+/* Raw NOR helpers used to "flash the board" at load time (see below). */
+#define NOR_CMD_WREN        0x06
+#define NOR_CMD_PAGE_PROG   0x02
+#define NOR_SECTOR_SIZE     0x1000
+#define NOR_PAGE_SIZE       0x100
+
+static void flexspi_nor_cmd_addr(IMXRT1180FlexSPIState *s, uint8_t cmd,
+                                 uint32_t addr, const uint8_t *data,
+                                 uint32_t len)
+{
+    uint32_t i;
+
+    qemu_set_irq(s->cs[0], 0);
+    ssi_transfer(s->bus, NOR_CMD_WREN);
+    qemu_set_irq(s->cs[0], 1);
+
+    qemu_set_irq(s->cs[0], 0);
+    ssi_transfer(s->bus, cmd);
+    ssi_transfer(s->bus, (addr >> 16) & 0xff);
+    ssi_transfer(s->bus, (addr >> 8) & 0xff);
+    ssi_transfer(s->bus, addr & 0xff);
+    for (i = 0; i < len; i++) {
+        ssi_transfer(s->bus, data[i]);
+    }
+    qemu_set_irq(s->cs[0], 1);
+}
+
+/*
+ * Program `len` bytes at `off` into the attached NOR -- i.e. FLASH THE BOARD.
+ *
+ * `-kernel` with an image linked into the XIP window means "this firmware is in
+ * the board's NOR flash", so the NOR must actually contain it.  Writing only the
+ * executable mirror would leave the mirror and the flash disagreeing: the first
+ * erase (or the reset re-sync, which refills the mirror FROM the flash) would
+ * silently resurrect the old content underneath a running image.  So we do a
+ * real read/erase/program cycle through the flash model, which also means the
+ * loaded image obeys the same NOR physics as anything the guest programs.
+ *
+ * Read-modify-write per 4 KiB sector, so several ELF segments landing in one
+ * sector do not erase each other.
+ */
+void imxrt1180_flexspi_flash_program(IMXRT1180FlexSPIState *s, uint32_t off,
+                                     const uint8_t *buf, uint32_t len)
+{
+    g_autofree uint8_t *sector = g_malloc(NOR_SECTOR_SIZE);
+    uint32_t first = off & ~(NOR_SECTOR_SIZE - 1);
+    uint32_t last  = (off + len - 1) & ~(NOR_SECTOR_SIZE - 1);
+    uint32_t sec;
+
+    if (!len || !s->ahb_size) {
+        return;
+    }
+
+    for (sec = first; sec <= last; sec += NOR_SECTOR_SIZE) {
+        uint32_t p;
+        /* 1. read what the sector holds today */
+        flexspi_flash_read(s, sec, sector, NOR_SECTOR_SIZE);
+
+        /* 2. overlay the part of the image that lands in this sector */
+        for (p = 0; p < NOR_SECTOR_SIZE; p++) {
+            uint32_t a = sec + p;
+            if (a >= off && a < off + len) {
+                sector[p] = buf[a - off];
+            }
+        }
+
+        /* 3. erase, then page-program the merged sector back */
+        flexspi_nor_cmd_addr(s, NOR_CMD_ERASE_4K, sec, NULL, 0);
+        for (p = 0; p < NOR_SECTOR_SIZE; p += NOR_PAGE_SIZE) {
+            flexspi_nor_cmd_addr(s, NOR_CMD_PAGE_PROG, sec + p,
+                                 sector + p, NOR_PAGE_SIZE);
+        }
+    }
+
+    /* Republish the affected span into the executable mirror. */
+    flexspi_sync_mirror(s, first, last - first + NOR_SECTOR_SIZE);
 }
 
 static uint64_t flexspi_read(void *opaque, hwaddr offset, unsigned size)
@@ -437,14 +648,9 @@ static void flexspi_ahb_write(void *opaque, hwaddr offset, uint64_t value,
 }
 
 static const MemoryRegionOps flexspi_ahb_ops = {
-    .read = flexspi_ahb_read,
+    .read = flexspi_ahb_read,           /* only used if romd mode is ever off */
     .write = flexspi_ahb_write,
     .endianness = DEVICE_LITTLE_ENDIAN,
-    /*
-     * Instruction fetch and memcpy from the XIP window burst it with wide
-     * accesses; capping narrower makes QEMU reject them as invalid (an external
-     * abort) before the handler ever runs.
-     */
     .valid = { .min_access_size = 1, .max_access_size = 8 },
     .impl = { .min_access_size = 1, .max_access_size = 8 },
 };
@@ -457,6 +663,14 @@ static void flexspi_reset(DeviceState *dev)
     s->lut_unlocked = false;
     fifo8_reset(&s->rx);
     fifo8_reset(&s->tx);
+
+    /*
+     * Populate the executable XIP mirror from the flash.  This runs at reset,
+     * not realize, because the m25p80 is only attached to our SSI bus after we
+     * are realized -- at realize the bus is still empty and every read would
+     * return zeros (a mirror full of plausible nothing).
+     */
+    flexspi_sync_mirror(s, 0, s->ahb_size);
 }
 
 static void flexspi_realize(DeviceState *dev, Error **errp)
@@ -470,10 +684,23 @@ static void flexspi_realize(DeviceState *dev, Error **errp)
 
     memory_region_init_io(&s->iomem, OBJECT(dev), &flexspi_ops, s,
                           TYPE_IMXRT1180_FLEXSPI, IMXRT1180_FLEXSPI_REG_SIZE);
-    memory_region_init_io(&s->ahb, OBJECT(dev), &flexspi_ahb_ops, s,
-                          "imxrt1180-flexspi-ahb", s->ahb_size);
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
-    sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->ahb);
+
+    if (s->ahb_size) {
+        /*
+         * rom_device, NOT init_io: reads and INSTRUCTION FETCHES go straight to
+         * the RAM mirror (so XIP is fast and TCG can cache translations), while
+         * stores are routed to flexspi_ahb_write and refused.  See the file
+         * header for why an init_io window, though functional, is unusable here.
+         */
+        if (!memory_region_init_rom_device(&s->ahb, OBJECT(dev),
+                                           &flexspi_ahb_ops, s,
+                                           "imxrt1180-flexspi-ahb",
+                                           s->ahb_size, errp)) {
+            return;
+        }
+        sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->ahb);
+    }
     sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq);
 }
 

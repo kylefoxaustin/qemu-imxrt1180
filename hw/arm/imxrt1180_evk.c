@@ -62,7 +62,38 @@ static bool imxrt1180_vt_plausible(hwaddr vt)
  * writes to the first reset, which is too late to probe for the boot vector).
  * Returns the entry point, or 0 (with *is_elf=false) if the file is not an ELF.
  */
-static uint32_t imxrt1180_load_elf_direct(const char *filename, bool *is_elf)
+/*
+ * Write one loadable segment.  Segments that land in the FlexSPI XIP window are
+ * PROGRAMMED INTO THE NOR (i.e. the board is flashed with them), not written to
+ * the memory-mapped view: that window is a rom_device backed by a real flash, so
+ * a plain address_space_write would be refused as a store to read-only flash --
+ * and even if it landed in the mirror, the mirror and the flash would disagree
+ * and the next erase (or reset re-sync) would resurrect the old content.
+ * `-kernel` of an XIP image means "this firmware is in the board's NOR", so put
+ * it there.
+ */
+static void imxrt1180_load_segment(IMXRT1180State *soc, uint32_t paddr,
+                                   const uint8_t *data, uint32_t filesz)
+{
+    struct { hwaddr base; } xip[] = {
+        { IMXRT1180_FLEXSPI1_BASE },        /* non-secure XIP window */
+        { IMXRT1180_FLEXSPI1_S_BASE },      /* secure alias of it    */
+    };
+
+    for (size_t i = 0; i < ARRAY_SIZE(xip); i++) {
+        if (paddr >= xip[i].base &&
+            paddr + filesz <= xip[i].base + IMXRT1180_FLEXSPI1_SIZE) {
+            imxrt1180_flexspi_flash_program(&soc->flexspi1_ctrl,
+                                            paddr - xip[i].base, data, filesz);
+            return;
+        }
+    }
+    address_space_write(&address_space_memory, paddr, MEMTXATTRS_UNSPECIFIED,
+                        data, filesz);
+}
+
+static uint32_t imxrt1180_load_elf_direct(IMXRT1180State *soc,
+                                          const char *filename, bool *is_elf)
 {
     g_autofree gchar *data = NULL;
     gsize len = 0;
@@ -94,8 +125,8 @@ static uint32_t imxrt1180_load_elf_direct(const char *filename, bool *is_elf)
         uint32_t paddr  = ldl_le_p(&ph->p_paddr);
         uint32_t filesz = ldl_le_p(&ph->p_filesz);
         if (filesz && (gsize)off + filesz <= len) {
-            address_space_write(&address_space_memory, paddr,
-                                MEMTXATTRS_UNSPECIFIED, data + off, filesz);
+            imxrt1180_load_segment(soc, paddr, (const uint8_t *)data + off,
+                                   filesz);
         }
     }
     *is_elf = true;
@@ -110,7 +141,8 @@ static uint32_t imxrt1180_load_elf_direct(const char *filename, bool *is_elf)
  * is well into the FlexSPI window).  For an ELF the reset vector (VT+4) equals
  * entry|1, so scan the candidate regions for it.
  */
-static void imxrt1180_load_and_boot(ARMCPU *m33, const char *filename)
+static void imxrt1180_load_and_boot(IMXRT1180State *soc, ARMCPU *m33,
+                                    const char *filename)
 {
     static const struct { hwaddr base; hwaddr size; } regions[] = {
         { IMXRT1180_CODE_TCM_BASE,   IMXRT1180_CODE_TCM_SIZE }, /* SDK TCM images */
@@ -118,7 +150,7 @@ static void imxrt1180_load_and_boot(ARMCPU *m33, const char *filename)
         { IMXRT1180_FLEXSPI1_BASE,   0x40000 },  /* non-secure XIP */
     };
     bool is_elf;
-    uint32_t entry = imxrt1180_load_elf_direct(filename, &is_elf);
+    uint32_t entry = imxrt1180_load_elf_direct(soc, filename, &is_elf);
 
     if (!is_elf) {
         /*
@@ -228,7 +260,7 @@ static void mimxrt1180_evk_init(MachineState *machine)
      * the init_svtor we just set).
      */
     if (machine->kernel_filename) {
-        imxrt1180_load_and_boot(ARM_CPU(first_cpu), machine->kernel_filename);
+        imxrt1180_load_and_boot(soc, ARM_CPU(first_cpu), machine->kernel_filename);
     }
     armv7m_load_kernel(ARM_CPU(first_cpu), NULL,
                        IMXRT1180_CODE_TCM_BASE, IMXRT1180_CODE_TCM_SIZE);
