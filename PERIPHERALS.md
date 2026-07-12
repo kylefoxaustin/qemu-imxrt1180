@@ -11,6 +11,39 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 
 ## Modelled
 
+### What "(flagged)" means — read this before you trust a row
+
+`(flagged)` appears on ~20 rows below and, until 2026-07-12, **was never defined
+anywhere**. A load-bearing policy word with no definition is not a safeguard: it
+is a licence, because it forbids nothing. (mcxn947qemu traced *four* silent-wrong
+blocks in their tree to one undefined sentence in exactly this position — *"your
+code is not the bug, your policy is, and it will regenerate the bug after you fix
+it."*) So, explicitly:
+
+> **`(flagged)` means: this gap is visible TO THE GUEST, or the guest cannot act
+> on it.** It does **not** mean "we wrote a `LOG_UNIMP`". A host-side log reaches
+> the *operator*; the firmware under test cannot see it. Being honest to the host
+> while telling the guest an operation succeeded **is lying**, and it is the
+> single failure mode that has produced the worst bugs in this tree.
+>
+> A flagged gap must be one of:
+> - **absent** — the block never claims the thing happened (USB never asserts
+>   enumeration or an endpoint completion; CMP never raises an edge). The guest
+>   sees a device with nothing attached, which is the truth.
+> - **inert but honest** — an un-driven input reads its documented un-energised
+>   value (LPADC returns mid-scale for a channel no plant drives). It is a
+>   *specific documented value*, and a test asserts that value.
+> - **an explicit failure to the guest**, through the block's own documented
+>   **non-gating** error channel (S3MU/ELE returns a non-success status for a
+>   crypto result it did not compute). Never by withholding the completion —
+>   that hangs the driver instead of informing it.
+>
+> What `(flagged)` may **never** mean: the block acked, the guest's result buffer
+> was left untouched or stale, and the truth went to a log the firmware cannot
+> read. **If the result travels by a pointer the guest gave you, an ack plus an
+> untouched buffer is a silent-wrong that no status check and no IRQ-counting
+> test will ever see.**
+
 | Block | Instances | Base(s) | Tier | Notes |
 |-------|-----------|---------|------|-------|
 | **Cortex-M33** (boot/secure) | 1 | — | ✅ core | ARMV7M, 239 IRQs, prio-bits 3, TrustZone-M |
@@ -19,7 +52,7 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
 | **ANADIG** (OSC/PLL/PMU) | 1 | 0x44480000 | ✅ functional | OSC-stable + PLL-lock + PFD relock state machine (instant lock) |
 | **CCM** (clocks) | 1 | 0x44450000 | ✅ functional | register-backed roots; LPCG STATUS0 mirrors DIRECT.ON; OBSERVE freq nominal non-zero |
 | **RTWDOG** | 1..5 | 0x442D/2E0000, 0x42490/A/B0000 | ✅ functional | unlock (0xC520/0xD928) + disable; no bite modelled (flagged) |
-| **S3MU** (EdgeLock ELE MU) | RT | 0x47540000 | ◐ honest handshake | TX-ready + SUCCESS reply per command; crypto results NOT faked (flagged) |
+| **S3MU** (EdgeLock ELE MU) | RT | 0x47540000 | ◐ honest enclave | 8 TR / 4 RR (CMSIS `S3MU_TR_COUNT`=8). **RNG is REAL** — `GET_RNG_RANDOM`/`START_RNG` DMA genuine `qemu_guest_getrandom` entropy into the guest's buffer (unpredictable; reproducible only under `-seed`). Coordination commands (CLOCK/VOLTAGE_CHANGE, RELEASE_RDC, PING) answer SUCCESS truthfully; `GET_FW_STATUS` returns 0 = *"no ELE FW in place"*, which is true here. **Every other command — all crypto — returns a NON-SUCCESS status to the guest and leaves its result buffer untouched.** Escape hatch `fake-uncomputed-success` (default OFF). ⚠️ **This row previously read "crypto results NOT faked" — that was FALSE**: the model answered *every* command with `RESPONSE_SUCCESS`, so `ELE_RngGetRandom()` returned `kStatus_Success` over an un-written buffer and firmware would have seeded a crypto stack with un-computed data. Fixed 2026-07-12; the false claim is left visible rather than quietly deleted |
 | **MU** (inter-core M33↔M7) | MU1 | 0x44220000 (MUA) / 0x44230000 (MUB) | ✅ functional | 4 TR/RR channels cross-wired + TSR/RSR flags; GCR/GSR doorbell w/ w1c handshake; per-side IRQ 21 to each NVIC |
 | **LPI2C** (controller mode) | 1..4 | 0x44340000, 0x44350000, 0x42530000, 0x42540000 | ✅ functional | command-FIFO master (START/TX/RX/STOP) on a real QEMU I2CBus — devices attach; MSR flags + NDF NACK detect + IRQ (13/14/62/63) |
 | **LPSPI** (controller mode) | 1..4 | 0x44360000, 0x44370000, 0x42550000, 0x42560000 | ✅ functional | full-duplex SPI master (TCR frame/PCS/CONT, TDR→SSIBus→RDR) with per-CS lines; validated vs a serial-flash JEDEC-ID read; IRQ (16/17/65/66) |

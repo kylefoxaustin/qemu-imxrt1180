@@ -137,6 +137,34 @@ Written for current mainline. On an older QEMU tree, adjust:
 
 - Never fabricate register offsets, base addresses, or IRQ numbers — derive them
   from the CMSIS header or the RM. A wrong offset = a silent firmware hang.
+
+- **Never report SUCCESS for something you did not compute. TELL THE GUEST.**
+  Declining to model a block is fine; a model may fail. What it may not do is
+  tell the firmware it succeeded at something it never did.
+  1. **Where does the result land?** If it lands in *a pointer the guest gave
+     you*, then "acked + buffer untouched" is a silent-wrong that no reply-shape
+     heuristic and no IRQ-counting test will ever see. (This is exactly how the
+     ELE `GET_RNG_RANDOM` bug hid: the reply carries no data, so nothing looked.)
+  2. **Who gets told?** A `LOG_UNIMP`/QMP flag reaches the **operator**. The
+     firmware under test *cannot see it*. Honest-to-the-host while lying-to-the-
+     guest is lying. **An out-of-band flag is not an honest fault.**
+  3. **Fault through the block's own documented, NON-GATING error channel** — a
+     status/error field, an error-trap IRQ. Never by withholding the completion:
+     that *hangs* the driver instead of *informing* it.
+  4. **Compute it if you can.** Decline only what you genuinely cannot produce.
+     Entropy, for instance, you *can* produce — so `GET_RNG_RANDOM` returns real
+     `qemu_guest_getrandom` bytes rather than an honest refusal.
+  5. Any escape hatch that restores a fabricated success is a **property,
+     default OFF** (e.g. `imxrt1180-s3mu.fake-uncomputed-success`).
+
+- **A test that cannot fail is decoration, and you cannot tell by reading it.**
+  Break the model on purpose and demand the test notice — `tools/mutation-audit.sh`.
+  Guarded tests read a value back and compare it to an **independently-derived
+  expected value**. Anything that stops at "a flag set", "an IRQ fired", or "it's
+  within a range" proves nothing: a range hides a 3×-wrong value *and* an
+  unconverged one. When you add a time budget or a negative test, **prove it can
+  fail** — an unmeasured threshold is a decoration, and a negative test can rot
+  green when the model improves underneath it.
 - Keep cpu0-only until single-core boot is solid.
 - Report the unimp log back after the first firmware run so the peripheral order
   is driven by real firmware behaviour, not guesswork.
