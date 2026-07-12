@@ -87,22 +87,54 @@ the thin board.  Each peripheral is a self-contained `imxrt1180_*` device under
 - `tests/imxrt1180-{hello,dualcore,corpus}/` — bring-up + dual-core + saturation tests
 - `include/hw/{arm,char,misc,gpio}/imxrt1180_*.h` — headers
 
+## How this model is validated
+
+A model that *runs* is not a model that is *right*. Two rules, both learned the
+hard way (see `CLAUDE.md`):
+
+- **Tests must compare a value to an independently-derived expected value.**
+  "An IRQ fired", "a VALID bit was set", "it's within a range" proves nothing —
+  **a range is not a golden**. The phase current is checked against Ohm's law
+  (matches to *one ADC count*); the PWM period against SysTick, an Arm core timer
+  outside the model; NOR programming against real erase/program physics.
+- **A test that cannot fail is decoration, and you cannot tell by reading it.**
+  `tools/mutation-audit.sh` corrupts the model on purpose and requires each test
+  to notice. When it was first run, **3 of 4 tests did not** — the whole FOC path
+  was blind. Goldens are also **swept across shapes**, because a model can be
+  right at one prescaler and wrong at another.
+
 ## Known limitations
 
-LPI2C, the inter-core MU (MU1), SAI/eDMA data paths, and USB OTG are not yet
-modelled (their demos hang or fault — see PERIPHERALS.md).  The headline
-**motor-control** block (eFlexPWM + QDC encoder + ADC↔PWM sync) and a
-virtual-motor plant are the next frontier.  Clocks report nominal (not
-computed) frequencies; TRDC does not enforce access control; the EdgeLock
-enclave completes the handshake but never fabricates a crypto result.
+Honest gaps, per-block, are in [PERIPHERALS.md](PERIPHERALS.md); `(flagged)` is
+defined there and means *visible to the guest*, never "we wrote a host log".
+
+- **Clocks** report nominal, not computed, frequencies.
+- **TRDC** does not enforce access control (grants everything).
+- **EdgeLock (ELE)**: the enclave is proprietary and not modelled. Its **RNG is
+  real** (genuine `qemu_guest_getrandom` entropy DMA'd to the guest). **Every
+  other crypto command returns a failure status to the guest and leaves the
+  result buffer untouched** — it does not compute, and it says so.
+  > ⚠️ This README previously claimed the enclave *"never fabricates a crypto
+  > result"*. **That was false.** The model answered *every* ELE command with
+  > `RESPONSE_SUCCESS`, so `ELE_RngGetRandom()` returned `kStatus_Success` over an
+  > un-written buffer — firmware would have seeded a crypto stack with un-computed
+  > data and believed it succeeded. Fixed 2026-07-12. The false claim is left
+  > visible rather than quietly deleted.
+- **LPADC A/B input side** (`CMDL.SIDE`) is not modelled, which is what currently
+  blocks running NXP's stock `mc_pmsm` FOC demo unmodified.
+- **No audio subsystem** (ASRC / audio PLL / codec); **NETC L2 switch path** is
+  not modelled (the ENETC *endpoint* is).
+- **Cache** is a QEMU-architectural WONTFIX (no guest CPU cache to model); **MECC**
+  is an optional RAS diagnostic.
 
 ## Roadmap
 
-1. Clear the demo corpus — LPI2C, MU1 inter-core, SAI/eDMA, USB.
-2. Board-to-board holobench node (UART/CAN first).
-3. **Motor control** — eFlexPWM + quadrature encoder + ADC-sync, then a
-   settable virtual-motor plant so a FOC loop closes in emulation (the fleet's
-   first real closed control loop).
+1. **3-node raw-L2 segment** with `mcxn947qemu` + `95emulator` — a Cortex-M33, a
+   Cortex-M7 and a Cortex-A55 sharing one wire, each running its own vendor
+   firmware. Our node is ethertype `0x88B6`.
+2. **LPADC A/B side mux** → run the stock `mc_pmsm` FOC demo unmodified.
+3. **NETC switch path** (SW0/FDB), multi-SI, PTP 1588.
+4. Saturation/thermal effects and a time-varying load profile in the motor plant.
 
 ## License
 
