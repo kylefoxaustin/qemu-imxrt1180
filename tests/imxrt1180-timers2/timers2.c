@@ -52,9 +52,34 @@ void reset_handler(void)
     ISER(GPT1_IRQ)=IRQBIT(GPT1_IRQ);
     ISER(TPM1_IRQ)=IRQBIT(TPM1_IRQ);
 
-    uint32_t l1=LPTMR_CNR, g1=GPT_CNT, t1=TPM_CNT;
     while (lt<2 || gt<2 || tt<2) { }
-    int ok = (LPTMR_CNR!=l1) && (GPT_CNT!=g1) && (TPM_CNT!=t1);
+
+    /*
+     * "The counter runs" == it is NOT STUCK: sample each counter until it takes a
+     * second distinct value.
+     *
+     * This used to compare ONE sample taken before the wait against ONE taken
+     * after: (LPTMR_CNR!=l1) && (GPT_CNT!=g1) && (TPM_CNT!=t1). These are PERIODIC
+     * counters -- two point samples can land on the same value by phase alone, and
+     * with THREE of them ANDed the chance that one coincides is three times higher.
+     * Idle it passed 3/3; UNDER HEAVY HOST LOAD it failed 1 run in 3.
+     *
+     * It is the SAME defect already fixed in tests/imxrt1180-tmr -- and I fixed
+     * that one and never grepped for the pattern anywhere else. Fixing the instance
+     * you are looking at is not fixing the bug.
+     *
+     * Found only by running the suite UNDER LOAD (mcxn947qemu: "I fixed the
+     * instrument I was looking at and never audited the instrument I was STANDING
+     * ON"). A green suite on an idle box is a measurement of the box.
+     */
+    uint32_t l1=LPTMR_CNR, g1=GPT_CNT, t1=TPM_CNT;
+    int lm=0, gm=0, tm=0;
+    for (int i = 0; i < 200000 && !(lm && gm && tm); i++) {
+        if (LPTMR_CNR != l1) { lm = 1; }
+        if (GPT_CNT   != g1) { gm = 1; }
+        if (TPM_CNT   != t1) { tm = 1; }
+    }
+    int ok = lm && gm && tm;
 
     if (ok && lt>=2 && gt>=2 && tt>=2)
         puts_("TIMERS2: PASS - LPTMR + GPT + TPM periodic IRQ + counters run\r\n");

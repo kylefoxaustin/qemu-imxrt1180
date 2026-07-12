@@ -33,12 +33,34 @@
 #     construction. (The old test sampled a TRANSIENT, which would have scattered.
 #     Measuring a converged value fixes correctness and determinism together.)
 #
-# Usage: tools/determinism-check.sh [runs]        (default 5)
+# ⚠️ AND RUN IT UNDER LOAD. A green suite on an IDLE box is a measurement of the
+# box. mcxn947qemu's ztest passed 4/4 idle and FAILED REPRODUCIBLY under host load,
+# on the same tree -- the failure was the HARNESS, not the model. I made exactly
+# that mistake: I declared this suite "deterministic" from an idle run, and under
+# saturation TWO tests failed:
+#   - imxrt1180-timers2 compared two point-samples of PERIODIC counters (they
+#     coincide by phase). The IDENTICAL defect I had already fixed in
+#     imxrt1180-tmr -- and never grepped for elsewhere. Fixing the instance you
+#     are looking at is not fixing the bug.
+#   - imxrt1180-uartlink polled for a result for a fixed 10 s of WALL CLOCK and
+#     called a slow box a failing model. A test whose verdict depends on how busy
+#     the machine is has no verdict.
+#
+# Usage: tools/determinism-check.sh [runs] [--load]     (default 5 runs)
+#        --load saturates every core first. USE IT.
 # SPDX-License-Identifier: GPL-2.0-or-later
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 N="${1:-5}"
+LOAD=0
+[ "${2:-}" = "--load" ] && LOAD=1
 flaky=0
+load_pids=""
+if [ "$LOAD" = 1 ]; then
+    echo "saturating $(nproc) cores -- a green suite on an idle box measures the box."
+    for _ in $(seq "$(nproc)"); do yes > /dev/null & load_pids="$load_pids $!"; done
+    trap 'kill $load_pids 2>/dev/null' EXIT
+fi
 
 echo "Running each test $N times; any variance in verdict is a FLAKY INSTRUMENT."
 echo

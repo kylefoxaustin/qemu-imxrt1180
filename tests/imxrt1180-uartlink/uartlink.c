@@ -78,6 +78,25 @@ void reset_handler(void)
     }
     if (!connected) { ok = 0; }
 
+    /*
+     * DRAIN STALE ECHOES BEFORE THE PATTERN.
+     *
+     * The resend-until-connected loop above sends GO once per attempt and waits a
+     * bounded window for the echo. If an echo does not arrive inside that window
+     * -- which is exactly what happens when the host is busy and QEMU + the peer
+     * are running slowly -- the loop sends GO AGAIN, and the peer echoes EVERY GO
+     * it received. So we consume ONE GO to declare the link up, and one or more
+     * stale GO echoes are still in flight. The pattern loop then sends 0x10, reads
+     * a leftover GO, and reports "echo mismatch" -- a MODEL failure for a PROTOCOL
+     * race that has nothing to do with the UART.
+     *
+     * Idle it passed; under host saturation it failed 3 runs in 8. A handshake
+     * that only works when the machine is quiet is not a handshake.
+     */
+    while (rx_timeout(200000) >= 0) {
+        /* discard any remaining GO echoes */
+    }
+
     /* Send a known pattern and verify each echoed byte. */
     for (int i = 0; i < N_BYTES && ok; i++) {
         uint8_t b = (uint8_t)(0x10 + i);
