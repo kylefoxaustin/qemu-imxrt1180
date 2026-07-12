@@ -87,6 +87,30 @@ the thin board.  Each peripheral is a self-contained `imxrt1180_*` device under
 - `tests/imxrt1180-{hello,dualcore,corpus}/` — bring-up + dual-core + saturation tests
 - `include/hw/{arm,char,misc,gpio}/imxrt1180_*.h` — headers
 
+## Cross-silicon: three SoCs on one wire ✅
+
+`tools/netc-eth-lab3.sh` — the RT1180 is node **`0x88B6`** of a three-node raw-L2
+segment with [`mcxn947qemu`](https://github.com/kylefoxaustin/mcxn947qemu) and the
+i.MX 95 model. **Verified live, 2026-07-12:**
+
+```
+ENET-LAB3 rx: peer ethertype 0x88b5 src 02:4d:43:58:00:01   <- MCXN947 (Cortex-M33, ENET-QoS)
+ENET-LAB3 rx: peer ethertype 0x88b7 src 02:49:4d:58:95:01   <- i.MX 95 (Cortex-A55, Linux, ENETC)
+ENET-LAB3 PASS: saw BOTH peers on the segment
+```
+
+Three QEMU machine models, three different Ethernet MAC IPs (ENET-QoS / NETC /
+ENETC), two architectures, two bare-metal Cortex-M33s and a Linux Cortex-A55 —
+each running its own vendor firmware, exchanging real L2 frames. Each node must
+observe **both** others by EtherType before it passes; a node swimming in traffic
+from one peer **refuses** the milestone. That assertion declined a green four
+times before it earned one.
+
+Building the node also found a NETC bug **no two-node test can reach**: a QEMU
+`can_receive()` returning false stalls the RX queue *permanently* unless the
+device calls `qemu_flush_queued_packets()`. Two nodes boot together, so the window
+never opens — it opens only for a node joining traffic **already in flight**.
+
 ## How this model is validated
 
 A model that *runs* is not a model that is *right*. Two rules, both learned the
@@ -139,12 +163,11 @@ defined there and means *visible to the guest*, never "we wrote a host log".
 
 ## Roadmap
 
-1. **3-node raw-L2 segment** with `mcxn947qemu` + `95emulator` — a Cortex-M33, a
-   Cortex-M7 and a Cortex-A55 sharing one wire, each running its own vendor
-   firmware. Our node is ethertype `0x88B6`.
-2. **LPADC A/B side mux** → run the stock `mc_pmsm` FOC demo unmodified.
-3. **NETC switch path** (SW0/FDB), multi-SI, PTP 1588.
-4. Saturation/thermal effects and a time-varying load profile in the motor plant.
+1. **LPADC A/B side mux** → run the stock `mc_pmsm` FOC demo unmodified.
+2. **NETC switch path** (SW0/FDB), multi-SI, PTP 1588.
+3. Saturation/thermal effects and a time-varying load profile in the motor plant.
+4. Value-golden a peripheral **through the real `fsl_*` driver** rather than by
+   poking registers — the one rung-3 clause we do not yet satisfy.
 
 ## License
 
