@@ -49,6 +49,11 @@ add motor hw/misc/imxrt1180_motor.c imxrt1180-motor \
   't=t.replace("static uint16_t current_to_code(double i)\n{\n    double code = (double)M_ADC_MID + i * M_CUR_FS;",
                "static uint16_t current_to_code(double i)\n{\n    double code = (double)M_ADC_MID + 3.0 * i * M_CUR_FS; /* MUTANT */")'
 
+add pwmsh hw/misc/imxrt1180_pwm.c   imxrt1180-pwm \
+  "PWM ignores VAL1/INIT: modulo hardwired to 1000 (RIGHT at one shape, wrong elsewhere)" \
+  't=t.replace("    return (uint16_t)(val1 - init) + 1u;   /* period in counter ticks */",
+               "    (void)init; (void)val1; return 1000u; /* MUTANT: modulo hardwired */")'
+
 add edma  hw/dma/imxrt1180_edma.c   imxrt1180-edma \
   "eDMA corrupts one byte of every transfer (CONTROL: this MUST be caught)" \
   't=t.replace("            address_space_write(&address_space_memory, daddr,",
@@ -71,7 +76,7 @@ printf "%-7s %-58s %-10s %s\n" "BLOCK" "MUTATION" "TEST SAYS" "VERDICT"
 printf "%-7s %-58s %-10s %s\n" "-----" "--------" "---------" "-------"
 
 blind=0
-for k in pwm adc motor edma; do
+for k in pwm pwmsh adc motor edma; do
     [ -n "$ONLY" ] && [ "$ONLY" != "$k" ] && continue
     src="${SRC[$k]}"
     cp "$src" "$BAK/$(basename "$src")"

@@ -154,36 +154,68 @@ void reset_handler(void)
     }
 
     /*
-     * (4) THE PERIOD ITSELF, against an independent reference clock.
+     * (4) THE PERIOD ITSELF, against an independent reference clock -- SWEPT.
      *
-     * SysTick is a free-running 24-bit DOWN counter on the core clock.  20 PWM
-     * periods = ~30,000 CPU cycles, well inside the 16.7M-cycle span, so it
-     * cannot wrap during the measurement.
+     * ONE SHAPE IS NOT A GOLDEN. ollama_95_neutron found real silicon (NXP's
+     * Neutron) that computes the RIGHT answer at one tensor shape and GARBAGE at
+     * another, non-monotonically -- and had reported "it computes the right
+     * answer" off a single cosine of 0.999938. "A single 'correct' stamp is a
+     * worse lie than a single perf number, because it buys your trust and stops
+     * you looking." A period check at one prescaler would pass a model that
+     * mishandles PRSC entirely, or that is right at /64 and wrong at /16.
+     *
+     * So sweep BOTH axes the hardware actually has -- prescaler AND modulo --
+     * and require every point to match its own independently-derived golden:
+     *      cycles_per_period = CPU_HZ / (PWM_HZ / prescale / modulo)
      */
-    SYST_RVR = 0x00FFFFFFu;
-    SYST_CVR = 0;                   /* writing CVR clears it and COUNTFLAG */
-    SYST_CSR = 0x5u;                /* ENABLE | CLKSOURCE=core             */
+    static const struct { uint16_t prsc; uint32_t prescale; uint16_t val1;
+                          uint32_t modulo; } shapes[] = {
+        { 6, 64,  499,  1000 },   /* the FOC-shaped carrier                  */
+        { 6, 64,  249,   500 },   /* half the modulo -> half the period      */
+        { 7, 128, 499,  1000 },   /* double the prescaler -> double the period */
+        { 5, 32,  999,  2000 },   /* different prescaler AND modulo          */
+    };
+    int period_ok = 1;
 
-    int start = reloads;
-    while (reloads == start) {      /* align to a reload edge */
+    for (unsigned k = 0; k < sizeof(shapes) / sizeof(shapes[0]); k++) {
+        uint32_t expect = CPU_HZ /
+            (PWM_HZ / shapes[k].prescale / shapes[k].modulo);
+
+        /* Reprogram this shape: INIT = -(modulo/2), VAL1 = modulo/2 - 1. */
+        PWM_MCTRL = 0;                                  /* stop  */
+        SM0_INIT = (uint16_t)(-(int)(shapes[k].modulo / 2u));
+        SM0_VAL1 = shapes[k].val1;
+        SM0_CTRL = (uint16_t)(shapes[k].prsc << 4);
+        PWM_MCTRL = MCTRL_LDOK;
+        PWM_MCTRL = MCTRL_RUN & (1u << 8);
+
+        SYST_RVR = 0x00FFFFFFu;
+        SYST_CVR = 0;
+        SYST_CSR = 0x5u;                                /* ENABLE | core clk */
+
+        int s0 = reloads;
+        while (reloads == s0) { }                       /* align to an edge  */
+        uint32_t c0 = SYST_CVR;
+        int from = reloads;
+        while (reloads < from + (int)MEASURE_PERIODS) { }
+        uint32_t c1 = SYST_CVR;
+
+        uint32_t per = ((c0 - c1) & 0x00FFFFFFu) / MEASURE_PERIODS;
+
+        puts_("  prescale "); dec(shapes[k].prescale);
+        puts_(" modulo "); dec(shapes[k].modulo);
+        puts_(": measured "); dec(per);
+        puts_(" cycles, expected "); dec(expect);
+
+        uint32_t lo = expect - expect / 10u;   /* +/-10% */
+        uint32_t hi = expect + expect / 10u;
+        if (per < lo || per > hi) {
+            period_ok = 0;
+            puts_("  <-- MISMATCH\r\n");
+        } else {
+            puts_("  ok\r\n");
+        }
     }
-    uint32_t c0 = SYST_CVR;
-    int from = reloads;
-    while (reloads < from + (int)MEASURE_PERIODS) {
-    }
-    uint32_t c1 = SYST_CVR;
-
-    uint32_t elapsed = (c0 - c1) & 0x00FFFFFFu;          /* counts DOWN */
-    uint32_t cycles_per_period = elapsed / MEASURE_PERIODS;
-
-    puts_("PWM period: measured "); dec(cycles_per_period);
-    puts_(" CPU cycles, expected "); dec(EXPECT_CPU_CYCLES_PER_PWM);
-    puts_("\r\n");
-
-    /* +/-10%: generous for host-timing jitter, nowhere near a 3x error. */
-    uint32_t lo = EXPECT_CPU_CYCLES_PER_PWM - EXPECT_CPU_CYCLES_PER_PWM / 10u;
-    uint32_t hi = EXPECT_CPU_CYCLES_PER_PWM + EXPECT_CPU_CYCLES_PER_PWM / 10u;
-    int period_ok = (cycles_per_period >= lo && cycles_per_period <= hi);
     if (!period_ok) { ok = 0; }
 
     if (ok && reloads >= 3 && period_ok) {
