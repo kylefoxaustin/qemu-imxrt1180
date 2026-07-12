@@ -58,7 +58,7 @@ it."*) So, explicitly:
 | **LPSPI** (controller mode) | 1..4 | 0x44360000, 0x44370000, 0x42550000, 0x42560000 | ✅ functional | full-duplex SPI master (TCR frame/PCS/CONT, TDR→SSIBus→RDR) with per-CS lines; validated vs a serial-flash JEDEC-ID read; IRQ (16/17/65/66) |
 | **LPIT** (periodic timer) | 1..3 | 0x442F0000, 0x424C0000, 0x42CC0000 | ✅ functional | 4-channel ptimer-backed 32-bit periodic down-counter; TVAL/CVAL + MSR.TIF W1C + MIER IRQ (15/64/149); validated (periodic IRQ + counter) |
 | **FlexCAN** (CAN/CAN-FD) | 1..3 | 0x443A0000, 0x425B0000, 0x445B0000 | ✅ functional | MCR freeze/disable/soft-reset handshakes; 96 message buffers (TX/RX CODE); real frames on a QEMU can-bus + internal loopback; IFLAG/IMASK IRQ (8/51/191); adapted from the MCX FlexCAN |
-| **eDMA** (enhanced DMA) | eDMA3 (32ch), eDMA4 (64ch) | 0x44000000, 0x42000000 | ✅ functional | TCD-driven mem-to-mem (SADDR/DADDR/SOFF/DOFF/ATTR/NBYTES/CITER); START triggers a real address_space transfer + DONE + INTMAJOR; per-ch IRQ (eDMA3 95+, eDMA4 grouped 128+); adapted from the MCX eDMA |
+| **eDMA** (enhanced DMA) | eDMA3 (32ch), eDMA4 (64ch) | 0x44000000, 0x42000000 | ✅ functional | **Both trigger paths.** (1) *Software*: `TCD_CSR[START]` runs the whole major loop. (2) *Peripheral request*: `CH_CSR[ERQ]` + `CH_MUX[SRC]` (8-bit, per `DMA4_CH_MUX_SRC_MASK`) select one of 256 request lines; an asserted line moves **one minor loop (NBYTES)** and the peripheral must ask again. Requests are serviced from a **bottom half**, never inline — a peripheral raises its line from inside its own MMIO handler, and a DMA write back into that peripheral would be a re-entrant MMIO access that QEMU **drops silently** while the channel still reports DONE + INTMAJOR over a FIFO that never got a byte. Real driving peripherals today: **LPUART1/2 Tx+Rx** (`SRC` 16–19). Full TCD (SADDR/DADDR/SOFF/DOFF/ATTR/NBYTES/CITER/BITER/SLAST/DLAST), `TCD_CSR[DREQ]` auto-clears ERQ at major completion; per-ch IRQ (eDMA3 95+, eDMA4 grouped 128+). Verified end-to-end over a real wire by `tests/imxrt1180-dmareq`: 32 bytes mem→LPUART2→socket→LPUART2→mem, **by DMA in both directions**, byte-exact, with each gate independently proven to REFUSE |
 | **SAI** (I2S audio) | 1..4 | 0x443B0000, 0x42BB0000, 0x42BC0000, 0x42BD0000 | ◐ bring-up | TCSR/RCSR SR+FR resets self-clear, TX FIFO advertises space (FWF), RX empty; init handshake settles; no audio streaming (flagged); IRQ 45/198/199/154; adapted from the MCX SAI |
 | **SRC + BLK_CTRL_S_AONMIX** | 1 | 0x44460000 / 0x444F0000 | ✅ functional | M7 boot-vector (M7_CFG) + release (SCR.BT_RELEASE_M7), bottom-half start |
 | **FlexSPI** (controller) | 1, 2 | 0x425E0000, 0x445E0000 | ● functional | LUT-driven IP command engine over SSI + AHB/XIP window; real `m25p80` NOR on FlexSPI1 (16 MiB, `-drive if=mtd`). Storage-write-verified: erase→program→read-back byte-exact, and program-without-erase correctly only clears bits. FlexSPI2 has no flash on the EVK, so its AHB window is deliberately unmapped |
@@ -147,6 +147,27 @@ it."*) So, explicitly:
 > | plant reports **3× the phase current** | `PASS` 🔴 | **`FAIL` ✔ caught** |
 > | *(control)* eDMA corrupts one byte | `FAIL` ✔ | `FAIL` ✔ |
 >
+> Five more were added with the peripheral-triggered eDMA path (2026-07-12). None
+> of these can be reached by the mem-to-mem eDMA test, because that one triggers
+> with `TCD_CSR[START]` — **it passes on a model where `ERQ` is a dead constant
+> and no peripheral drives a request line, which is exactly what this model was.**
+>
+> | mutation applied to the model | `tests/imxrt1180-dmareq` says |
+> |---|---|
+> | eDMA **ignores `CH_CSR[ERQ]`** (un-armed channel serves requests) | **`FAIL` ✔ caught** |
+> | eDMA **ignores the request line** (arming a channel runs it) | **`FAIL` ✔ caught** |
+> | eDMA services requests **inline from the peripheral's MMIO handler** | **`FAIL` ✔ caught** |
+> | one request runs the **whole major loop**, not one minor loop | **`FAIL` ✔ caught** |
+> | LPUART **holds its RX request line asserted** regardless of `RDMAE`/`RDRF` | **`FAIL` ✔ caught** |
+>
+> The inline-service mutation is the one worth staring at. It is mcxn947qemu's
+> re-entrancy trap: the DMA's write back into the requesting peripheral is a
+> re-entrant MMIO access and **QEMU drops it silently**. Probed on our model, the
+> TX channel then reports `DONE=1`, `ERQ` auto-cleared by `DREQ`, `CITER` reloaded
+> to `BITER=32` — **a textbook completed 32-byte major loop, with zero bytes on the
+> wire.** A test that checked the channel's own status registers would have passed
+> it. Only the *peer* knew the truth.
+>
 > The goldens are derived **independently of the model**, from the machine's
 > clocks and the motor's datasheet — so they check the thing rather than restate it:
 >
@@ -174,9 +195,36 @@ it."*) So, explicitly:
 
 ## Known gaps (surfaced by the demo corpus)
 
+### Which peripherals drive a DMA request line
+
+The eDMA's peripheral-request path exists and is verified (see the eDMA row), but
+a request path is only real for the peripherals that actually **assert a line**.
+Today that is **LPUART1 and LPUART2 only** (`CH_MUX[SRC]` 16–19).
+
+Every other modelled block that is a DMA source on real silicon is **PIO-only
+here**: `LPSPI1/2` (SRC 11–14), `LPI2C1/2` (7–10), `SAI1–4`, `FlexCAN`, `LPTMR1`
+(15), `LPADC`, `eFlexPWM`, `RGPIO`. Their register models are correct and their
+tests pass, and a driver that moves data through them **by CPU** works — but a
+driver that configures eDMA and waits for it will **wait forever**, because
+nothing ever asks. That is a hang, not a silent wrong answer, so it is honest;
+it is still a gap.
+
+> **This is how the gap was missed for so long, and it is worth naming.** The
+> eDMA row said "TCD-driven mem-to-mem … START triggers" and the SAI row named
+> the missing "SAI FIFO→eDMA hardware-request handshake". **Both were accurate.**
+> The failure mode is a *correctly-flagged gap you stop thinking about BECAUSE
+> you flagged it*: it was written down in ONE row when it was a gap in TWELVE, and
+> a per-row flag never adds up to the cross-cutting statement. Hence this table —
+> the claim now lives where its scope actually is.
+> (Found by mcxn947qemu sweeping the fleet: `grep -n 'ERQ|DMAMUX|dma_req' your_dma.c`
+> — *"if ERQ is defined but never read, or no peripheral drives a request line,
+> your DMA-driven drivers hang and your source peripherals' data paths are PIO-only."*
+> Ours had `CH_CSR_ERQ` defined at line 40 and **never read**: a dead constant.)
+
+
 | Needed for | Block | Base | Status |
 |-----------|-------|------|--------|
-| sai | **audio codec + SAI↔eDMA streaming** | — | the stock `sai` demo is a codec loopback (SAI1 + DMA3 ch0/1 muxed to SAI1 Tx/Rx + a WM8962-class I2C codec). Needs the SAI FIFO→eDMA hardware-request handshake *and* a codec model; the demo's assert is codec-dependent, so it is deferred rather than faked |
+| sai | **audio codec + SAI↔eDMA streaming** (the eDMA request path now EXISTS — see the eDMA row — but SAI does not yet drive its FIFO request line; only LPUART1/2 do) | — | the stock `sai` demo is a codec loopback (SAI1 + DMA3 ch0/1 muxed to SAI1 Tx/Rx + a WM8962-class I2C codec). Needs the SAI FIFO→eDMA hardware-request handshake *and* a codec model; the demo's assert is codec-dependent, so it is deferred rather than faked |
 | usb_device_dfu | **USB host enumeration** | 0x42C80000 | controller inits + runs; no host attached, so the device does not enumerate (bridging to QEMU's USB host framework is future work) |
 | multicore_trigger | **boot-ROM AHAB container parse** | 0x38001000 | `BOARD_GetCore1ImageAddrSize` walks an AHAB container (tag 0x87) at FlexSPI+0x1000 for the CM7 image; our loader places the plain cm33 `.bin` in code-TCM and never populates that container. Needs boot-ROM container loading + the paired M7 image (the demo ships only the cm33 blob) — not faked |
 | motor-control frontier | ✅ **done** | — | eFlexPWM + EQDC + LPADC + PWM→XBAR→ADC sync + a calibrated dq PMSM plant: a FOC loop closes in emulation. Stretch: saturation/thermal effects + a time-varying load-torque profile |

@@ -630,6 +630,30 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         }
     }
 
+    /*
+     * Peripheral DMA request lines -> eDMA3.
+     *
+     * Source numbers are the CH_MUX[SRC] values the guest programs, taken from
+     * PERI_DMA4.h: kDma3RequestMuxLPUART1Tx = 16|0x100, ...Rx = 17|0x100, and
+     * LPUART2 = 18/19. The 0x100 is an instance tag that the SDK's
+     * DMA_CH_MUX_SOURCE() macro masks off (SRC is an 8-bit field), so the value
+     * that lands in the register -- and therefore the line index here -- is 16..19.
+     *
+     * LPUART1/2 live in the 0x443xxxxx AONMIX/WAKEUPMIX window alongside eDMA3
+     * (0x44000000), which is why these are eDMA3 sources and not eDMA4 ones.
+     */
+    DeviceState *edma3 = DEVICE(&s->edma[0]);
+    static const struct { const char *line; unsigned src; } lpuart_dma[] = {
+        { "dma-tx-req", 16 }, { "dma-rx-req", 17 },   /* LPUART1 */
+        { "dma-tx-req", 18 }, { "dma-rx-req", 19 },   /* LPUART2 */
+    };
+    for (int i = 0; i < 4; i++) {
+        DeviceState *u = (i < 2) ? DEVICE(&s->lpuart1) : DEVICE(&s->lpuart2);
+        qdev_connect_gpio_out_named(u, lpuart_dma[i].line, 0,
+                                    qdev_get_gpio_in_named(edma3, "dma-req",
+                                                           lpuart_dma[i].src));
+    }
+
     /* SAI1..4 (I2S) — control-register bring-up level. */
     static const struct { hwaddr base; unsigned irq; } sai_cfg[] = {
         { 0x443B0000, 45  },  /* SAI1 */

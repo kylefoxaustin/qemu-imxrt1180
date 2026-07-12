@@ -42,6 +42,8 @@
 #define CH_INT_INT   (1u << 0)
 #define TCD_CSR_START    (1u << 0)
 #define TCD_CSR_INTMAJOR (1u << 1)
+#define TCD_CSR_DREQ     (1u << 3)   /* auto-clear ERQ at major completion */
+#define CH_MUX_SRC_MASK  0xFFu       /* PERI_DMA4.h DMA4_CH_MUX_SRC_MASK       */
 #define ATTR_SSIZE(a)  (((a) >> 8) & 0x7)
 #define ATTR_DSIZE(a)  ((a) & 0x7)
 #define NBYTES_MASK  0x3FFFFFFFu
@@ -52,8 +54,14 @@ static void edma_update_irq(IMXRT1180EDMAState *s, int n)
     qemu_set_irq(s->irq[n], !!(s->ch[n].intr & CH_INT_INT));
 }
 
-/* Run a software-triggered channel transfer to completion. */
-static void edma_run(IMXRT1180EDMAState *s, int n)
+/*
+ * Move ONE MINOR LOOP (NBYTES) and account for it. Returns true if the MAJOR loop
+ * completed. This is the unit a hardware request buys you: the peripheral's FIFO
+ * says "I can take/give NBYTES", the channel moves exactly that, CITER decrements,
+ * and the peripheral must ask again. A software START runs it CITER times back to
+ * back instead.
+ */
+static bool edma_minor_loop(IMXRT1180EDMAState *s, int n)
 {
     IMXRT1180EDMAChan *c = &s->ch[n];
     uint32_t ssize = 1u << ATTR_SSIZE(c->tcd_attr);
@@ -62,37 +70,132 @@ static void edma_run(IMXRT1180EDMAState *s, int n)
     uint32_t citer = c->tcd_citer & CITER_MASK;
     int16_t soff = (int16_t)c->tcd_soff;
     int16_t doff = (int16_t)c->tcd_doff;
-    uint32_t saddr = c->tcd_saddr, daddr = c->tcd_daddr;
     uint8_t buf[32];
     uint32_t step = ssize ? ssize : 1;
-    uint32_t m, b;
+    uint32_t b;
 
     if (dsize == 0 || nbytes == 0 || citer == 0) {
         c->csr |= CH_CSR_DONE;
-        return;
+        return true;
     }
     if (step > sizeof(buf)) {
         step = sizeof(buf);
     }
-    for (m = 0; m < citer; m++) {
-        for (b = 0; b + step <= nbytes; b += step) {
-            address_space_read(&address_space_memory, saddr,
-                               MEMTXATTRS_UNSPECIFIED, buf, step);
-            address_space_write(&address_space_memory, daddr,
-                                MEMTXATTRS_UNSPECIFIED, buf, step);
-            saddr += soff;
-            daddr += doff;
-        }
+
+    for (b = 0; b + step <= nbytes; b += step) {
+        address_space_read(&address_space_memory, c->tcd_saddr,
+                           MEMTXATTRS_UNSPECIFIED, buf, step);
+        address_space_write(&address_space_memory, c->tcd_daddr,
+                            MEMTXATTRS_UNSPECIFIED, buf, step);
+        c->tcd_saddr += soff;
+        c->tcd_daddr += doff;
     }
-    saddr += (int32_t)c->tcd_slast;
-    daddr += (int32_t)c->tcd_dlast;
-    c->tcd_saddr = saddr;
-    c->tcd_daddr = daddr;
-    c->tcd_citer = c->tcd_biter;          /* reload major count */
+
+    c->tcd_citer = (c->tcd_citer & ~CITER_MASK) | ((citer - 1) & CITER_MASK);
+    if ((c->tcd_citer & CITER_MASK) != 0) {
+        return false;                          /* major loop still running */
+    }
+
+    /* ---- major loop complete ---- */
+    c->tcd_saddr += (int32_t)c->tcd_slast;
+    c->tcd_daddr += (int32_t)c->tcd_dlast;
+    c->tcd_citer = c->tcd_biter;               /* reload major count */
     c->csr |= CH_CSR_DONE;
+    if (c->tcd_csr & TCD_CSR_DREQ) {
+        c->csr &= ~CH_CSR_ERQ;                 /* hardware requests off */
+    }
     if (c->tcd_csr & TCD_CSR_INTMAJOR) {
         c->intr |= CH_INT_INT;
         edma_update_irq(s, n);
+    }
+    return true;
+}
+
+/*
+ * Bottom half: drain every channel whose selected request line is asserted.
+ *
+ * MUST NOT run inline from the peripheral's MMIO write handler -- see the header.
+ * A DMA write back into the requesting peripheral would be a re-entrant MMIO
+ * access, QEMU would silently drop it, and the channel would still report DONE +
+ * INTMAJOR over a FIFO that never received a byte.
+ */
+static void edma_service_bh(void *opaque)
+{
+    IMXRT1180EDMAState *s = opaque;
+    bool progressed;
+    unsigned guard = 0;
+
+    do {
+        progressed = false;
+        for (unsigned n = 0; n < s->num_channels; n++) {
+            IMXRT1180EDMAChan *c = &s->ch[n];
+            unsigned src = c->mux & CH_MUX_SRC_MASK;
+
+            /*
+             * THE TWO GATES. Both are re-evaluated on EVERY pass of the outer
+             * loop, which is what makes them gates rather than a one-time
+             * admission check:
+             *
+             *  ERQ      -- edma_minor_loop() clears it at major completion when
+             *              TCD_CSR[DREQ] is set. Re-reading it here is what stops
+             *              a channel whose ERQ has just gone away from being
+             *              serviced again by the same drain.
+             *  req[src] -- a minor loop's own MMIO access can LOWER the line that
+             *              caused it: the DMA reads LPUART DATA, the holding
+             *              register empties, RDRF drops, and the RX request is
+             *              gone until the next byte lands. Re-reading it is what
+             *              stops the channel from copying the same stale byte
+             *              CITER times -- which would still be byte-count-correct
+             *              and still pass any test that only checks the count.
+             *
+             * (95emulator reported that gating ERQ in one place was not enough to
+             * be caught by a mutation. That is TRUE OF THEIR STRUCTURE, not of
+             * this one: an earlier draft of this function read ERQ twice in a row
+             * with nothing in between that could change it, so the second read was
+             * DEAD CODE wearing a comment that claimed it was a defence. Deleted.
+             * Import a peer's conclusion, not their control flow.)
+             */
+            if (!(c->csr & CH_CSR_ERQ)) {
+                continue;
+            }
+            if (src == 0 || src >= IMXRT1180_EDMA_NUM_REQ || !s->req[src]) {
+                continue;
+            }
+
+            /*
+             * ONE MINOR LOOP PER PASS -- not the whole major loop. A hardware
+             * request buys exactly NBYTES; the peripheral must ask again for the
+             * next NBYTES. Draining the major loop here instead would "work" for
+             * a TX (the line is held asserted anyway) and would silently corrupt
+             * every RX (32 copies of byte 0).
+             */
+            (void)edma_minor_loop(s, n);
+            progressed = true;
+        }
+    } while (progressed && ++guard < 100000);
+}
+
+/* A peripheral asserted/deasserted its DMA request line. */
+static void edma_req_set(void *opaque, int src, int level)
+{
+    IMXRT1180EDMAState *s = opaque;
+
+    if (src < 0 || src >= IMXRT1180_EDMA_NUM_REQ) {
+        return;
+    }
+    s->req[src] = !!level;
+    if (level) {
+        qemu_bh_schedule(s->bh);   /* service OUTSIDE this MMIO dispatch */
+    }
+}
+
+/* Run a software-triggered channel transfer to completion. */
+static void edma_run(IMXRT1180EDMAState *s, int n)
+{
+    unsigned guard = 0;
+
+    /* START runs the whole major loop; a hardware request buys one minor loop. */
+    while (!edma_minor_loop(s, n) && ++guard < 100000) {
     }
 }
 
@@ -181,6 +284,14 @@ static void edma_write(void *opaque, hwaddr off, uint64_t val, unsigned size)
             c->csr &= ~CH_CSR_DONE;
         }
         c->csr = (c->csr & CH_CSR_DONE) | (v & ~CH_CSR_DONE);
+        if (c->csr & CH_CSR_ERQ) {
+            /*
+             * Arming ERQ on a source that is ALREADY asserting (an idle LPUART's
+             * TX line, say) must start the transfer -- the peripheral will not
+             * re-raise an edge it is already holding. Schedule, never run inline.
+             */
+            qemu_bh_schedule(s->bh);
+        }
         return;
     case R_CH_INT:
         if (v & CH_INT_INT) {                 /* write-1-to-clear */
@@ -191,7 +302,10 @@ static void edma_write(void *opaque, hwaddr off, uint64_t val, unsigned size)
     case R_CH_ES:   c->es = v; return;
     case R_CH_SBR:  c->sbr = v; return;
     case R_CH_PRI:  c->pri = v; return;
-    case R_CH_MUX:  c->mux = v; return;
+    case R_CH_MUX:
+        c->mux = v;
+        qemu_bh_schedule(s->bh);   /* the selected source may already be asserted */
+        return;
     case R_TCD_SADDR: c->tcd_saddr = v; return;
     case R_TCD_SOFF:  c->tcd_soff = v; return;
     case R_TCD_ATTR:  c->tcd_attr = v; return;
@@ -231,6 +345,13 @@ static void imxrt1180_edma_reset(DeviceState *dev)
     s->mp_es = 0;
     memset(s->ch_grpri, 0, sizeof(s->ch_grpri));
     memset(s->ch, 0, sizeof(s->ch));
+    /*
+     * s->req is deliberately NOT cleared: it mirrors the LEVEL of an input line
+     * that the SOURCE peripheral drives, and the source owns that state. An idle
+     * LPUART holds its TX request asserted; zeroing our copy here would make the
+     * eDMA blind to a line nobody is going to re-raise (the peripheral sees no
+     * edge -- it is already high).
+     */
 }
 
 static void imxrt1180_edma_realize(DeviceState *dev, Error **errp)
@@ -248,6 +369,14 @@ static void imxrt1180_edma_realize(DeviceState *dev, Error **errp)
     for (n = 0; n < s->num_channels; n++) {
         sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq[n]);
     }
+
+    /*
+     * The 128 peripheral DMA request lines (PERI_DMA4.h kDma3RequestMux*).
+     * A source peripheral raises its line from inside its OWN MMIO handler, so
+     * these are serviced from a bottom half -- never inline. See the header.
+     */
+    qdev_init_gpio_in_named(dev, edma_req_set, "dma-req", IMXRT1180_EDMA_NUM_REQ);
+    s->bh = qemu_bh_new(edma_service_bh, s);
 }
 
 static const VMStateDescription vmstate_edma_chan = {

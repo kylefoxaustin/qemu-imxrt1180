@@ -26,6 +26,14 @@ struct IMXRT1180LPUARTState {
     /*< public >*/
     MemoryRegion iomem;
     qemu_irq     irq;
+    /*
+     * eDMA request lines. Driven from BAUD[TDMAE]/BAUD[RDMAE] (bits 23/21,
+     * PERI_LPUART.h) AND the corresponding data-flag: TX asserts while TDRE
+     * (always, in this model -- writes are synchronous), RX while RDRF.
+     * They are LEVEL lines, not pulses: the eDMA re-samples them per minor loop.
+     */
+    qemu_irq     dma_tx_req;
+    qemu_irq     dma_rx_req;
     CharFrontend chr;
 
     /* Register state (only what the console path needs is meaningful). */

@@ -59,6 +59,28 @@
 #define LPUART_VERID_VALUE  0x04010003u
 #define LPUART_PARAM_VALUE  0x00000404u  /* TX/RX FIFO depth fields */
 
+/* BAUD DMA-enable bits — PERI_LPUART.h (RT1180): TDMAE=23, RDMAE=21. */
+#define BAUD_RDMAE  0x00200000u
+#define BAUD_TDMAE  0x00800000u
+
+/*
+ * Drive the two eDMA request lines.
+ *
+ * TX: this model transmits synchronously, so TDRE is permanently set -- the TX
+ * request is asserted whenever the guest enables it. That is honest: our TX FIFO
+ * genuinely never fills, so a real "wait for TDRE" would be a wait on a condition
+ * that is always true.
+ * RX: asserted only while a byte is actually in the holding register (RDRF). A
+ * DMA channel armed on LPUART RX therefore moves EXACTLY as many bytes as arrive
+ * on the wire -- if the line were hardwired asserted, the channel would happily
+ * copy the same stale byte CITER times and the test would still "pass".
+ */
+static void imxrt1180_lpuart_update_dma(IMXRT1180LPUARTState *s)
+{
+    qemu_set_irq(s->dma_tx_req, !!(s->baud & BAUD_TDMAE));
+    qemu_set_irq(s->dma_rx_req, (s->baud & BAUD_RDMAE) && s->rx_full);
+}
+
 /*
  * Interrupt condition: TX data-register-empty and transmit-complete are always
  * asserted in this model (writes are synchronous), so TIE/TCIE assert
@@ -109,6 +131,7 @@ static uint64_t imxrt1180_lpuart_read(void *opaque, hwaddr offset, unsigned size
         if (offset == LPUART_DATA && s->rx_full) {
             s->rx_full = false;
             imxrt1180_lpuart_update_irq(s);
+            imxrt1180_lpuart_update_dma(s);
             /* Holding register free again — tell the chardev to resume input,
              * or a continuous RX stream stalls after one byte. */
             qemu_chr_fe_accept_input(&s->chr);
@@ -168,6 +191,7 @@ static void imxrt1180_lpuart_write(void *opaque, hwaddr offset,
             s->ctrl = s->baud = s->fifo = s->water = 0;
             s->rx_full = false;
             imxrt1180_lpuart_update_irq(s);
+            imxrt1180_lpuart_update_dma(s);   /* BAUD cleared => requests drop */
         }
         break;
     case LPUART_PINCFG:
@@ -175,6 +199,7 @@ static void imxrt1180_lpuart_write(void *opaque, hwaddr offset,
         break;
     case LPUART_BAUD:
         s->baud = value;
+        imxrt1180_lpuart_update_dma(s);
         break;
     case LPUART_STAT:
         /* STAT is computed on read; W1C flag writes have no standalone state. */
@@ -263,6 +288,7 @@ static void imxrt1180_lpuart_rx(void *opaque, const uint8_t *buf, int size)
         s->rx_byte = buf[0];
         s->rx_full = true;
         imxrt1180_lpuart_update_irq(s);
+        imxrt1180_lpuart_update_dma(s);
     }
 }
 
@@ -287,6 +313,8 @@ static void imxrt1180_lpuart_realize(DeviceState *dev, Error **errp)
                           TYPE_IMXRT1180_LPUART, 0x1000);
     sysbus_init_mmio(sbd, &s->iomem);
     sysbus_init_irq(sbd, &s->irq);
+    qdev_init_gpio_out_named(dev, &s->dma_tx_req, "dma-tx-req", 1);
+    qdev_init_gpio_out_named(dev, &s->dma_rx_req, "dma-rx-req", 1);
 
     qemu_chr_fe_set_handlers(&s->chr, imxrt1180_lpuart_can_rx,
                              imxrt1180_lpuart_rx, NULL, NULL, s, NULL, true);

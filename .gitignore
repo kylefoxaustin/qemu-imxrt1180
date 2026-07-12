@@ -65,3 +65,4 @@ tests/mcxn-soak/incidents/
 tests/mcxn-enet-tcp/*.elf
 tests/mcxn-enet-lab/*.elf
 tests/mcxn-enet-udp/*.elf
+/build-aarch64/

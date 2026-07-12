@@ -51,9 +51,38 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-N="${1:-5}"
+#
+# ARGUMENT PARSING IS PART OF THE INSTRUMENT.
+#
+# This used to be `N="${1:-5}"` with --load only recognised in position 2. Invoked
+# the obvious way -- `determinism-check.sh --load` -- N became the STRING "--load",
+# `seq 1 --load` errored, THE RUN LOOP EXECUTED ZERO TIMES for every test, and the
+# tool printed:
+#
+#     imxrt1180-pwm            PASS=0
+#     ...
+#     All tests deterministic over --load runs.
+#
+# Zero runs have zero variance, so everything was "deterministic". A CHECK THAT DID
+# NOT RUN LOOKS EXACTLY LIKE A CHECK THAT FOUND NOTHING -- in the tool built to
+# catch precisely that, and found only because a run under load printed PASS=0
+# instead of PASS=5 and I read the number instead of the last line.
+# (ollama_95_neutron, 2026-07-12: "the tools are not the discipline; the tools are
+# where the discipline goes to hide.")
+#
+# So now: flags are position-free, N MUST be a positive integer or we die, and the
+# loop PROVES IT RAN before any verdict is printed.
+#
+N=5
 LOAD=0
-[ "${2:-}" = "--load" ] && LOAD=1
+for a in "$@"; do
+    case "$a" in
+        --load) LOAD=1 ;;
+        ''|*[!0-9]*) echo "usage: $0 [N] [--load]   (got '$a')" >&2; exit 2 ;;
+        *)      N="$a" ;;
+    esac
+done
+[ "$N" -ge 1 ] 2>/dev/null || { echo "N must be >= 1 (got '$N')" >&2; exit 2; }
 flaky=0
 load_pids=""
 if [ "$LOAD" = 1 ]; then
@@ -73,6 +102,16 @@ for d in "$ROOT"/tests/imxrt1180-*/; do
         o=$( (cd "$d" && timeout 180 make run 2>&1) )
         if echo "$o" | grep -q ": FAIL"; then fail=$((fail+1)); else pass=$((pass+1)); fi
     done
+    #
+    # THE LOOP MUST PROVE IT RAN. Without this, any future breakage that empties
+    # the loop (a bad N, a `seq` that errors, a `continue` added above) reports
+    # PASS=0 and is scored as "not flaky" -- silence read as agreement.
+    #
+    if [ $((pass + fail)) -ne "$N" ]; then
+        printf "  %-24s *** RAN %d/%d TIMES -- THE HARNESS IS BROKEN, NOT THE TEST ***\n" \
+               "$t" "$((pass + fail))" "$N"
+        flaky=$((flaky+1)); continue
+    fi
     if [ "$fail" -gt 0 ] && [ "$pass" -gt 0 ]; then
         printf "  %-24s PASS=%d FAIL=%d   *** NON-DETERMINISTIC ***\n" "$t" "$pass" "$fail"
         flaky=$((flaky+1))

@@ -63,10 +63,58 @@ add ele   hw/misc/imxrt1180_s3mu.c  imxrt1180-ele \
   "ELE fakes SUCCESS for un-computed crypto (the guest-lying bug)" \
   't=t.replace("        s->rr[1] = RESPONSE_FAILURE;", "        s->rr[1] = RESPONSE_SUCCESS; /* MUTANT: lie to the guest */")'
 
+# --- peripheral-triggered eDMA: the request path, not the START path -------
+#
+# The mem-to-mem `edma` test above CANNOT reach any of these: it triggers with
+# TCD_CSR[START], so it passes on a model where ERQ is a dead constant, no
+# peripheral drives a request line, and CH_MUX selects nothing -- which is
+# EXACTLY what this model was until 2026-07-12. A whole trigger path can be
+# missing while its block's test sits green. (mcxn947qemu found this across the
+# fleet with `grep -n 'ERQ\|DMAMUX\|dma_req' your_dma.c`.)
+
+add dmaerq   hw/dma/imxrt1180_edma.c   imxrt1180-dmareq \
+  "eDMA ignores CH_CSR[ERQ] -- an un-armed channel services hardware requests" \
+  't=t.replace("""            if (!(c->csr & CH_CSR_ERQ)) {
+                continue;
+            }
+            if (src == 0 || src >= IMXRT1180_EDMA_NUM_REQ || !s->req[src]) {""",
+               """            if (src == 0 || src >= IMXRT1180_EDMA_NUM_REQ || !s->req[src]) { /* MUTANT: ERQ gate gone */""", 1)'
+
+add dmaline  hw/dma/imxrt1180_edma.c   imxrt1180-dmareq \
+  "eDMA ignores the peripheral request LINE -- arming a channel runs it" \
+  't=t.replace("""            if (src == 0 || src >= IMXRT1180_EDMA_NUM_REQ || !s->req[src]) {
+                continue;
+            }""",
+               """            if (src == 0 || src >= IMXRT1180_EDMA_NUM_REQ) { /* MUTANT: no line check */
+                continue;
+            }""", 1)'
+
+add dmainl  hw/dma/imxrt1180_edma.c   imxrt1180-dmareq \
+  "eDMA services requests INLINE from the peripheral MMIO handler (re-entrancy)" \
+  't=t.replace("""    if (level) {
+        qemu_bh_schedule(s->bh);   /* service OUTSIDE this MMIO dispatch */
+    }""",
+               """    if (level) {
+        edma_service_bh(s);        /* MUTANT: re-entrant MMIO, silently dropped */
+    }""", 1)'
+
+add dmamaj  hw/dma/imxrt1180_edma.c   imxrt1180-dmareq \
+  "one request runs the WHOLE major loop, not one minor loop (RX copies stale bytes)" \
+  't=t.replace("""            (void)edma_minor_loop(s, n);
+            progressed = true;""",
+               """            while (!edma_minor_loop(s, n)) { /* MUTANT: drain whole major loop */
+            }
+            progressed = true;""", 1)'
+
+add uartdma hw/char/imxrt1180_lpuart.c imxrt1180-dmareq \
+  "LPUART holds its RX request line asserted regardless of RDMAE/RDRF" \
+  't=t.replace("    qemu_set_irq(s->dma_rx_req, (s->baud & BAUD_RDMAE) && s->rx_full);",
+               "    qemu_set_irq(s->dma_rx_req, 1);   /* MUTANT: line never drops */", 1)'
+
 add edma  hw/dma/imxrt1180_edma.c   imxrt1180-edma \
   "eDMA corrupts one byte of every transfer (CONTROL: this MUST be caught)" \
-  't=t.replace("            address_space_write(&address_space_memory, daddr,",
-               "            buf[0] ^= 0xFF; /* MUTANT */\n            address_space_write(&address_space_memory, daddr,", 1)'
+  't=t.replace("        address_space_write(&address_space_memory, c->tcd_daddr,",
+               "        buf[0] ^= 0xFF; /* MUTANT */\n        address_space_write(&address_space_memory, c->tcd_daddr,", 1)'
 
 restore_all() {
     for k in "${!SRC[@]}"; do
@@ -110,7 +158,8 @@ printf "%-7s %-58s %-10s %s\n" "-----" "--------" "---------" "-------"
 
 blind=0
 notrun=0
-for k in pwm pwmsh adc motor eqdc ele edma; do
+ran=0
+for k in pwm pwmsh adc motor eqdc ele edma dmaerq dmaline dmainl dmamaj uartdma; do
     [ -n "$ONLY" ] && [ "$ONLY" != "$k" ] && continue
     src="${SRC[$k]}"
     cp "$src" "$BAK/$(basename "$src")"
@@ -146,6 +195,7 @@ PY
     fi
 
     res=$(run_test "${TEST[$k]}")
+    ran=$((ran+1))
     if [ "$res" = "PASS" ]; then
         verdict="*** BLIND ***"; blind=$((blind+1))
     else
@@ -177,7 +227,23 @@ if [ $blind -gt 0 ]; then
     echo "$blind test(s) CANNOT FAIL: they pass against a model that produces wrong data."
     echo "Those capabilities are asserted by nothing. Fix the TEST, and retract the claim first."
 else
-    echo "All $swept swept blocks caught their mutation."
+    #
+    # SAY WHAT RAN, NOT WHAT THE TABLE CONTAINS.
+    #
+    # This used to print "All $swept swept blocks caught their mutation" -- the
+    # size of the TABLE -- even when invoked as `mutation-audit.sh edma`, which
+    # runs exactly ONE. So a filtered run of a single mutation announced that all
+    # twelve blocks were guarded. The row was honest and the BOTTOM LINE was not,
+    # which is the same shape as the PATCH-FAIL bug directly above: the summary is
+    # the only line most readers (and every CI) actually consume.
+    #
+    echo "All $ran mutation(s) that RAN were caught."
+    if [ -n "$ONLY" ]; then
+        echo
+        echo "FILTERED RUN ('$ONLY'). The other $((swept - ran)) mutation(s) in the table"
+        echo "DID NOT RUN and this says NOTHING about them. Run with no argument for the suite."
+        exit 0
+    fi
     echo
     echo "THIS IS NOT 'THE SUITE IS GUARDED'. It is '$swept of $total blocks are'."
     echo "The unswept ones are UNVERIFIED -- a green test there proves nothing yet:"
