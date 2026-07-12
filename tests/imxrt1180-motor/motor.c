@@ -92,6 +92,40 @@ static uint32_t read_phaseB(void)
 #define UDCB_FS_MV     60800            /* 60.8 V full scale, in mV */
 #define UDCB_EXPECT_MV 24000            /* the plant's bus voltage  */
 
+/*
+ * ===================== THE PHASE-CURRENT GOLDEN =============================
+ *
+ * A "bounded current" check is NOT a check.  A mutation audit
+ * (tools/mutation-audit.sh) made the plant report 3x the phase current it had
+ * computed, and this test still said PASS -- 3x a valid current is still
+ * "bounded".  A RANGE IS NOT A GOLDEN.  So predict the current from FIRST
+ * PRINCIPLES, independently of any line of the plant's code, and require the
+ * ADC to report THAT:
+ *
+ *   duties programmed below:    500 / 554 / 446 per-mille
+ *   phase voltages, centred:    v = (d - 0.5) * Vbus
+ *                               va = 0, vb = +1.296 V, vc = -1.296 V  (24 V bus)
+ *   amplitude-invariant Clarke: v_alpha = (2va - vb - vc)/3 = 0
+ *                               v_beta  = (vb - vc)/sqrt(3) = 1.4965 V
+ *   at steady state the rotor aligns with the field (omega -> 0, iq -> 0), so
+ *   the stator is purely resistive and Ohm's law fixes the current:
+ *                               |i| = |v|/Rs = 1.4965 / 0.54 = 2.7713 A
+ *   inverse Clarke, phase B:    ib = (sqrt(3)/2) * i_beta = 2.400 A
+ *   current-sense scaling (M1_I_MAX = 8.25 A over +/-0x7000):
+ *                               di = 2.400 * (0x7000 / 8.25) = 8341 counts
+ *
+ * Rs, Pp and I_MAX are motor/board datasheet facts (MCUXpresso M1 motor), NOT
+ * model internals -- so this expectation is independent of the thing it checks.
+ * Measured: 8340 (0.01%).  The rotor also settles at EQDC 256 = 4096*22.5/360,
+ * the mechanical angle of an electrical 90 deg at Pp=4: predicted, then observed.
+ *
+ * NOTE the settle must actually REACH steady state.  The old test sampled after
+ * ~2e6 spin cycles and read 7219 -- a TRANSIENT -- and its range check happily
+ * passed on it. A range check hides an unconverged value as readily as a wrong one.
+ */
+#define PHASE_B_EXPECT_DI  8341
+#define PHASE_B_TOL        (PHASE_B_EXPECT_DI / 20)   /* +/-5% */
+
 static uint32_t udcb_mv(void)
 {
     return (read_ch(UDCB_CH) * UDCB_FS_MV) / 0xFFFFu;
@@ -134,7 +168,7 @@ void reset_handler(void)
         pos = EQDC1_LPOS;
         if (++guard > 300000000u) { ok = 0; break; }
     }
-    for (volatile int i = 0; i < 2000000; i++) {   /* let it settle */
+    for (volatile int i = 0; i < 40000000; i++) {   /* let it settle (LONG) */
     }
     pos = EQDC1_LPOS;
 
@@ -142,7 +176,12 @@ void reset_handler(void)
     uint32_t run_i = read_phaseB();
     int32_t di = (int32_t)run_i - ADC_MID;
     if (di < 0) { di = -di; }
-    if (di < 1000 || di > 0x7000) { ok = 0; }      /* present but not railed */
+
+    /* THE GOLDEN: the sensed phase current must equal the physics, not merely
+     * fall inside a range.  3x the current is still "bounded"; it is not 8341. */
+    int current_ok = (di >= PHASE_B_EXPECT_DI - PHASE_B_TOL &&
+                      di <= PHASE_B_EXPECT_DI + PHASE_B_TOL);
+    if (!current_ok) { ok = 0; }
 
     /*
      * DC-bus sense must report the plant's real bus (24 V +/- 1 V) -- and must
@@ -156,13 +195,16 @@ void reset_handler(void)
     }
     if (!udcb_ok) { ok = 0; }
 
-    if (ok && pos >= 150 && pos <= 400) {
-        puts_("MOTOR: PASS - dq PMSM aligned to the field + bounded phase current sensed\r\n");
+    if (ok && pos >= 250 && pos <= 262) {
+        puts_("MOTOR: PASS - rotor aligns at EQDC 256 (electrical 90 deg, Pp=4)\r\n");
+        puts_("MOTOR: PASS - phase current MATCHES the first-principles golden (8341)\r\n");
         puts_("MOTOR: PASS - DC-bus sense reads the plant's real 24V bus (not a placeholder)\r\n");
     } else if (!udcb_ok) {
         puts_("MOTOR: FAIL - DC-bus channel is not driven by the plant\r\n");
+    } else if (!current_ok) {
+        puts_("MOTOR: FAIL - phase current does not match the physics (Ohm's law golden)\r\n");
     } else {
-        puts_("MOTOR: FAIL - plant did not close the loop\r\n");
+        puts_("MOTOR: FAIL - rotor did not align where the physics says it must\r\n");
     }
     sh(SYS_EXIT, (void *)0x20026u);
     for (;;) {

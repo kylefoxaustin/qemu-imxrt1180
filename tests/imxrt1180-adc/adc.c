@@ -35,6 +35,14 @@
 #define STAT_CAL_RDY  0x400u
 #define RESFIFO_VALID 0x80000000u
 
+/*
+ * The documented un-energised reading: with no plant and no analog front-end,
+ * a conversion returns mid-scale -- the reading of an unconnected input, NOT a
+ * fabricated current (see hw/misc/imxrt1180_adc.c). It is a specific VALUE, so
+ * the test asserts that value; anything else means the converter is inventing.
+ */
+#define ADC_UNDRIVEN_CODE 0x8000u
+
 static long sh(long op, void *arg)
 {
     register long r0 asm("r0") = op;
@@ -83,10 +91,31 @@ void reset_handler(void)
     uint32_t r3 = RESFIFO0;                         /* empty -> not VALID */
     if (r3 & RESFIFO_VALID) { ok = 0; }
 
+    /*
+     * (4) THE CONVERSION RESULT ITSELF.
+     *
+     * Everything above checks PLUMBING -- a VALID bit, a FIFO count, a tag.
+     * A mutation audit made the ADC return a plausible WRONG code (0x1234) for
+     * every conversion and this test still said PASS, because it never looked at
+     * the DATA. "A VALID bit is set" is a flag; a flag is not a value.
+     *
+     * So assert the codes:
+     *  - channels 5 and 7 are driven by nothing here (the motor plant is dormant
+     *    until the PWM runs), so a conversion must return EXACTLY the documented
+     *    un-energised mid-scale reading. Not "something", not "in range" -- 0x8000.
+     *  - and the sign of a real ADC: a second conversion of the same un-driven
+     *    input must return the SAME code (a converter that invents values would
+     *    have to invent the same one twice).
+     */
+    uint16_t d1 = (uint16_t)(r1 & 0xFFFFu);
+    uint16_t d2 = (uint16_t)(r2 & 0xFFFFu);
+    if (d1 != ADC_UNDRIVEN_CODE) { ok = 0; }
+    if (d2 != ADC_UNDRIVEN_CODE) { ok = 0; }
+
     if (ok) {
-        puts_("ADC: PASS - calibration + command chain + tagged result FIFO\r\n");
+        puts_("ADC: PASS - calibration + command chain + FIFO + CONVERSION CODE is the value\r\n");
     } else {
-        puts_("ADC: FAIL - calibration / trigger / FIFO misbehaved\r\n");
+        puts_("ADC: FAIL - calibration / trigger / FIFO / conversion RESULT misbehaved\r\n");
     }
     sh(SYS_EXIT, (void *)0x20026u);
     for (;;) {

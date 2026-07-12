@@ -38,6 +38,51 @@
 #define NVIC_ISER0 (*(volatile uint32_t *)0xE000E100u)
 #define PWM1_SM0_IRQ 24
 
+/*
+ * SysTick — an INDEPENDENT reference clock, used to check the PWM's actual
+ * PERIOD.  It is an Arm core timer, not one of our peripheral models, so it
+ * cannot be wrong in the same way the PWM is.
+ */
+#define SYST_CSR (*(volatile uint32_t *)0xE000E010u)
+#define SYST_RVR (*(volatile uint32_t *)0xE000E014u)
+#define SYST_CVR (*(volatile uint32_t *)0xE000E018u)
+
+/*
+ * THE GOLDEN.  Derived independently of the model, from the machine's own clocks:
+ *   PWM counter clock  = 200 MHz  (fast-peripheral clock)
+ *   prescaler          = 1        (CTRL.PRSC = 0)
+ *   period             = VAL1 - INIT + 1 = 499 - (-500) + 1 = 1000 counter ticks
+ *   => PWM reload rate = 200e6 / 1000                    = 200 kHz
+ *   CPU (SysTick) clock = 300 MHz
+ *   => CPU cycles per PWM period = 300e6 / 200e3         = 1500
+ *
+ * A test that only counts reload IRQs cannot see a wrong period at all: a
+ * 3x-too-long carrier still fires interrupts, still "runs the counter", and
+ * still passes.  For an FOC carrier a silently-wrong frequency makes every
+ * downstream current-loop result a lie, so the FREQUENCY is the thing that has
+ * to be asserted, against a number the model did not supply.
+ */
+#define CPU_HZ            300000000u
+#define PWM_HZ            200000000u
+#define PWM_PERIOD_TICKS  1000u
+#define PWM_PRESCALE      64u          /* CTRL.PRSC = 6 -> divide by 64 */
+#define CTRL_PRSC_6       (6u << 4)
+
+/*
+ * WHY THE CARRIER IS PRESCALED FOR THIS MEASUREMENT.  Un-prescaled the reload
+ * rate is 200 kHz -- one interrupt every 5 us of VIRTUAL time, which the
+ * emulated core cannot service in time. Reloads then COALESCE (the second sets
+ * STS.RF again before the ISR has run, so the guest sees ONE interrupt), and
+ * counting ISR entries under-counts the true rate. That is an artefact of
+ * measuring by interrupt, not a model defect -- but it means the golden must be
+ * measured at a rate the guest can actually keep up with.
+ *   reload rate = 200e6 / 64 / 1000 = 3125 Hz
+ *   CPU cycles per period = 300e6 / 3125 = 96000
+ */
+#define EXPECT_CPU_CYCLES_PER_PWM \
+    (CPU_HZ / (PWM_HZ / PWM_PRESCALE / PWM_PERIOD_TICKS))     /* 96000 */
+#define MEASURE_PERIODS   10u
+
 static long sh(long op, void *arg)
 {
     register long r0 asm("r0") = op;
@@ -46,6 +91,13 @@ static long sh(long op, void *arg)
     return r0;
 }
 static void puts_(const char *s) { sh(SYS_WRITE0, (void *)s); }
+static void dec(uint32_t v)
+{
+    char b[12]; int i = 11; b[11] = 0;
+    if (!v) { puts_("0"); return; }
+    while (v) { b[--i] = '0' + (v % 10u); v /= 10u; }
+    puts_(&b[i]);
+}
 
 static volatile int reloads;
 
@@ -83,6 +135,8 @@ void reset_handler(void)
     /* (1b) Committed: INIT now reads back the written value. */
     if (SM0_INIT != (uint16_t)(-500)) { ok = 0; }
 
+    SM0_CTRL = CTRL_PRSC_6;                    /* prescale /64 (see golden) */
+
     /* (2) Enable reload interrupt + NVIC line. */
     SM0_INTEN = INTEN_RIE;
     NVIC_ISER0 = (1u << PWM1_SM0_IRQ);
@@ -99,8 +153,43 @@ void reset_handler(void)
     while (reloads < 3) {                      /* wait for periodic reloads */
     }
 
-    if (ok && reloads >= 3) {
-        puts_("PWM: PASS - double-buffer commit + periodic reload IRQ (counter runs)\r\n");
+    /*
+     * (4) THE PERIOD ITSELF, against an independent reference clock.
+     *
+     * SysTick is a free-running 24-bit DOWN counter on the core clock.  20 PWM
+     * periods = ~30,000 CPU cycles, well inside the 16.7M-cycle span, so it
+     * cannot wrap during the measurement.
+     */
+    SYST_RVR = 0x00FFFFFFu;
+    SYST_CVR = 0;                   /* writing CVR clears it and COUNTFLAG */
+    SYST_CSR = 0x5u;                /* ENABLE | CLKSOURCE=core             */
+
+    int start = reloads;
+    while (reloads == start) {      /* align to a reload edge */
+    }
+    uint32_t c0 = SYST_CVR;
+    int from = reloads;
+    while (reloads < from + (int)MEASURE_PERIODS) {
+    }
+    uint32_t c1 = SYST_CVR;
+
+    uint32_t elapsed = (c0 - c1) & 0x00FFFFFFu;          /* counts DOWN */
+    uint32_t cycles_per_period = elapsed / MEASURE_PERIODS;
+
+    puts_("PWM period: measured "); dec(cycles_per_period);
+    puts_(" CPU cycles, expected "); dec(EXPECT_CPU_CYCLES_PER_PWM);
+    puts_("\r\n");
+
+    /* +/-10%: generous for host-timing jitter, nowhere near a 3x error. */
+    uint32_t lo = EXPECT_CPU_CYCLES_PER_PWM - EXPECT_CPU_CYCLES_PER_PWM / 10u;
+    uint32_t hi = EXPECT_CPU_CYCLES_PER_PWM + EXPECT_CPU_CYCLES_PER_PWM / 10u;
+    int period_ok = (cycles_per_period >= lo && cycles_per_period <= hi);
+    if (!period_ok) { ok = 0; }
+
+    if (ok && reloads >= 3 && period_ok) {
+        puts_("PWM: PASS - double-buffer commit + reload IRQ + PERIOD matches the golden\r\n");
+    } else if (!period_ok) {
+        puts_("PWM: FAIL - carrier PERIOD is wrong (IRQs fire, counter runs, frequency lies)\r\n");
     } else {
         puts_("PWM: FAIL - buffering / reload IRQ misbehaved\r\n");
     }

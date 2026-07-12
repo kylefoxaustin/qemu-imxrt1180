@@ -98,34 +98,40 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
   with the field: the EQDC position follows it (~CPR/4 for a 90° vector) and the
   LPADC senses a real phase current.  Idle PWM → rotor still, mid-scale current.
 
-> ### ⚠️ RETRACTION (2026-07-12): the FOC-path tests DO NOT VERIFY THEIR VALUES
+> ### ✅ FOC path: VALUE-VERIFIED against first-principles goldens (2026-07-12)
 >
-> A mutation audit (`tools/mutation-audit.sh` — corrupt the model, see whether
-> the test notices) found that **the entire FOC chain is asserted by nothing**:
+> A mutation audit (`tools/mutation-audit.sh` — corrupt the model, see whether the
+> test notices) initially found **the entire FOC chain asserted by nothing**: a
+> 3×-too-long PWM period, a wrong ADC conversion code, and a 3×-wrong phase
+> current *all passed*. Those tests stopped at "an IRQ fired", "a VALID bit was
+> set", "the current is within a *range*". **A range is not a golden.** The claim
+> was retracted first, then re-earned. The tests now assert **values**:
 >
-> | mutation applied to the model | test still says |
-> |---|---|
-> | eFlexPWM period made **3× too long** | `PWM: PASS` |
-> | LPADC conversion returns a **wrong code** (not the plant's sample) | `ADC: PASS` |
-> | motor plant reports **3× the phase current** it computed | `MOTOR: PASS` |
-> | *(control)* eDMA corrupts one byte of every transfer | `eDMA: FAIL` ✔ caught |
+> | mutation applied to the model | before | now |
+> |---|---|---|
+> | eFlexPWM period **3× too long** | `PASS` 🔴 | **`FAIL` ✔ caught** |
+> | LPADC returns a **wrong conversion code** | `PASS` 🔴 | **`FAIL` ✔ caught** |
+> | plant reports **3× the phase current** | `PASS` 🔴 | **`FAIL` ✔ caught** |
+> | *(control)* eDMA corrupts one byte | `FAIL` ✔ | `FAIL` ✔ |
 >
-> These tests stop at "an IRQ fired", "a VALID bit was set", "the counter moved",
-> "the current is *within a range*". **None of them compares a value to an
-> independently-computed expected one**, so a silently-wrong carrier frequency,
-> current sense, or plant output passes every one of them. The eDMA control shows
-> the method works — it is the tests that are blind, not the audit.
+> The goldens are derived **independently of the model**, from the machine's
+> clocks and the motor's datasheet — so they check the thing rather than restate it:
 >
-> This is the class the fleet named this week: *guarded tests read a value back
-> and compare it to an expected CONSTANT; anything that stops at a flag or an IRQ
-> is decoration.* A 3× PWM period would make **every FOC result this model ever
-> produces a lie, with a green suite** — and FOC is this project's north-star.
+> - **PWM period** — measured against **SysTick** (an Arm core timer, not one of
+>   our peripheral models): `200 MHz / 64 / 1000 = 3125 Hz` → `300e6/3125 = 96000`
+>   CPU cycles per carrier period. **Measured 96026 (0.03%).**
+> - **Phase current** — predicted from Ohm's law: duties → phase voltages →
+>   amplitude-invariant Clarke → `|v| = 1.4965 V`; at alignment the stator is
+>   purely resistive, so `|i| = |v|/Rs = 2.771 A`; inverse Clarke → phase B
+>   `= 2.400 A` → ADC code offset `8341`. **Measured 8340 (one count).**
+> - **Rotor alignment** — an electrical 90° vector at `Pp=4` must settle the
+>   encoder at `4096 × 22.5/360 = 256` counts. **Observed exactly 256.**
 >
-> **So the claim is retracted before it is fixed, not after.** Until these tests
-> assert values against goldens, treat the FOC row above as *"the registers and
-> the plumbing are modelled"*, **not** *"the numbers are right"*. The plant's
-> physics may well be correct — the point is that **nothing checks**, and an
-> unchecked correct answer is indistinguishable from an unchecked wrong one.
+> Two things fell out of doing this. The plant's physics is **vindicated** — it
+> matches an independent derivation to one ADC count. And the *old* test was
+> reading a **transient**: it sampled before steady state and its range check
+> passed on an unconverged value. A range check hides an unconverged number as
+> readily as a wrong one.
 - **Board-to-board UART** (`tests/imxrt1180-uartlink`, `UARTLINK: PASS`) — LPUART2
   on a socket chardev links to a peer with a resend-until-connected GO handshake,
   then a 32-byte pattern echoes byte-exact.  Wires the RT1180 into holobench as a
