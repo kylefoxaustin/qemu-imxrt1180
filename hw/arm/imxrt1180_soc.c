@@ -223,6 +223,42 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     memory_region_add_subregion(system_memory, IMXRT1180_SYS_TCM_BASE,
                                 &s->sys_tcm);
 
+    /*
+     * THE M33 TCM DMA ALIASES -- and without these, DMA to a TCM buffer goes
+     * NOWHERE.
+     *
+     * The M33 reaches its own TCM through the core's tightly-coupled port at
+     * 0x0FFE0000 (code) and 0x20000000 (system). NO OTHER BUS MASTER CAN. The eDMA,
+     * ENETC, USDHC and friends reach it through a system-bus ALIAS, and the SDK
+     * knows it: fsl_memory.c's MEMORY_ConvertMemoryMapAddress(kMEMORY_Local2DMA)
+     * rewrites a TCM pointer before it is ever written into a TCD, so the address
+     * the DMA engine sees is NOT the address the C code holds.
+     *
+     * From the SDK's own table (M33_CFG[TCM_SIZE] = 0, the reset value):
+     *
+     *   kCore_CM33_CTCM_START       0x0FFE0000  -> _ALIAS  0x201E0000  (128 KiB)
+     *   kCore_CM33_STCM_START       0x20000000  -> _ALIAS  0x20200000  (128 KiB)
+     *
+     * This is why the stock edma4/scatter_gather example failed while every other
+     * eDMA example passed: it is the only one that puts its data (the TCD pool) in
+     * AT_QUICKACCESS_SECTION -- i.e. in TCM. The others use AT_NONCACHEABLE_SECTION,
+     * which lands in OCRAM, where local and DMA addresses are the same and the
+     * missing alias cannot be felt.
+     *
+     * A DMA-visible alias is not a nicety of the memory map. It is the difference
+     * between a descriptor fetch that reads a TCD and one that reads nothing.
+     */
+    memory_region_init_alias(&s->code_tcm_dma, OBJECT(dev),
+                             "imxrt1180.code-tcm-dma-alias", &s->code_tcm, 0,
+                             IMXRT1180_CODE_TCM_SIZE);
+    memory_region_add_subregion(system_memory, IMXRT1180_CODE_TCM_DMA_ALIAS,
+                                &s->code_tcm_dma);
+    memory_region_init_alias(&s->sys_tcm_dma, OBJECT(dev),
+                             "imxrt1180.sys-tcm-dma-alias", &s->sys_tcm, 0,
+                             IMXRT1180_SYS_TCM_SIZE);
+    memory_region_add_subregion(system_memory, IMXRT1180_SYS_TCM_DMA_ALIAS,
+                                &s->sys_tcm_dma);
+
     memory_region_init_ram(&s->ocram1, OBJECT(dev), "imxrt1180.ocram1",
                            IMXRT1180_OCRAM1_SIZE, &error_fatal);
     memory_region_add_subregion(system_memory, IMXRT1180_OCRAM1_BASE,
@@ -611,13 +647,21 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
      * NVIC input (the NVIC ORs them).
      */
     DeviceState *m33 = DEVICE(&s->armv7m[IMXRT1180_CPU_M33]);
-    static const struct { hwaddr base; unsigned nch; } edma_cfg[] = {
-        { 0x44000000, 32 },  /* eDMA3 */
-        { 0x42000000, 64 },  /* eDMA4 */
+    /*
+     * Channel-block geometry differs BETWEEN THE TWO INSTANCES and is not a
+     * detail: PERI_DMA.h  (DMA3) puts CH[n] at base + 0x10000 + n * 0x10000, and
+     * PERI_DMA4.h (DMA4) puts TCD[n] at base + 0x10000 + n * 0x8000. Getting this
+     * from the header rather than from the sibling model is the whole rule.
+     */
+    static const struct { hwaddr base; unsigned nch; uint32_t stride; } edma_cfg[] = {
+        { 0x44000000, 32, 0x10000 },  /* eDMA3 (AON,    DMA3_BASE_NS) */
+        { 0x42000000, 64, 0x8000  },  /* eDMA4 (WAKEUP, DMA4_BASE_NS) */
     };
     for (int i = 0; i < IMXRT1180_NUM_EDMA; i++) {
         qdev_prop_set_uint32(DEVICE(&s->edma[i]), "num-channels",
                              edma_cfg[i].nch);
+        qdev_prop_set_uint32(DEVICE(&s->edma[i]), "channel-stride",
+                             edma_cfg[i].stride);
         if (!sysbus_realize(SYS_BUS_DEVICE(&s->edma[i]), errp)) {
             return;
         }

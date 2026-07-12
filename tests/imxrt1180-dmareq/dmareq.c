@@ -57,8 +57,11 @@
 #define BAUD_RDMAE   0x00200000u
 #define BAUD_TDMAE   0x00800000u
 
-/* ---- eDMA3 (PERI_DMA4.h) ----------------------------------------------- */
-#define EDMA3_CH(n)  (0x44001000u + (n) * 0x1000u)
+/* ---- eDMA3 (PERI_DMA.h) ------------------------------------------------- */
+/* CH[n] at base + 0x10000 + n * 0x10000 -- "array offset: 0x10000, array step:
+ * 0x10000". (This said + n*0x1000 until 2026-07-12: the MCXN947 geometry, which
+ * the model shared, so the test could not see it. The stock NXP driver could.) */
+#define EDMA3_CH(n)  (0x44010000u + (n) * 0x10000u)
 #define D32(n, o)    (*(volatile uint32_t *)(EDMA3_CH(n) + (o)))
 #define D16(n, o)    (*(volatile uint16_t *)(EDMA3_CH(n) + (o)))
 #define CH_CSR(n)     D32(n, 0x000)

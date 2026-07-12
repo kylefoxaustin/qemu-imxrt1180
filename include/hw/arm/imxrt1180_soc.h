@@ -75,6 +75,17 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 #define IMXRT1180_CODE_TCM_SIZE   0x00020000
 #define IMXRT1180_SYS_TCM_BASE    0x20000000  /* CM33 DTCM (system TCM) 128 KiB */
 #define IMXRT1180_SYS_TCM_SIZE    0x00020000
+
+/*
+ * The M33's TCM as EVERY OTHER BUS MASTER sees it (eDMA, ENETC, USDHC, ...).
+ * The core reaches its TCM over the tightly-coupled port at the addresses above;
+ * nothing else on the bus can. The SDK converts a TCM pointer to these before it
+ * writes it into a DMA descriptor -- fsl_memory.c, kMEMORY_Local2DMA, table for
+ * M33_CFG[TCM_SIZE] = 0 (reset):
+ *      CTCM 0x0FFE0000 -> 0x201E0000 ;  STCM 0x20000000 -> 0x20200000
+ */
+#define IMXRT1180_CODE_TCM_DMA_ALIAS 0x201E0000
+#define IMXRT1180_SYS_TCM_DMA_ALIAS  0x20200000
 #define IMXRT1180_OCRAM1_BASE     0x20484000  /* OCRAM1 (first 16K TRDC-blocked)*/
 #define IMXRT1180_OCRAM1_SIZE     0x0007C000
 #define IMXRT1180_OCRAM2_BASE     0x20500000  /* OCRAM2                 256 KiB */
@@ -271,6 +282,8 @@ struct IMXRT1180State {
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */
     MemoryRegion code_tcm;   /* ITCM  @ 0x0FFE0000 */
     MemoryRegion sys_tcm;    /* DTCM  @ 0x20000000 */
+    MemoryRegion code_tcm_dma;  /* ITCM as a bus master sees it @ 0x201E0000 */
+    MemoryRegion sys_tcm_dma;   /* DTCM as a bus master sees it @ 0x20200000 */
     MemoryRegion ocram1;     /* OCRAM1 @ 0x20484000 */
     MemoryRegion ocram2;     /* OCRAM2 @ 0x20500000 */
     /*

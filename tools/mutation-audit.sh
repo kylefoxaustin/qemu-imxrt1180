@@ -111,6 +111,31 @@ add uartdma hw/char/imxrt1180_lpuart.c imxrt1180-dmareq \
   't=t.replace("    qemu_set_irq(s->dma_rx_req, (s->baud & BAUD_RDMAE) && s->rx_full);",
                "    qemu_set_irq(s->dma_rx_req, 1);   /* MUTANT: line never drops */", 1)'
 
+# --- TCD_CSR[START] is a SERVICE REQUEST (one minor loop), not "run the major
+#     loop". This was WRONG in the model for months and NO TEST COULD SEE IT,
+#     because every eDMA test used CITER=1 -- where one minor loop IS the whole
+#     major loop and the two models are bit-for-bit indistinguishable. So did the
+#     stock NXP edma4/memory_to_memory example (minorLoopBytes = the whole buffer).
+#     tests/imxrt1180-edma now has a CITER=4 phase. (mcxn947qemu, 2026-07-12.)
+
+add start   hw/dma/imxrt1180_edma.c   imxrt1180-edma \
+  "TCD_CSR[START] drains the WHOLE major loop instead of one minor loop" \
+  't=t.replace("""static void edma_start(IMXRT1180EDMAState *s, int n)
+{
+    (void)edma_minor_loop(s, n);
+}""",
+               """static void edma_start(IMXRT1180EDMAState *s, int n)
+{
+    unsigned guard = 0;
+    while (!edma_minor_loop(s, n) && ++guard < 100000) { /* MUTANT: whole major loop */
+    }
+}""", 1)'
+
+add startclr hw/dma/imxrt1180_edma.c  imxrt1180-edma \
+  "TCD_CSR[START] is not auto-cleared when the channel executes (RM 5.5.4)" \
+  't=t.replace("            c->tcd_csr &= ~TCD_CSR_START;",
+               "            /* MUTANT: START left set */", 1)'
+
 add edma  hw/dma/imxrt1180_edma.c   imxrt1180-edma \
   "eDMA corrupts one byte of every transfer (CONTROL: this MUST be caught)" \
   't=t.replace("        address_space_write(&address_space_memory, c->tcd_daddr,",
@@ -159,7 +184,7 @@ printf "%-7s %-58s %-10s %s\n" "-----" "--------" "---------" "-------"
 blind=0
 notrun=0
 ran=0
-for k in pwm pwmsh adc motor eqdc ele edma dmaerq dmaline dmainl dmamaj uartdma; do
+for k in pwm pwmsh adc motor eqdc ele edma start startclr dmaerq dmaline dmainl dmamaj uartdma; do
     [ -n "$ONLY" ] && [ "$ONLY" != "$k" ] && continue
     src="${SRC[$k]}"
     cp "$src" "$BAK/$(basename "$src")"

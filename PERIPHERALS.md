@@ -58,7 +58,7 @@ it."*) So, explicitly:
 | **LPSPI** (controller mode) | 1..4 | 0x44360000, 0x44370000, 0x42550000, 0x42560000 | ✅ functional | full-duplex SPI master (TCR frame/PCS/CONT, TDR→SSIBus→RDR) with per-CS lines; validated vs a serial-flash JEDEC-ID read; IRQ (16/17/65/66) |
 | **LPIT** (periodic timer) | 1..3 | 0x442F0000, 0x424C0000, 0x42CC0000 | ✅ functional | 4-channel ptimer-backed 32-bit periodic down-counter; TVAL/CVAL + MSR.TIF W1C + MIER IRQ (15/64/149); validated (periodic IRQ + counter) |
 | **FlexCAN** (CAN/CAN-FD) | 1..3 | 0x443A0000, 0x425B0000, 0x445B0000 | ✅ functional | MCR freeze/disable/soft-reset handshakes; 96 message buffers (TX/RX CODE); real frames on a QEMU can-bus + internal loopback; IFLAG/IMASK IRQ (8/51/191); adapted from the MCX FlexCAN |
-| **eDMA** (enhanced DMA) | eDMA3 (32ch), eDMA4 (64ch) | 0x44000000, 0x42000000 | ✅ functional | **Both trigger paths.** (1) *Software*: `TCD_CSR[START]` runs the whole major loop. (2) *Peripheral request*: `CH_CSR[ERQ]` + `CH_MUX[SRC]` (8-bit, per `DMA4_CH_MUX_SRC_MASK`) select one of 256 request lines; an asserted line moves **one minor loop (NBYTES)** and the peripheral must ask again. Requests are serviced from a **bottom half**, never inline — a peripheral raises its line from inside its own MMIO handler, and a DMA write back into that peripheral would be a re-entrant MMIO access that QEMU **drops silently** while the channel still reports DONE + INTMAJOR over a FIFO that never got a byte. Real driving peripherals today: **LPUART1/2 Tx+Rx** (`SRC` 16–19). Full TCD (SADDR/DADDR/SOFF/DOFF/ATTR/NBYTES/CITER/BITER/SLAST/DLAST), `TCD_CSR[DREQ]` auto-clears ERQ at major completion; per-ch IRQ (eDMA3 95+, eDMA4 grouped 128+). Verified end-to-end over a real wire by `tests/imxrt1180-dmareq`: 32 bytes mem→LPUART2→socket→LPUART2→mem, **by DMA in both directions**, byte-exact, with each gate independently proven to REFUSE |
+| **eDMA** (enhanced DMA) | eDMA3 (32ch), eDMA4 (64ch) | 0x44000000, 0x42000000 | ✅ functional | **Verified against the real `fsl_edma` driver: 9 of 9 stock NXP eDMA `driver_examples` pass, data-checked** (`memory_to_memory`, `..._transfer`, `memset`, `channel_link`, `wrap_transfer`, `interleave_transfer`, `ping_pong_transfer`, `scatter_gather`, and eDMA3's `memory_to_memory`). **Channel geometry from the CMSIS header**: DMA3 `CH[n]` @ `+0x10000 + n*0x10000` (`PERI_DMA.h`), DMA4 `TCD[n]` @ `+0x10000 + n*0x8000` (`PERI_DMA4.h`). **A service request moves ONE MINOR LOOP (NBYTES)** and decrements CITER — and `TCD_CSR[START]`, a peripheral request line, and a channel link are all the SAME event (RM 5.4: software START "follows the same basic flow as peripheral requests"). START is auto-cleared on execution. **Peripheral requests**: `CH_CSR[ERQ]` + `CH_MUX[SRC]` (8-bit, 256 lines), serviced from a **bottom half** — never inline, or the DMA's write back into the requesting peripheral is a re-entrant MMIO access QEMU **drops silently** while the channel still reports DONE. Real sources today: **LPUART1/2 Tx+Rx** (`SRC` 16–19). **Channel linking**: minor-loop (`CITER[ELINK]`/`LINKCH`, and CITER is only **9 bits** when ELINK is set) and major-loop (`TCD_CSR[MAJORELINK]`/`MAJORLINKCH`). **Scatter-gather**: `TCD_CSR[ESG]` fetches the next TCD from `TCD_DLAST_SGA` (which is a POINTER when ESG is set, an address adjustment otherwise). `TCD_CSR[DREQ]` auto-clears ERQ at major completion. Per-ch IRQ (eDMA3 95+, eDMA4 grouped `128 + (ch%32)/2`, matching `DMA4_CH0_CH1_CH32_CH33_IRQn`). Also see `tests/imxrt1180-edma` (CITER>1) and `tests/imxrt1180-dmareq` (peripheral-triggered, over a real wire) |
 | **SAI** (I2S audio) | 1..4 | 0x443B0000, 0x42BB0000, 0x42BC0000, 0x42BD0000 | ◐ bring-up | TCSR/RCSR SR+FR resets self-clear, TX FIFO advertises space (FWF), RX empty; init handshake settles; no audio streaming (flagged); IRQ 45/198/199/154; adapted from the MCX SAI |
 | **SRC + BLK_CTRL_S_AONMIX** | 1 | 0x44460000 / 0x444F0000 | ✅ functional | M7 boot-vector (M7_CFG) + release (SCR.BT_RELEASE_M7), bottom-half start |
 | **FlexSPI** (controller) | 1, 2 | 0x425E0000, 0x445E0000 | ● functional | LUT-driven IP command engine over SSI + AHB/XIP window; real `m25p80` NOR on FlexSPI1 (16 MiB, `-drive if=mtd`). Storage-write-verified: erase→program→read-back byte-exact, and program-without-erase correctly only clears bits. FlexSPI2 has no flash on the EVK, so its AHB window is deliberately unmapped |
@@ -194,6 +194,41 @@ it."*) So, explicitly:
   demo reads a level orientation (`x=0 y=0`).
 
 ## Known gaps (surfaced by the demo corpus)
+
+### ⚠️ Retraction: the eDMA register map was wrong, and every eDMA test passed anyway
+
+**2026-07-12.** Four separate defects in the eDMA, all found in one afternoon, none
+of which any test in this repo could have caught:
+
+| what was wrong | what it should be | why no test saw it |
+|---|---|---|
+| Channel `n` at `base + 0x1000*(n+1)` | DMA3: `+0x10000 + n*0x10000`; DMA4: `+0x10000 + n*0x8000` | **The tests used the model's own addresses.** They could only ever confirm the model agreed with itself. |
+| `TCD_CSR[START]` ran the **whole major loop** | one **minor loop** — it is a *service request*, same as a hardware request (RM 5.4) | **Every eDMA test used `CITER=1`**, where one minor loop *is* the whole major loop and the two models are bit-identical. |
+| `CITER` masked with `0x7FFF` always | `0x1FF` when `ELINK` is set (bits 9–14 are `LINKCH`) | Nothing ever set `ELINK`. |
+| M33 TCM had **no DMA-visible alias** | CTCM `0x0FFE0000` → **`0x201E0000`**; STCM `0x20000000` → **`0x20200000`** | Every test buffer was in OCRAM, where local and DMA addresses coincide. |
+
+The register-map bug is the one to sit with. **The model was adapted from the
+MCXN947's eDMA and its channel geometry was never re-derived from the RT1180 CMSIS
+header** — and because the *tests were written against the model*, the whole eDMA
+test suite was green on a peripheral whose registers were at the wrong addresses.
+
+> **The stock NXP driver hung immediately.** It takes its addresses from the CMSIS
+> header, so its DMA4 channel-0 writes landed on our channel *15*, and the completion
+> interrupt went to NVIC 135 while the guest waited on 128.
+>
+> ### That is the entire argument for running the vendor's driver. A test you wrote against your own model is an oracle you wrote yourself.
+
+`CLAUDE.md` has said all along: *"Never fabricate register offsets… derive them from
+the CMSIS header."* The offsets **within** a channel block were derived. The **block
+base and stride were inherited from a sibling chip**, and nobody thought of those as
+"offsets" — so the rule was obeyed exactly where it was easy and skipped where it
+mattered. **Read the whole struct, not the fields you happened to be looking at.**
+
+Now: **9 of 9 stock NXP eDMA `driver_examples` pass, checked on the DATA** — and that
+last clause is not decoration. Before scatter-gather was modelled, `edma4/scatter_gather`
+printed *"example finish"* over a destination buffer of `1 2 3 4 **0 0 0 0**`: half the
+transfer silently missing. **The first version of the sweep that "verified" this fix
+grepped for the word `finish` and scored it PASS.**
 
 ### Which peripherals drive a DMA request line
 
