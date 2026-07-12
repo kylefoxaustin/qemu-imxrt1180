@@ -108,7 +108,17 @@ hard way (see `CLAUDE.md`):
 Honest gaps, per-block, are in [PERIPHERALS.md](PERIPHERALS.md); `(flagged)` is
 defined there and means *visible to the guest*, never "we wrote a host log".
 
-- **Clocks** report nominal, not computed, frequencies.
+- **Clocks** report nominal, not computed, frequencies — **and this is a live
+  fidelity gap, not just a stub.** The stock NXP FOC demo (`mc_pmsm`) targets a
+  16 kHz carrier and derives its PWM registers from the *real* clock root via
+  `CLOCK_GetRootClockFreq()`; its whole control-loop timestep depends on that
+  being true. Because our CCM does not compute root frequencies, the **absolute
+  emulated PWM carrier frequency is unverified** — our value-golden verifies that
+  the PWM honours `VAL1`/`INIT`/`PRSC` (swept across both axes), but it takes the
+  *clock* from the model, so it cannot catch a wrong clock. **A test cannot
+  validate its own trust anchor.** Closing this means making CCM compute the root
+  frequency from the PLL config firmware programs, so the golden can be anchored
+  on the firmware's own intent instead of on a constant we chose.
 - **TRDC** does not enforce access control (grants everything).
 - **EdgeLock (ELE)**: the enclave is proprietary and not modelled. Its **RNG is
   real** (genuine `qemu_guest_getrandom` entropy DMA'd to the guest). **Every

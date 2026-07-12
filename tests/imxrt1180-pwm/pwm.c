@@ -61,6 +61,30 @@
  * still passes.  For an FOC carrier a silently-wrong frequency makes every
  * downstream current-loop result a lie, so the FREQUENCY is the thing that has
  * to be asserted, against a number the model did not supply.
+ *
+ * ============ WHAT THIS GOLDEN DOES *NOT* VERIFY -- THE TRUST ANCHOR ==========
+ *
+ * "A test cannot validate its own trust anchor." (ollama_95_neutron, 2026-07-12.)
+ *
+ * PWM_HZ below is 200 MHz because that is what the MODEL uses (PWM_CLK_DEFAULT,
+ * a documented *nominal* "fast-peripheral clock"). CPU_HZ is likewise the board's
+ * own constant. So this test verifies the model's PERIOD LOGIC -- that it honours
+ * VAL1/INIT and CTRL.PRSC, swept across both -- against the clock it is GIVEN.
+ * It does NOT, and cannot, verify that the clock itself is right: if PWM_CLK were
+ * wrong, this golden would be wrong in exactly the same direction and still pass.
+ *
+ * That matters, because it is not hypothetical. The stock NXP FOC demo
+ * (mc_pmsm) targets M1_PWM_FREQ = 16 kHz and derives VAL1 from the REAL root via
+ * CLOCK_GetRootClockFreq(); its entire control-loop timestep (M1_FAST_LOOP_TS =
+ * 1/16000) depends on that. Our CCM reports NOMINAL, not computed, frequencies
+ * (a documented limitation), so the ABSOLUTE emulated carrier frequency is
+ * currently UNVERIFIED -- only its scaling with the programmed registers is.
+ *
+ * THE FIX, and it is open work, not a caveat to be lived with: have CCM COMPUTE
+ * the PWM root frequency from the PLL/root config the firmware actually programs,
+ * and have the PWM model take its clock from CCM. Then the golden can be anchored
+ * on the FIRMWARE'S OWN intent (16 kHz) rather than on a constant we chose, and
+ * the anchor stops being ours.
  */
 #define CPU_HZ            300000000u
 #define PWM_HZ            200000000u

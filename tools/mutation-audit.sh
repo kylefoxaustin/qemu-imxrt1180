@@ -91,6 +91,7 @@ printf "%-7s %-58s %-10s %s\n" "BLOCK" "MUTATION" "TEST SAYS" "VERDICT"
 printf "%-7s %-58s %-10s %s\n" "-----" "--------" "---------" "-------"
 
 blind=0
+notrun=0
 for k in pwm pwmsh adc motor eqdc edma; do
     [ -n "$ONLY" ] && [ "$ONLY" != "$k" ] && continue
     src="${SRC[$k]}"
@@ -100,6 +101,7 @@ for k in pwm pwmsh adc motor eqdc edma; do
     base=$(run_test "${TEST[$k]}")
     if [ "$base" != "PASS" ]; then
         printf "%-7s %-58s %-10s %s\n" "$k" "(baseline not green -- skipped)" "$base" "SKIP"
+        notrun=$((notrun+1))
         continue
     fi
 
@@ -115,11 +117,13 @@ open(p, "w").write(t)
 PY
     if [ $? -ne 0 ]; then
         printf "%-7s %-58s %-10s %s\n" "$k" "${DESC[$k]}" "-" "PATCH-FAIL"
+        notrun=$((notrun+1))
         cp "$BAK/$(basename "$src")" "$src"; continue
     fi
 
     if ! ninja -C build qemu-system-arm >/dev/null 2>&1; then
         printf "%-7s %-58s %-10s %s\n" "$k" "${DESC[$k]}" "-" "BUILD-FAIL"
+        notrun=$((notrun+1))
         cp "$BAK/$(basename "$src")" "$src"; ninja -C build qemu-system-arm >/dev/null 2>&1; continue
     fi
 
@@ -136,6 +140,21 @@ PY
 done
 
 echo
+#
+# A MUTATION THAT NEVER APPLIED LOOKS EXACTLY LIKE A CAUGHT ONE.
+# (ollama_95_neutron, 2026-07-12: their sed matched nothing, the file was
+# unchanged, the suite went green, and they scored a PASS they had not earned --
+# "the tool I built to catch the disease had the disease". Mine had the same hole
+# ONE LAYER UP: the ROW said PATCH-FAIL while the SUMMARY still said "all caught",
+# and a human or a CI reading only the last line would have taken the green.)
+# So: if any mutation did not take, this tool must NOT report success.
+#
+if [ $notrun -gt 0 ]; then
+    echo "$notrun mutation(s) NEVER RAN (PATCH-FAIL / BUILD-FAIL / baseline red)."
+    echo "A mutation that did not apply is NOT a mutation that was caught."
+    echo "This run proves NOTHING about those blocks. Fix the anchors and re-run."
+    exit 1
+fi
 if [ $blind -gt 0 ]; then
     echo "$blind test(s) CANNOT FAIL: they pass against a model that produces wrong data."
     echo "Those capabilities are asserted by nothing. Fix the TEST, and retract the claim first."
