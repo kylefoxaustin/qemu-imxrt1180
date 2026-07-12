@@ -42,11 +42,19 @@ make -j"$(nproc)"
 
 See [PERIPHERALS.md](PERIPHERALS.md) for the full coverage table and gaps.
 
-## Interconnect (board-to-board)
+## Interconnect (board-to-board) ✅
 
-Planned to join the fleet's holobench lab as a b2b node over stock chardev
-sockets (UART/SPI/CAN/I2C/USB/ENET), reusing the shared `spi-link` /
-`can-host-chardev` / `i2c-link` bridges — not yet wired. _(N/A today.)_
+A live b2b node on two transports:
+
+- **Ethernet** — the NETC (ENETC endpoint) is a real QEMU NIC. 1180↔1180 verified
+  byte-exact, and the RT1180 is node `0x88B6` of a **three-SoC cross-silicon L2
+  segment** (see below). `tools/netc-eth-{b2b,lab3}.sh`.
+- **UART** — LPUART2 @ `0x44390000` on a socket chardev (`serial_hd(1)`), matching
+  the fleet's `uart-link-imx-mcx` cell, so RT1180↔MCX/91 is turnkey.
+  `tests/imxrt1180-uartlink`.
+
+Still to crib from the fleet: CAN (`can-host-chardev`), SPI (`spi-link`),
+I2C (`i2c-link`) — the controllers are modelled; only the bridge wiring is left.
 
 ## Validation
 
