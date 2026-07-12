@@ -66,12 +66,28 @@ void reset_handler(void)
     NVIC_ISER0 = (1u << TMR1_IRQ);
     TMR_ENBL  = 0x1;                        /* enable channel 0 -> starts */
 
-    uint16_t c1 = CH0_CNTR;
     while (ticks < 3) {                     /* wait for periodic compares */
     }
-    uint16_t c2 = CH0_CNTR;
 
-    if (ticks >= 3 && c1 != c2) {
+    /*
+     * "The counter runs" == it is not STUCK: sample CNTR repeatedly and require
+     * it to take a second distinct value.
+     *
+     * This used to compare one sample taken right after enable against one taken
+     * right after the 3rd compare -- but COMP1 resets this modulo counter, so
+     * BOTH samples land near the same phase (~0) and coincide by chance, not by
+     * any bug.  That made the test fail roughly 1 run in 5.  A flaky test is
+     * worse than no test: it trains you to ignore a red result.
+     */
+    uint16_t first = CH0_CNTR;
+    int moved = 0;
+    for (int i = 0; i < 100000 && !moved; i++) {
+        if (CH0_CNTR != first) {
+            moved = 1;
+        }
+    }
+
+    if (ticks >= 3 && moved) {
         puts_("TMR: PASS - periodic compare IRQ fires + counter runs\r\n");
     } else {
         puts_("TMR: FAIL - QuadTimer did not tick / counter stuck\r\n");

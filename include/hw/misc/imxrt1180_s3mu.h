@@ -30,6 +30,13 @@ struct IMXRT1180S3MUState {
     uint8_t  tx_expected;   /* total words expected (from header size) */
 
     /* Response the enclave "returns": RR[] contents + RSR full bits. */
+    /*
+     * When true, every ELE command is answered SUCCESS even if the enclave
+     * result was never computed -- i.e. the guest is lied to.  Default false;
+     * see the property comment in the .c.
+     */
+    bool fake_uncomputed_success;
+
     uint32_t rr[IMXRT1180_S3MU_RR_COUNT];
     uint8_t  rr_full;       /* bitmask of RR registers holding a response word */
 };
