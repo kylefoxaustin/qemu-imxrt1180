@@ -59,6 +59,10 @@ add eqdc  hw/misc/imxrt1180_eqdc.c  imxrt1180-motor \
   't=t.replace("    REG(s, R_LPOS) = pos & 0xFFFF;",
                "    pos += 40; /* MUTANT: wrong rotor position */\n    REG(s, R_LPOS) = pos & 0xFFFF;")'
 
+add ele   hw/misc/imxrt1180_s3mu.c  imxrt1180-ele \
+  "ELE fakes SUCCESS for un-computed crypto (the guest-lying bug)" \
+  't=t.replace("        s->rr[1] = RESPONSE_FAILURE;", "        s->rr[1] = RESPONSE_SUCCESS; /* MUTANT: lie to the guest */")'
+
 add edma  hw/dma/imxrt1180_edma.c   imxrt1180-edma \
   "eDMA corrupts one byte of every transfer (CONTROL: this MUST be caught)" \
   't=t.replace("            address_space_write(&address_space_memory, daddr,",
@@ -72,9 +76,23 @@ restore_all() {
 }
 
 run_test() {   # $1 = test dir; echoes PASS or FAIL
+    #
+    # FAIL WINS. This used to be `grep -q ": PASS"` -- i.e. "does a PASS token
+    # appear ANYWHERE", not "did the test pass". Tests that report per-check
+    # verdicts print BOTH (the ELE test under a lying model prints
+    # "ELE: PASS - real entropy" AND "ELE: FAIL - HASH computed no digest"), so
+    # the old check scored a FAILING run as PASS -- and the harness would then
+    # declare BLIND a test that had in fact CAUGHT the mutation. A false
+    # accusation against a correct test, which is worse than a missed one.
+    # (orb_slam, 2026-07-12: "rung 2 wearing rung 3's clothes -- it tests whether
+    # the token APPEARS when the property that matters is whether it is CORRECT,
+    # and it feels identical from the inside.")
+    #
     local o
-    o=$( (cd "tests/$1" && timeout 40 make run 2>&1) )
-    if echo "$o" | grep -q ": PASS"; then echo PASS; else echo FAIL; fi
+    o=$( (cd "tests/$1" && timeout 60 make run 2>&1) )
+    if echo "$o" | grep -q ": FAIL"; then echo FAIL
+    elif echo "$o" | grep -q ": PASS"; then echo PASS
+    else echo FAIL; fi
 }
 
 # COVERAGE, STATED UP FRONT. "All mutations caught" is only ever true of the
@@ -92,7 +110,7 @@ printf "%-7s %-58s %-10s %s\n" "-----" "--------" "---------" "-------"
 
 blind=0
 notrun=0
-for k in pwm pwmsh adc motor eqdc edma; do
+for k in pwm pwmsh adc motor eqdc ele edma; do
     [ -n "$ONLY" ] && [ "$ONLY" != "$k" ] && continue
     src="${SRC[$k]}"
     cp "$src" "$BAK/$(basename "$src")"
