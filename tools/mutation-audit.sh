@@ -54,6 +54,11 @@ add pwmsh hw/misc/imxrt1180_pwm.c   imxrt1180-pwm \
   't=t.replace("    return (uint16_t)(val1 - init) + 1u;   /* period in counter ticks */",
                "    (void)init; (void)val1; return 1000u; /* MUTANT: modulo hardwired */")'
 
+add eqdc  hw/misc/imxrt1180_eqdc.c  imxrt1180-motor \
+  "EQDC reports a plausible WRONG rotor position (offset by 40 counts)" \
+  't=t.replace("    REG(s, R_LPOS) = pos & 0xFFFF;",
+               "    pos += 40; /* MUTANT: wrong rotor position */\n    REG(s, R_LPOS) = pos & 0xFFFF;")'
+
 add edma  hw/dma/imxrt1180_edma.c   imxrt1180-edma \
   "eDMA corrupts one byte of every transfer (CONTROL: this MUST be caught)" \
   't=t.replace("            address_space_write(&address_space_memory, daddr,",
@@ -72,11 +77,21 @@ run_test() {   # $1 = test dir; echoes PASS or FAIL
     if echo "$o" | grep -q ": PASS"; then echo PASS; else echo FAIL; fi
 }
 
+# COVERAGE, STATED UP FRONT. "All mutations caught" is only ever true of the
+# blocks a mutation was actually POINTED AT. Anything not in the table below has
+# NEVER been mutation-tested and its capability claim is UNVERIFIED by this tool,
+# no matter how green its test looks. Do not let this table's PASS line imply a
+# coverage it does not have -- that is the same lie one level up.
+swept=$(grep -c '^add ' "$0")
+total=$(ls -d "$ROOT"/tests/imxrt1180-*/ 2>/dev/null | wc -l)
+echo "coverage: $swept of $total test directories have a mutation pointed at them."
+echo "          the rest are UNVERIFIED by this tool. See the list in the README of this file."
+echo
 printf "%-7s %-58s %-10s %s\n" "BLOCK" "MUTATION" "TEST SAYS" "VERDICT"
 printf "%-7s %-58s %-10s %s\n" "-----" "--------" "---------" "-------"
 
 blind=0
-for k in pwm pwmsh adc motor edma; do
+for k in pwm pwmsh adc motor eqdc edma; do
     [ -n "$ONLY" ] && [ "$ONLY" != "$k" ] && continue
     src="${SRC[$k]}"
     cp "$src" "$BAK/$(basename "$src")"
@@ -125,5 +140,12 @@ if [ $blind -gt 0 ]; then
     echo "$blind test(s) CANNOT FAIL: they pass against a model that produces wrong data."
     echo "Those capabilities are asserted by nothing. Fix the TEST, and retract the claim first."
 else
-    echo "All mutations caught."
+    echo "All $swept swept blocks caught their mutation."
+    echo
+    echo "THIS IS NOT 'THE SUITE IS GUARDED'. It is '$swept of $total blocks are'."
+    echo "The unswept ones are UNVERIFIED -- a green test there proves nothing yet:"
+    for d in "$ROOT"/tests/imxrt1180-*/; do
+        n=$(basename "$d" | sed 's/imxrt1180-//')
+        grep -q " imxrt1180-$n " "$0" || printf "    %s\n" "$n"
+    done
 fi
