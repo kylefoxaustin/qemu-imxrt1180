@@ -311,6 +311,30 @@ static void netc_write(void *opaque, hwaddr off, uint64_t val, unsigned size)
 {
     IMXRT1180NETCState *s = opaque;
 
+    /*
+     * RX-QUEUE RESTART.
+     *
+     * netc_can_receive() reports "not ready" until the guest has configured the RX
+     * ring (RBLENR != 0). When a NetClientInfo.can_receive returns false, QEMU
+     * STALLS that peer's queue and does NOT retry on its own -- the device must
+     * call qemu_flush_queued_packets() once it can accept again. We never did.
+     *
+     * So a frame arriving in the window between the NIC coming up and the guest
+     * programming its RX ring stalled the queue PERMANENTLY: that instance never
+     * received another frame, for the life of the run.
+     *
+     * Invisible in every 2-node test we had, because both ends boot together and
+     * neither transmits before the other is listening. It took a THREE-node
+     * segment -- where two peers are already broadcasting when the third comes up
+     * -- to expose it, and it presented as "two nodes are deaf and the third is
+     * fine", which is exactly what a stalled queue looks like.
+     */
+    if (off == R_RBLENR && (val & BDR_LEN_MASK) != 0) {
+        netc_backing_write(s, off, val, size);
+        qemu_flush_queued_packets(qemu_get_queue(s->nic));
+        return;
+    }
+
     switch (off) {
     case R_EMDIO_CTL:
         /* Latch the addressed PHY register for the following DATA access. */
