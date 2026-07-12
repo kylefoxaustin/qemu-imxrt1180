@@ -97,6 +97,35 @@ Bring-up is driven by real firmware: run a stock MCUXpresso SDK image under
   stator voltage vector on the PWM makes the virtual PMSM rotor rotate to align
   with the field: the EQDC position follows it (~CPR/4 for a 90° vector) and the
   LPADC senses a real phase current.  Idle PWM → rotor still, mid-scale current.
+
+> ### ⚠️ RETRACTION (2026-07-12): the FOC-path tests DO NOT VERIFY THEIR VALUES
+>
+> A mutation audit (`tools/mutation-audit.sh` — corrupt the model, see whether
+> the test notices) found that **the entire FOC chain is asserted by nothing**:
+>
+> | mutation applied to the model | test still says |
+> |---|---|
+> | eFlexPWM period made **3× too long** | `PWM: PASS` |
+> | LPADC conversion returns a **wrong code** (not the plant's sample) | `ADC: PASS` |
+> | motor plant reports **3× the phase current** it computed | `MOTOR: PASS` |
+> | *(control)* eDMA corrupts one byte of every transfer | `eDMA: FAIL` ✔ caught |
+>
+> These tests stop at "an IRQ fired", "a VALID bit was set", "the counter moved",
+> "the current is *within a range*". **None of them compares a value to an
+> independently-computed expected one**, so a silently-wrong carrier frequency,
+> current sense, or plant output passes every one of them. The eDMA control shows
+> the method works — it is the tests that are blind, not the audit.
+>
+> This is the class the fleet named this week: *guarded tests read a value back
+> and compare it to an expected CONSTANT; anything that stops at a flag or an IRQ
+> is decoration.* A 3× PWM period would make **every FOC result this model ever
+> produces a lie, with a green suite** — and FOC is this project's north-star.
+>
+> **So the claim is retracted before it is fixed, not after.** Until these tests
+> assert values against goldens, treat the FOC row above as *"the registers and
+> the plumbing are modelled"*, **not** *"the numbers are right"*. The plant's
+> physics may well be correct — the point is that **nothing checks**, and an
+> unchecked correct answer is indistinguishable from an unchecked wrong one.
 - **Board-to-board UART** (`tests/imxrt1180-uartlink`, `UARTLINK: PASS`) — LPUART2
   on a socket chardev links to a peer with a resend-until-connected GO handshake,
   then a 32-byte pattern echoes byte-exact.  Wires the RT1180 into holobench as a
