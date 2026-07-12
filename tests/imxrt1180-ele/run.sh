@@ -41,7 +41,7 @@ run() {   # $1 = extra qemu args
 echo ">> honest model (default): enclave must NOT fake a crypto result"
 out=$(run "")
 echo "$out" | sed 's/^/   /'
-if echo "$out" | grep -q "ELE: PASS"; then
+if echo "$out" | grep -q "ELE-ALL: PASS"; then
     echo "   => PASS"
 else
     echo "   => FAIL: the model reported SUCCESS for an un-computed enclave result"
@@ -49,9 +49,27 @@ else
 fi
 
 echo
+echo ">> entropy must be UNPREDICTABLE: the same words must not come back every boot"
+# 95emulator shipped a STATIC-SEEDED xorshift here: kStatus_Success, bytes that
+# look perfectly random on one boot, and IDENTICAL on every boot. No single run
+# can see that. Only a cross-boot diff can. (Ours was the other flavour -- an
+# untouched buffer -- but the same status check passes both.)
+w1=$(run "" | grep "^rng words" | head -1)
+w2=$(run "" | grep "^rng words" | head -1)
+echo "   boot A: $w1"
+echo "   boot B: $w2"
+if [ -n "$w1" ] && [ "$w1" != "$w2" ]; then
+    echo "   => PASS (entropy differs across boots)"
+else
+    echo "   => FAIL: identical entropy on two boots -- this is a static-seeded PRNG,"
+    echo "            not entropy. It will look random to any single-boot test."
+    rc=1
+fi
+
+echo
 echo ">> NEGATIVE TEST: force the old behaviour; the guard MUST catch it"
 out=$(run "-global imxrt1180-s3mu.fake-uncomputed-success=on")
-if echo "$out" | grep -q "ELE: FAIL"; then
+if echo "$out" | grep -q "ELE-ALL: FAIL"; then
     echo "   => PASS (guard correctly flagged the fabricated success)"
 else
     echo "   => FAIL: the guard did NOT notice a lying enclave -- it cannot fail,"

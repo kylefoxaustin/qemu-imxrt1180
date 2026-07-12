@@ -12,7 +12,14 @@
 #define TYPE_IMXRT1180_S3MU "imxrt1180-s3mu"
 OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180S3MUState, IMXRT1180_S3MU)
 
-#define IMXRT1180_S3MU_TR_COUNT 4
+/*
+ * Verified against MIMXRT1189 PERI_S3MU.h: S3MU_TR_COUNT is 8, S3MU_RR_COUNT 4.
+ * (TR was modelled as 4 here, which silently DROPPED TR[4..7]: every ELE command
+ * the boot path issues is <= 4 words, so nothing noticed -- but a real crypto
+ * message is longer (HASH is 10 words) and would have been truncated on the way
+ * into the enclave, with TSR advertising only 4 usable transmit registers.)
+ */
+#define IMXRT1180_S3MU_TR_COUNT 8
 #define IMXRT1180_S3MU_RR_COUNT 4
 
 struct IMXRT1180S3MUState {
@@ -36,6 +43,9 @@ struct IMXRT1180S3MUState {
      * see the property comment in the .c.
      */
     bool fake_uncomputed_success;
+
+    /* Guest address space: GET_RNG_RANDOM delivers entropy BY POINTER. */
+    AddressSpace *dma_as;
 
     uint32_t rr[IMXRT1180_S3MU_RR_COUNT];
     uint8_t  rr_full;       /* bitmask of RR registers holding a response word */

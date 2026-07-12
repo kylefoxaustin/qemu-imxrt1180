@@ -44,8 +44,11 @@
  */
 #include "qemu/osdep.h"
 #include "qemu/log.h"
+#include "qemu/guest-random.h"      /* qemu_guest_getrandom_nofail */
 #include "hw/misc/imxrt1180_s3mu.h"
 #include "hw/core/qdev-properties.h"
+#include "system/dma.h"             /* dma_memory_write */
+#include "system/address-spaces.h"  /* address_space_memory */
 #include "migration/vmstate.h"
 
 #define MU_VER    0x000
@@ -103,6 +106,20 @@ static bool s3mu_command_is_truthful(uint8_t command)
     case 0x12:   /* VOLTAGE_CHANGE_START  — same class                           */
     case 0x13:   /* VOLTAGE_CHANGE_FINISH                                        */
         return true;
+    case 0xA3:   /* START_RNG      — the RNG below is real, so this is true      */
+    case 0xCD:   /* GET_RNG_RANDOM — ACTUALLY COMPUTED (see s3mu_do_rng)         */
+        /*
+         * An RNG is the one enclave service we can honour COMPLETELY, so we do.
+         * "Declining honestly" would be a needless capability gap here: the
+         * consumer's contract for GET_RNG_RANDOM is "unpredictable bytes", and
+         * QEMU can supply exactly that.  A fault is the honest answer only when
+         * you cannot compute; entropy you CAN compute.  (95emulator: "an RNG is
+         * a compute-correctly fix, never a flag — real entropy is the only
+         * honest answer." They shipped a static-seeded xorshift that returned
+         * the SAME bytes every boot; we returned an untouched buffer. Both pass
+         * a status check, and both look random on a single boot.)
+         */
+        return true;
     case 0xC4:
         /*
          * RELEASE_RDC: the enclave hands a peripheral's resource-domain to the
@@ -133,6 +150,49 @@ static uint8_t s3mu_response_size(uint8_t command)
     }
 }
 
+/*
+ * GET_RNG_RANDOM (0x17CD0407): the ONE enclave service we genuinely implement.
+ *
+ *   tmsg[0] = GET_RNG_RANDOM
+ *   tmsg[1] = reseed flag
+ *   tmsg[2] = output buffer address   <-- the result travels BY POINTER
+ *   tmsg[3] = size in bytes
+ *
+ * Note where the result lands: a pointer the guest handed us.  That is exactly
+ * why the old fabricated-SUCCESS was invisible -- the reply carries no data, so
+ * no reply-shape heuristic could ever notice, and the guest read whatever was
+ * already in its buffer as entropy.  (mcxn947qemu found the same shape in their
+ * ELS: blank SIGNATURES with a success code.  "WHERE DOES THE RESULT LAND?")
+ *
+ * qemu_guest_getrandom_nofail() is QEMU's guest-facing CSPRNG: unpredictable by
+ * default, and reproducible ONLY under -seed (the standard repro knob).  So the
+ * bytes differ across boots -- which is the property a static-seeded PRNG fails
+ * and a single-boot test cannot see.
+ */
+static bool s3mu_do_rng(IMXRT1180S3MUState *s)
+{
+    uint32_t addr = s->tx_buf[2];
+    uint32_t len  = s->tx_buf[3];
+    g_autofree uint8_t *bytes = NULL;
+
+    if (len == 0 || len > (1u << 20)) {
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "%s: GET_RNG_RANDOM implausible size %u\n", __func__, len);
+        return false;
+    }
+
+    bytes = g_malloc(len);
+    qemu_guest_getrandom_nofail(bytes, len);
+
+    if (dma_memory_write(s->dma_as, addr, bytes, len,
+                         MEMTXATTRS_UNSPECIFIED) != MEMTX_OK) {
+        qemu_log_mask(LOG_GUEST_ERROR, "%s: GET_RNG_RANDOM could not write %u "
+                      "bytes to 0x%08x\n", __func__, len, addr);
+        return false;      /* no entropy delivered -> must NOT report success */
+    }
+    return true;
+}
+
 /* A full request has been written to TR[] — synthesize the enclave reply. */
 static void s3mu_build_response(IMXRT1180S3MUState *s)
 {
@@ -141,6 +201,15 @@ static void s3mu_build_response(IMXRT1180S3MUState *s)
     uint8_t  version = hdr & 0xFF;
     bool     truthful = s3mu_command_is_truthful(command);
     uint8_t  rsize;
+
+    /*
+     * The RNG is the one command we actually perform.  If the entropy could not
+     * be delivered, we have NOT satisfied it -- so drop back to reporting
+     * failure rather than claiming a success whose result never landed.
+     */
+    if (command == 0xCD && !s3mu_do_rng(s)) {
+        truthful = false;
+    }
 
     /*
      * A command we cannot answer gets a header + status only.  We do NOT invent
@@ -295,6 +364,7 @@ static void imxrt1180_s3mu_realize(DeviceState *dev, Error **errp)
 {
     IMXRT1180S3MUState *s = IMXRT1180_S3MU(dev);
 
+    s->dma_as = &address_space_memory;   /* RNG entropy is delivered by pointer */
     memory_region_init_io(&s->iomem, OBJECT(s), &imxrt1180_s3mu_ops, s,
                           TYPE_IMXRT1180_S3MU, 0x1000);
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
