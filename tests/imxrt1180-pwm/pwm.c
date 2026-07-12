@@ -202,8 +202,22 @@ void reset_handler(void)
     int period_ok = 1;
 
     for (unsigned k = 0; k < sizeof(shapes) / sizeof(shapes[0]); k++) {
-        uint32_t expect = CPU_HZ /
-            (PWM_HZ / shapes[k].prescale / shapes[k].modulo);
+        /*
+         * DIVIDE ONCE, AND LAST. The obvious form,
+         *     CPU_HZ / (PWM_HZ / prescale / modulo)
+         * truncates in the INNER division: at prescale 128 it yields 192061 where
+         * the true value is 192000. The MODEL was right and MY EXPECTED VALUE was
+         * wrong -- and the +/-10% tolerance hid it, right up until -icount made
+         * the measurement exact and the 61-cycle gap became visible.
+         *
+         * A GOLDEN IS A CLAIM TOO. A loose tolerance hides a broken golden exactly
+         * as well as it hides a broken model, and you will blame the model.
+         *
+         * (Scaled to MHz to keep the product inside 32 bits: this is a freestanding
+         * -nostdlib test, so a uint64_t divide would pull in __aeabi_uldivmod.)
+         */
+        uint32_t expect = (shapes[k].prescale * shapes[k].modulo) *
+                          (CPU_HZ / 1000000u) / (PWM_HZ / 1000000u);
 
         /* Reprogram this shape: INIT = -(modulo/2), VAL1 = modulo/2 - 1. */
         PWM_MCTRL = 0;                                  /* stop  */
@@ -231,8 +245,33 @@ void reset_handler(void)
         puts_(": measured "); dec(per);
         puts_(" cycles, expected "); dec(expect);
 
-        uint32_t lo = expect - expect / 10u;   /* +/-10% */
-        uint32_t hi = expect + expect / 10u;
+        /*
+         * SysTick wrap guard: refuse to report a number the instrument cannot
+         * measure, rather than reporting a wrong one.
+         */
+        if (expect * MEASURE_PERIODS >= 0x01000000u) {
+            puts_("  <-- WINDOW EXCEEDS SYSTICK RANGE (would wrap)\r\n");
+            period_ok = 0;
+            continue;
+        }
+
+        /*
+         * TOLERANCE +/-1%, and it can be this tight ONLY because the harness runs
+         * under -icount: virtual time is then derived from instructions retired,
+         * not host wall-clock, and the measurement is BIT-EXACT run to run
+         * (96000/96000, three runs, three times). Without -icount the same
+         * measurement jitters (96711 / 96207 / 95848) and a tolerance wide enough
+         * to absorb that noise is, by construction, too wide to detect the
+         * accumulating-drift bug this test exists to catch.
+         *
+         * "Rung 3 requires a DETERMINISTIC instrument. A correct golden compared
+         *  against a noisy measurement produces a confident, reproducible-looking,
+         *  wrong answer." -- mcxn947qemu, after nearly diagnosing a real bug from
+         *  a broken instrument, and then nearly un-diagnosing it when the noise
+         *  flipped sign.
+         */
+        uint32_t lo = expect - expect / 100u;   /* +/-1% (needs -icount) */
+        uint32_t hi = expect + expect / 100u;
         if (per < lo || per > hi) {
             period_ok = 0;
             puts_("  <-- MISMATCH\r\n");
