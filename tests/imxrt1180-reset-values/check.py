@@ -187,8 +187,11 @@ if stale:
     print("\nFAIL: %d allowlisted register(s) now MATCH the RM -- they are FIXED." % len(stale))
     print("      Delete them from known-deviations.txt.  An allowlist that never")
     print("      shrinks stops being a to-do list and becomes a CERTIFICATE.")
-    for inst, reg in sorted(stale)[:25]:
+    scap = len(stale) if os.environ.get("DUMP_ALL") else 25
+    for inst, reg in sorted(stale)[:scap]:
         print("        %-12s %s" % (inst, reg))
+    if len(stale) > scap:
+        print("        ... and %d more   (DUMP_ALL=1 to see them all)" % (len(stale) - scap))
     rc = EXIT_LIES
 
 if uncov:

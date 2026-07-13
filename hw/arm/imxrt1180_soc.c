@@ -468,7 +468,13 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
                                                            0));
     }
 
-    /* CCM — clock roots/gates report ready so the SDK clock code completes. */
+    /*
+     * CCM — the real clock tree.  It needs ANADIG because the PLL/OSC frequencies
+     * are not constants: they are COMPUTED from the registers the guest wrote,
+     * exactly as fsl_clock.c's CLOCK_GetPllFreq() does.  ANADIG is realized above.
+     */
+    object_property_set_link(OBJECT(&s->ccm), "anadig", OBJECT(&s->anadig),
+                             &error_abort);
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->ccm), errp)) {
         return;
     }
