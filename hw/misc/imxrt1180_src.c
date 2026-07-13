@@ -124,6 +124,22 @@ static void imxrt1180_src_reset(DeviceState *dev)
 
     memset(s->src_regs, 0, sizeof(s->src_regs));
     memset(s->blk_regs, 0, sizeof(s->blk_regs));
+
+    /*
+     * BLK_CTRL_S_AONMIX CM33_IRQ_MASK[0..7] @0x00 and CM7_IRQ_MASK[0..7] @0x20 reset
+     * to 0xFFFFFFFF -- EVERY INTERRUPT MASKED.  A memset to zero says the exact
+     * opposite: every one of 512 interrupt sources UNMASKED out of reset.
+     *
+     * A ZERO RESET VALUE IS NOT THE ABSENCE OF A CLAIM.  Here the claim is
+     * "everything is armed", and it is the inverse of the silicon.  Found only once
+     * the reset-value gate could see flat arrays sized by a #define -- these are
+     * CM33_IRQ_MASK[CM33_IRQ_MASK_COUNT], and the extractor had never expanded a
+     * single macro-sized array on this chip.
+     */
+    for (int i = 0; i < 8; i++) {
+        s->blk_regs[(0x00 + i * 4) / 4] = 0xFFFFFFFF;   /* CM33_IRQ_MASK[i] */
+        s->blk_regs[(0x20 + i * 4) / 4] = 0xFFFFFFFF;   /* CM7_IRQ_MASK[i]  */
+    }
     s->cm7_running = false;
 }
 

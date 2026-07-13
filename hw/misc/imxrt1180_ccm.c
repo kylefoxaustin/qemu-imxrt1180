@@ -445,6 +445,10 @@ static void imxrt1180_ccm_reset(DeviceState *dev)
         CCM_SET(b + 0x8, 0xFFFF0000);                  /* AUTHEN_CLR        */
         CCM_SET(b + 0xC, 0xFFFF0000);                  /* AUTHEN_TOG        */
     }
+    /* GPR_SHARED_STATUS[8] @0x4A00, step 4 (PERI_CCM.h).  Two are non-zero. */
+    CCM_SET(0x4A00 + 4 * 4, 0xFF000100);      /* GPR_SHARED_STATUS4 */
+    CCM_SET(0x4A00 + 5 * 4, 0x00000007);      /* GPR_SHARED_STATUS5 */
+
     for (n = 0; n < CCM_OBS_COUNT; n++) {
         hwaddr b = n * CCM_OBS_STEP;
         CCM_SET(CCM_OBS_AUTHEN       + b + 0x0, 0xFFFF0000);

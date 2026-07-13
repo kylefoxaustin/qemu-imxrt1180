@@ -181,7 +181,24 @@ RESET  = re.compile(r'^([0-9A-F]{4}_[0-9A-F]{4}|[0-9A-F]{2}_[0-9A-F]{4}|[0-9A-F]
 # every single run and returned PASS.  A published number that cannot FAIL the
 # gate is decoration -- see EXPECTED_GOLDEN below, which is the fix for that.
 # ---------------------------------------------------------------------------
-FIELD = re.compile(r'__[IO]+\s+\w+\s+(\w+)\s*(?:\[(\d+)\])?\s*;\s*/\*\*<[^*]*?'
+#
+# AND A THIRD INSTANCE OF THE SAME DISEASE, FOUND THE SAME DAY, IN THIS FILE:
+# the FLAT-array path required a NUMERIC LITERAL count -- `\[(\d+)\]`, matching
+# `__IO uint32_t ADC1_TRIG[4];`.  THIS CHIP'S CMSIS NEVER WRITES ONE.  All 286 flat
+# arrays are sized by a #define:
+#
+#       __IO uint16_t SEL[XBAR_NUM_OUT221_SEL_COUNT];   /* 111 */
+#       __IO uint32_t TCTRL[ADC_TCTRL_COUNT];
+#
+# 286 macro-sized, ZERO literal-sized.  So the flat-array expansion -- present since
+# this tool was born, "fixed" twice, once by each of us -- HAD NEVER MATCHED A SINGLE
+# ARRAY ON THIS CHIP.  It emitted one bare `SEL` at 0x0 and dropped 110 more.
+# The macro table was already being built two functions down, for struct arrays.
+#
+#   THE SAME BUG, THIRD TIME, ON A THIRD CODE PATH, WITH THE FIX ALREADY IN HAND.
+#   Ask of every count: WHO SAYS SO, AND WOULD I NOTICE IF THEY STOPPED SAYING IT?
+#
+FIELD = re.compile(r'__[IO]+\s+\w+\s+(\w+)\s*(?:\[(\w+)\])?\s*;\s*/\*\*<[^*]*?'
                    r'(?:array )?offset:\s*(0x[0-9A-Fa-f]+)'
                    r'(?:[^*]*?array step:\s*(0x[0-9A-Fa-f]+))?')
 
@@ -208,6 +225,8 @@ STRUCT_STEP  = re.compile(r'/\*[^*]*?array step:\s*(0x[0-9A-Fa-f]+)')
 DEFINE_INT   = re.compile(r'#define\s+(\w+)\s+\(?(\d+|0x[0-9A-Fa-f]+)[uU]?\)?\s*$', re.M)
 
 DROPPED_STRUCT_ARRAYS = []      # DROP, never guess -- and COUNT what you dropped
+DROPPED_FLAT_ARRAYS   = []      # a flat array whose count macro we could not resolve
+COLLIDING_NAMES       = []      # one CMSIS name, two offsets -- DROPPED (a false witness)
 
 
 def find_struct_arrays(body):
@@ -335,8 +354,13 @@ def parse_rm(path):
     return rows, arrays
 
 
-def expand_struct_array(inner, arr, count_tok, counts, regs):
-    """struct {...} CLOCK_ROOT[74];  ->  CLOCK_ROOT0_CONTROL, CLOCK_ROOT1_CONTROL, ..."""
+def expand_struct_array(inner, arr, count_tok, counts, cand):
+    """struct {...} CLOCK_ROOT[74];  ->  CLOCK_ROOT0_CONTROL, CLOCK_ROOT1_CONTROL, ...
+
+    Writes into `cand` (name -> {offsets}), NOT a plain dict: a name that resolves to
+    two different offsets must be DROPPED, not silently overwritten by whichever the
+    parser happened to see last.  See the collision note in parse_cmsis().
+    """
     n = int(count_tok, 0) if count_tok.isdigit() else counts.get(count_tok)
     if not n:
         DROPPED_STRUCT_ARRAYS.append((arr, count_tok, "count unresolved"))
@@ -355,7 +379,7 @@ def expand_struct_array(inner, arr, count_tok, counts, regs):
             # to print, so it prints the bare name -- and expanding to "PMCR0_PMCR"
             # DELETED four registers that had been covered.  Found by diffing the
             # oracle, not by reading it.
-            regs[fname] = off
+            cand[fname].add(off)
 
         for k in range(n):
             # THE MANUAL SPELLS THESE TWO DIFFERENT WAYS AND WE DO NOT GET TO PICK:
@@ -365,8 +389,8 @@ def expand_struct_array(inner, arr, count_tok, counts, regs):
             # mistake that cost mcxn947qemu every ADCn_TRIG.  So emit BOTH candidate
             # spellings: the RM is the golden, and a name it never prints never joins.
             # A collision across peripheral TYPES still lands in the ambiguity drop.
-            regs["%s%d_%s" % (arr, k, fname)] = off + k * step
-            regs["%s%d%s"  % (arr, k, fname)] = off + k * step
+            cand["%s%d_%s" % (arr, k, fname)].add(off + k * step)
+            cand["%s%d%s"  % (arr, k, fname)].add(off + k * step)
 
 
 def parse_cmsis():
@@ -379,6 +403,7 @@ def parse_cmsis():
 
         for m in re.finditer(r'typedef struct \{(.*?)\} (\w+)_Type;', src, re.S):
             body, regs = m.group(1), {}
+            cand = collections.defaultdict(set)   # name -> {offsets}; >1 => DROP
 
             # Struct arrays FIRST, and strip them out of the body -- otherwise their
             # inner scalars also get emitted as bogus flat names ("CONTROL" @ 0x0).
@@ -393,16 +418,63 @@ def parse_cmsis():
                 if not spans:
                     break
                 for start, end, inner, arr, cnt in reversed(spans):
-                    expand_struct_array(inner, arr, cnt, counts, regs)
+                    expand_struct_array(inner, arr, cnt, counts, cand)
                     body = body[:start] + body[end:]
 
+            #
+            # EVERY LOOSENING OF A JOIN MUST BE PAID FOR WITH A NEW REFUSAL.
+            # (mcxn947qemu, hours before this bug landed here.)
+            #
+            # Expanding arrays makes name COLLISIONS possible.  ChipIdea's USB has a
+            # SCALAR `ENDPTCTRL0` at 0x1C0 *and* an ARRAY `ENDPTCTRL[7]` starting at
+            # 0x1C4.  Expanding the array emits a SECOND `ENDPTCTRL0`, at 0x1C4, and
+            # a plain dict keeps whichever was written LAST -- so the name silently
+            # names the wrong address.
+            #
+            #   A MISSING REGISTER IS A GAP.  A WRONG ONE IS A FALSE WITNESS: the
+            #   gate would report a LIE in a register that is perfectly correct.
+            #
+            # So collect name -> {offsets} and DROP any name that resolves to more
+            # than one.  Drop-don't-guess, same as RM contradictions and >1-type
+            # ambiguity.  It cost us exactly the two ENDPTCTRL0 rows, which is the
+            # correct price.
             for f in FIELD.finditer(body):
                 name, n, off = f.group(1), f.group(2), int(f.group(3), 16)
                 if n:
-                    step = int(f.group(4), 16) if f.group(4) else 4
-                    for k in range(int(n)):
-                        regs["%s%d" % (name, k)] = off + k * step
-                regs[name] = off
+                    cnt = int(n) if n.isdigit() else counts.get(n)
+                    if not cnt:
+                        DROPPED_FLAT_ARRAYS.append((name, n))   # DROP, and COUNT
+                    else:
+                        step = int(f.group(4), 16) if f.group(4) else 4
+                        for k in range(cnt):
+                            cand["%s%d" % (name, k)].add(off + k * step)
+                cand[name].add(off)
+
+            #
+            # KEEP BOTH OFFSETS.  DO NOT DROP, AND DO NOT OVERWRITE.
+            #
+            # My first fix here DROPPED any name with two offsets -- and that was
+            # too aggressive, which I only saw by reading the list it refused:
+            # it threw away NETC_IERB's SBCR and USB's ENDPTCTRL0, both of which
+            # the RM names UNAMBIGUOUSLY.
+            #
+            #   THE JOIN IS ON (name, OFFSET).  A name at two offsets is not an
+            #   ambiguity -- THE RM ROW CARRIES ITS OWN OFFSET AND PICKS ONE.
+            #
+            # The real bug was never the collision: it was that `regs` was a
+            # name -> offset DICT, so the second offset SILENTLY OVERWROTE the
+            # first and the surviving name pointed at the wrong address. That is
+            # mcxn947qemu's false witness, and the cure is to stop overwriting,
+            # not to start refusing. A name -> {offsets} map keeps every pair, and
+            # a pair the RM never mentions simply never joins.
+            #
+            # (Cross-TYPE collisions are still dropped, downstream, by the >1-type
+            # ambiguity check. That one IS a real ambiguity: nothing disambiguates it.)
+            for nm, offs in cand.items():
+                if len(offs) > 1:
+                    COLLIDING_NAMES.append((m.group(2), nm, sorted(offs)))
+                regs[nm] = offs                      # ALL of them
+
             if regs:
                 periph[m.group(2)] = regs
 
@@ -470,8 +542,9 @@ def main(rm_txt, out_json):
 
     owner = collections.defaultdict(set)
     for t, regs in periph.items():
-        for n, o in regs.items():
-            owner[(n, o)].add(t)
+        for n, offs in regs.items():
+            for o in offs:
+                owner[(n, o)].add(t)
 
     golden, unmatched, ambiguous, notwide, notread = [], 0, 0, 0, 0
     for name, off, width, acc, reset in rows:
@@ -533,6 +606,12 @@ def main(rm_txt, out_json):
           % notread)
     print("  struct arrays unresolved: %d   (DROPPED, not guessed)"
           % len(DROPPED_STRUCT_ARRAYS))
+    print("  flat arrays unresolved  : %d   (count macro unknown -- DROPPED, not guessed)"
+          % len(DROPPED_FLAT_ARRAYS))
+    print("  CMSIS name collisions   : %d   (one name, two offsets -- BOTH KEPT; the RM row's"
+          % len(COLLIDING_NAMES))
+    print("                            own offset disambiguates. NOT overwritten: a silently")
+    print("                            overwritten name is a FALSE WITNESS, not a gap.)")
     print("CMSIS                     : %d peripheral types, %d instances, "
           "%d TrustZone pairs resolved to the NON-SECURE base" % (len(periph), len(inst2type), sec))
     print("golden                    : %d registers, %d instances -> %s"

@@ -280,9 +280,26 @@ static void imxrt1180_adc_reset(DeviceState *dev)
      * it is a claim about every bit, and firmware read-modify-writes both of these.
      *   CFG[PUDLY]      = 0x80 (bits 23:16, PERI_ADC.h ADC_CFG_PUDLY_MASK 0xFF0000)
      *   CTRL[CALOFSMODE]= 1    (bit 5,      ADC_CTRL_CALOFSMODE_MASK 0x20)
+     *
+     *   GCR0/GCR1[GCALR] = 0x10000 -- UNITY GAIN.
+     *
+     * GCALR is ADC_GCR_GCALR_MASK = 0x1FFFF, a 17-bit Q16 gain: bit 16 is the
+     * integer 1, bits 15:0 the fraction.  So 0x10000 is gain = 1.0, and the RM
+     * resets it there.  WE RESET IT TO ZERO -- A GAIN OF NOTHING -- and any firmware
+     * that reads the calibration back and applies it would scale every conversion
+     * to zero.  On the FOC frontier that is a phase current of zero, forever, from
+     * an ADC that reports itself perfectly healthy.
+     *
+     * RDY (bit 24) stays CLEAR at reset, and that is deliberate: calibration has not
+     * been requested yet.  The write path already sets GCR = RDY | 0x10000 only when
+     * CTRL.CAL_REQ actually asks for it -- the SDK still never spins, it just has to
+     * ASK first.  (mcxn947qemu found the same shape and called a hardwired RDY the
+     * fourth fabricated-ready in their tree.)
      */
     s->regs[0x20 / 4] = 0x00800000;   /* CFG  */
     s->regs[0x10 / 4] = 0x00000020;   /* CTRL */
+    s->regs[R_GCR0 / 4]       = 0x00010000;   /* GCR0: unity gain, NOT ready */
+    s->regs[(R_GCR0 + 4) / 4] = 0x00010000;   /* GCR1 */
     for (int f = 0; f < IMXRT1180_ADC_NFIFO; f++) {
         s->fifo[f].head = s->fifo[f].count = 0;
     }
