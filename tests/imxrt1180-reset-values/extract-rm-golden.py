@@ -95,27 +95,66 @@ SINGLE = re.compile(r'^([0-9A-F]{1,5})h$')
 ARRAY_RANGE = re.compile(r'^([0-9A-F]{1,5})h\s*-\s*([0-9A-F]{1,5})h$')
 ARRAY_1LINE = re.compile(r'^([0-9A-F]{1,5})h\s*-\s*([0-9A-F]{1,5})h\s+.*'
                          r'\((\w+)\s*-\s*(\w+)\)$')
-# An element pair may be numbered at the END (ICR0 - ICR31) or in the MIDDLE
-# (P0DR - P31DR).  Capture prefix/index/suffix and require both ends to agree.
-ELEM = re.compile(r'^([A-Za-z_]\w*?)(\d+)(\w*)$')
+# ---------------------------------------------------------------------------
+# EXPANDING AN ARRAY RANGE: "(ICR0 - ICR31)", "(P0DR - P31DR)",
+# "(ADC1_TRIG0 - ADC1_TRIG3)", "(CLOCK_ROOT0_STATUS0 - CLOCK_ROOT73_STATUS0)".
+#
+# Both mcxn's regex and my first one asked the WRONG QUESTION -- "where is the
+# index?" -- and each guessed differently, wrongly, and SILENTLY:
+#
+#   mcxn's (index must be the TRAILING run):
+#       CLOCK_ROOT0_STATUS0 -> index = the trailing 0.  The run that actually
+#       varies is the MIDDLE one, so all 74 CLOCK_ROOT registers are DROPPED.
+#   mine (index = the FIRST digit run, non-greedy prefix):
+#       ADC1_TRIG0 -> prefix "ADC", index "1", suffix "_TRIG0"; the far end gives
+#       suffix "_TRIG3"; they disagree, so EVERY ADCn_TRIG VANISHES.
+#       (mcxn took my regex, it broke their trailing case on the first run, and
+#       their HAND-READ ANCHOR GATE caught it.  The gate caught a bug in the gate.)
+#
+# THE RIGHT QUESTION IS NOT "WHERE IS THE INDEX" -- IT IS "WHAT ACTUALLY VARIES".
+# Split both endpoint names into runs of digits and non-digits and compare them:
+#
+#   * EXACTLY ONE digit run differs  -> that is the index, wherever it sits.
+#   * ANY OTHER SHAPE                -> DROP, and COUNT.  "CTX0_CTR0 - CTX3_CTR1"
+#     varies in TWO runs: it is a 2-D array and there is no single step that
+#     describes it.  Guessing one would emit a confidently wrong golden, and a
+#     wrong golden makes the CHECKER lie.
+#
+# This needs no regex for the name at all, and it cannot be wrong about the
+# position of the index because it never has to decide where the index is.
+# ---------------------------------------------------------------------------
+RUNS = re.compile(r'(\d+|\D+)')
 ARRAY_NAME  = re.compile(r'^.*\((\w+)\s*-\s*(\w+)\)$')
 NAME   = re.compile(r'^.*\(([A-Za-z0-9_]+)\)$')
 
+DROPPED_AMBIGUOUS_ARRAYS = []
+
 
 def expand_array(first, last, lo, hi):
-    """(ICR0, ICR31, 0x80, 0xFC) -> [(ICR0,0x80), (ICR1,0x84), ...] or None."""
-    a, b = ELEM.match(first), ELEM.match(last)
-    if not a or not b:
+    """(ADC1_TRIG0, ADC1_TRIG3, 0x2C0, 0x2CC) -> [(ADC1_TRIG0,0x2C0), ...] or None."""
+    a, b = RUNS.findall(first), RUNS.findall(last)
+    if len(a) != len(b):
+        DROPPED_AMBIGUOUS_ARRAYS.append((first, last))
         return None
-    if a.group(1) != b.group(1) or a.group(3) != b.group(3):
-        return None                    # prefixes/suffixes disagree -> DROP, don't guess
-    i0, i1 = int(a.group(2)), int(b.group(2))
+    diff = [i for i, (x, y) in enumerate(zip(a, b)) if x != y]
+    if len(diff) != 1 or not a[diff[0]].isdigit() or not b[diff[0]].isdigit():
+        DROPPED_AMBIGUOUS_ARRAYS.append((first, last))   # 2-D, or not an index
+        return None
+    k = diff[0]
+    i0, i1 = int(a[k]), int(b[k])
     n = i1 - i0 + 1
-    if n < 2 or hi <= lo:
+    if n < 2 or hi <= lo or (hi - lo) % (n - 1):
+        DROPPED_AMBIGUOUS_ARRAYS.append((first, last))
         return None
     step = (hi - lo) // (n - 1)
-    return [("%s%d%s" % (a.group(1), i0 + k, a.group(3)), lo + k * step)
-            for k in range(n)]
+    out = []
+    for j in range(n):
+        parts = list(a)
+        parts[k] = str(i0 + j)
+        out.append(("".join(parts), lo + j * step))
+    return out
+
+
 WIDTH  = re.compile(r'^(8|16|32|64)$')
 ACCESS = re.compile(r'^(RW|RO|WO|W1C|R|W)$')
 RESET  = re.compile(r'^([0-9A-F]{4}_[0-9A-F]{4}|[0-9A-F]{2}_[0-9A-F]{4}|[0-9A-F]{1,16})h$')
@@ -311,6 +350,9 @@ def main(rm_txt, out_json):
     json.dump(ded, open(out_json, "w"), indent=0)
 
     print("RM rows parsed            : %d  (%d array ranges expanded)" % (len(rows), arrays))
+    print("  ambiguous array ranges  : %d DROPPED (2-D, e.g. CTX0_CTR0 - CTX3_CTR1:"
+          % len(DROPPED_AMBIGUOUS_ARRAYS))
+    print("                            TWO runs vary, no single step describes it)")
     print("  RM self-conflicts       : %d (name,offset) DROPPED -- the manual prints two"
           % len(conflicted))
     print("                            different reset values for them (shared names)")
