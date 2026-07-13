@@ -140,17 +140,23 @@ hard way (see `CLAUDE.md`):
 Honest gaps, per-block, are in [PERIPHERALS.md](PERIPHERALS.md); `(flagged)` is
 defined there and means *visible to the guest*, never "we wrote a host log".
 
-- **Clocks** report nominal, not computed, frequencies — **and this is a live
-  fidelity gap, not just a stub.** The stock NXP FOC demo (`mc_pmsm`) targets a
-  16 kHz carrier and derives its PWM registers from the *real* clock root via
-  `CLOCK_GetRootClockFreq()`; its whole control-loop timestep depends on that
-  being true. Because our CCM does not compute root frequencies, the **absolute
-  emulated PWM carrier frequency is unverified** — our value-golden verifies that
-  the PWM honours `VAL1`/`INIT`/`PRSC` (swept across both axes), but it takes the
-  *clock* from the model, so it cannot catch a wrong clock. **A test cannot
-  validate its own trust anchor.** Closing this means making CCM compute the root
-  frequency from the PLL config firmware programs, so the golden can be anchored
-  on the firmware's own intent instead of on a constant we chose.
+- ~~**Clocks** report nominal, not computed, frequencies~~ — **CLOSED 2026-07-13.**
+  CCM now computes `root_hz = source(MUX) / (DIV+1)` from the registers firmware
+  actually writes, with the PLL/OSC frequencies derived from ANADIG exactly as
+  `CLOCK_GetPllFreq()` does; all six timer blocks (LPIT, GPT, TPM, LPTMR, QTMR,
+  eFlexPWM) read it at the point of use.
+
+  > **What this gap actually was, because it is worse than the old text admitted.**
+  > Every timer in the machine ran at a hardcoded constant, and **not one of the six
+  > was right**: GPT 10× slow, LPIT/TPM 5.5× slow, LPTMR 3.3× slow, QTMR 1.8× fast,
+  > eFlexPWM **1.5× fast**. The PWM value-golden — the one this section pointed at —
+  > *passed the whole time*, because it took `PWM_HZ` **from the model** and said so
+  > in its own comment: *"if PWM_CLK were wrong, this golden would be wrong in
+  > exactly the same direction and still pass."* It was, and it did.
+  > **A mirror that declares itself is still a mirror.** The golden is now anchored
+  > on the clock root the firmware programs and sweeps the root divider, so a model
+  > that ignores the clock tree fails it. Gates: `tests/imxrt1180-clocktree` (exact
+  > Hz, 42 combinations) and the re-anchored `tests/imxrt1180-pwm`.
 - **TRDC** does not enforce access control (grants everything).
 - **EdgeLock (ELE)**: the enclave is proprietary and not modelled. Its **RNG is
   real** (genuine `qemu_guest_getrandom` entropy DMA'd to the guest). **Every
