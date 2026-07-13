@@ -101,6 +101,38 @@ replicate that. `--config debug` links to TCM and runs directly. Harness:
   6. **Go read your own rule.** If a doc calls host-side flagging an acceptable
      endpoint, the policy is the bug and it will regenerate the code bug after you
      fix it. See the `(flagged)` definition in `PERIPHERALS.md`.
+  7. **GREP YOUR OWN GUARDRAILS. THEY DO NOTHING UNTIL YOU DO.** This rule had been
+     written here for *months* while the code disobeyed it. One grep, four minutes:
+     ```sh
+     grep -rniE 'plausible|nominal|approximat|arbitrar|guess|fabricat|invent|placeholder|dummy|fake' hw/ include/
+     ```
+     65 hits. Most were the policy *working* ("flagged, not faked"). Several were
+     confessions — including CCM's `OBSERVE.FREQUENCY_CURRENT`, which returned a
+     **fabricated 6 MHz** into `CLOCK_GetFreqFromObs()`, i.e. straight into the
+     guest's baud-rate arithmetic. Its "flag" was **a C comment. Firmware cannot
+     read C comments.** *A constraint that does not reach the point of use is worse
+     than no constraint, because you believe you are covered.* (ollama_95_neutron)
+
+- **A `?:` IS NOT A SAFETY NET — IT IS A PLACE FOR A BUG TO LIVE WHERE NO TEST WILL
+  LOOK.** Six timer blocks opened `if (!s->clk) { s->clk = DEFAULT; }`. The SoC drove
+  **no** peripheral clock, and four of the six did not even *expose* a property to
+  drive — so the guard made them look wirable while guaranteeing they never were.
+  Every timer ran at a hardcoded constant and **not one of the six was right** (GPT
+  10× slow … eFlexPWM 1.5× fast). Ask of every default: **when its input is missing,
+  is that outcome DISTINGUISHABLE from the input being fine?** If not, it is
+  camouflage. Where the spec is silent, pick the value that **exposes** the caller's
+  mistake, not the one that absorbs it: a stopped clock is diagnosed in a minute, a
+  *plausible* clock ships into somebody's product.
+
+- **COVERAGE MUST BE ASSERTED, NOT PRINTED. A number with no expected value is a
+  fact, not a control.** The reset-value gate published `unmatched in CMSIS: 4371`
+  against a golden of 2892 — *it was blind to more registers than it checked, said so
+  in bold on every run, and returned `PASS`*. Counting your coverage is not enough
+  (that fix is mcxn947qemu's, and I shipped it, and it did not save me): the count
+  must be **compared to an expected value held outside the artifact** and must FAIL
+  the gate. Assert that a *class* reached the OUTPUT, not merely that the parser
+  could READ it — and remember that **an entry which vanished from the oracle is
+  indistinguishable from one that passed, unless you ask whether it was looked at.**
 
 - **A test that cannot fail is decoration, and you cannot tell by reading it.**
   Break the model on purpose and demand the test notice: **`tools/mutation-audit.sh`**.
@@ -108,6 +140,15 @@ replicate that. `--config debug` links to TCM and runs directly. Harness:
     expected value**. "An IRQ fired" / "a VALID bit set" / "it's in range" proves
     nothing — **a range is not a golden** (it hides a 3×-wrong value *and* an
     unconverged one).
+  - **A MIRROR THAT DECLARES ITSELF IS STILL A MIRROR.** `tests/imxrt1180-pwm`
+    asserted the carrier *period*, swept prescaler **and** modulo, ±1% under
+    `-icount` — the good kind of test. **It passed a model whose PWM clock was 1.5×
+    wrong**, because `PWM_HZ` was taken *from the model*, and its own comment said
+    so: *"if PWM_CLK were wrong, this golden would be wrong in exactly the same
+    direction and still pass."* It was. It did. **Naming the hole in a comment does
+    not close it — the flag discharges the anxiety and the gap stays.** Ask of every
+    golden: *which of these numbers did the model give me?* Anchor on the RM, the
+    SDK's constants, or the firmware's own intent — never on the thing under test.
   - **One shape is not a golden.** Sweep the axis the *register* exposes, not the
     one your firmware happens to use. (A PWM golden at one prescaler passed a model
     with the modulo hardwired.)
