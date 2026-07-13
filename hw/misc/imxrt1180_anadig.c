@@ -142,11 +142,60 @@ static const MemoryRegionOps imxrt1180_anadig_ops = {
     .impl.max_access_size = 4,
 };
 
+/*
+ * POWER-ON RESET VALUES, taken from the RM's reset column (IMXRT1180RM rev 10) and
+ * verified by tests/imxrt1180-reset-values, which reads every register back and
+ * diffs it against the manual.
+ *
+ * ⚠ A ZERO RESET VALUE IS NOT THE ABSENCE OF A CLAIM. IT IS A CLAIM, AND THE GUEST
+ *   BELIEVES IT.  This block used to be a bare memset(regs, 0) -- which read as a
+ *   safe, neutral default and was in fact eighteen false statements about the
+ *   silicon.  (mcxn947qemu, 2026-07-12, who found the extreme case: ONE bit that is
+ *   set out of reset, that firmware never sets because on silicon it is ALREADY set,
+ *   and whose absence hard-faulted every driver in a peripheral family.)
+ *
+ * THE ONES THAT MATTER MOST ARE NOT THE STATUS BITS -- THEY ARE THE DIVIDERS:
+ *
+ *   SYS_PLL2_MFI = 0x16 (22).  24 MHz x 22 = 528 MHz, which is what SYS_PLL2 is.
+ *   SYS_PLL2_MFD = 0x0FFF_FFFF.  ARM_PLL_CTRL[DIV_SELECT] = 0xA6 (166).
+ *
+ * fsl_clock.c's CLOCK_GetPllFreq() COMPUTES the PLL frequency from exactly these
+ * fields.  With them reading zero, firmware that asks the hardware what frequency it
+ * is running at gets an answer derived from a divider of zero -- and believes it.
+ * That is the trust anchor the README flags as unverified for the PWM carrier.
+ */
+static const struct { hwaddr off; uint32_t val; } anadig_por[] = {
+    /* ANADIG_PLL @ +0x4000 */
+    { 0x4000, 0x400000A6 },   /* ARM_PLL_CTRL   -- DIV_SELECT = 166 */
+    { 0x4010, 0x40000003 },   /* SYS_PLL3_CTRL  */
+    { 0x4030, 0x8CA0918D },   /* SYS_PLL3_PFD   */
+    { 0x4040, 0x40000000 },   /* SYS_PLL2_CTRL  */
+    { 0x4070, 0xA098909B },   /* SYS_PLL2_PFD   */
+    { 0x4090, 0x00000016 },   /* SYS_PLL2_MFI   -- 22 => 24 MHz x 22 = 528 MHz */
+    { 0x40A0, 0x0FFFFFFF },   /* SYS_PLL2_MFD   */
+    { 0x4100, 0x00004000 },   /* SYS_PLL1_CTRL  */
+    { 0x4200, 0x00004000 },   /* PLL_AUDIO_CTRL */
+    /* ANADIG_OSC @ +0x4300 */
+    { 0x4310, 0x007901F2 },   /* OSC_RC24M_CTRL */
+    { 0x4320, 0x00000080 },   /* OSC_24M_CTRL   */
+    { 0x4340, 0x80000000 },   /* OSC_400M_CTRL0 */
+    { 0x4350, 0x00000001 },   /* OSC_400M_CTRL1 */
+    /* ANADIG_PMU / LDO @ +0x4600 */
+    { 0x4600, 0x00008000 },   /* PMU_BIAS_CTRL  */
+    { 0x4640, 0x00000005 },   /* PMU_LDO_PLL    */
+    { 0x4710, 0x00000040 },   /* PMU_REF_CTRL   */
+    { 0x4740, 0x00000108 },   /* PMU_LDO_AON_ANA */
+    { 0x4760, 0x01301C05 },   /* PMU_LDO_AON_DIG */
+};
+
 static void imxrt1180_anadig_reset(DeviceState *dev)
 {
     IMXRT1180AnadigState *s = IMXRT1180_ANADIG(dev);
 
     memset(s->regs, 0, sizeof(s->regs));
+    for (size_t i = 0; i < ARRAY_SIZE(anadig_por); i++) {
+        s->regs[anadig_por[i].off / 4] = anadig_por[i].val;
+    }
     s->pfd_relock = 0;
 }
 

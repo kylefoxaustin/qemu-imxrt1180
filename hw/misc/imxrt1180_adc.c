@@ -274,6 +274,15 @@ static void imxrt1180_adc_reset(DeviceState *dev)
     IMXRT1180ADCState *s = IMXRT1180_ADC(dev);
 
     memset(s->regs, 0, sizeof(s->regs));
+    /*
+     * POWER-ON RESET VALUES from the RM's reset column, verified by
+     * tests/imxrt1180-reset-values.  A memset-to-zero is not a neutral default --
+     * it is a claim about every bit, and firmware read-modify-writes both of these.
+     *   CFG[PUDLY]      = 0x80 (bits 23:16, PERI_ADC.h ADC_CFG_PUDLY_MASK 0xFF0000)
+     *   CTRL[CALOFSMODE]= 1    (bit 5,      ADC_CTRL_CALOFSMODE_MASK 0x20)
+     */
+    s->regs[0x20 / 4] = 0x00800000;   /* CFG  */
+    s->regs[0x10 / 4] = 0x00000020;   /* CTRL */
     for (int f = 0; f < IMXRT1180_ADC_NFIFO; f++) {
         s->fifo[f].head = s->fifo[f].count = 0;
     }

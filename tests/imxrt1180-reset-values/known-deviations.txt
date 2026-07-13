@@ -1,0 +1,934 @@
+# KNOWN RESET-VALUE DEVIATIONS -- every line is a register where this model tells
+# the guest something the silicon would never say.
+#
+#   ⚠ THIS NUMBER MUST GO DOWN.  It is a TO-DO LIST, NOT A CERTIFICATE.
+#
+# The gate fails in BOTH directions (mcxn947qemu / ollama_95_neutron):
+#   * a mismatch NOT listed here      -> FAIL (a new lie)
+#   * a listed entry that now MATCHES -> FAIL ("this is fixed -- delete the line")
+# because "an independent whitelist does not merely MISS the bug, IT CERTIFIES IT",
+# and an allowlist that can never shrink has stopped being a to-do list.
+#
+# THE TWO CLASSES ARE NOT EQUALLY BAD, and the reason column says which:
+#   "block not modelled"  -- the catch-all answers 0. Honest-ish: nothing pretends
+#                            to implement it, and the guest gets 0 for a register
+#                            that does not exist here.  Still a lie, lower priority.
+#   "MODELLED BLOCK"      -- WE implement this peripheral and got its reset wrong.
+#                            The guest reads a plausible value from a block that
+#                            claims to work.  THESE ARE THE DANGEROUS ONES.
+#
+ANADIG_OSC                 OSC_24M_CTRL           # STABLE/lock bit synthesised: we model the POST-BOOT-ROM state (our -kernel path skips the ROM, and firmware polls STABLE before asserting POWERUP)
+ANADIG_PLL                 ARM_PLL_CTRL           # STABLE/lock bit synthesised: we model the POST-BOOT-ROM state (our -kernel path skips the ROM, and firmware polls STABLE before asserting POWERUP)
+ANADIG_PLL                 PLL_AUDIO_CTRL         # STABLE/lock bit synthesised: we model the POST-BOOT-ROM state (our -kernel path skips the ROM, and firmware polls STABLE before asserting POWERUP)
+ANADIG_PLL                 SYS_PLL1_CTRL          # STABLE/lock bit synthesised: we model the POST-BOOT-ROM state (our -kernel path skips the ROM, and firmware polls STABLE before asserting POWERUP)
+ANADIG_PLL                 SYS_PLL2_CTRL          # STABLE/lock bit synthesised: we model the POST-BOOT-ROM state (our -kernel path skips the ROM, and firmware polls STABLE before asserting POWERUP)
+ANADIG_PLL                 SYS_PLL3_CTRL          # STABLE/lock bit synthesised: we model the POST-BOOT-ROM state (our -kernel path skips the ROM, and firmware polls STABLE before asserting POWERUP)
+AON_MIF_LN28FDSOI_SPLLRAM  MIF_MLPL_IG            # block not modelled; the catch-all answers 0
+AON_MIF_LN28FDSOI_SPLLRAM  MIF_MLPL_PD_B          # block not modelled; the catch-all answers 0
+AON_MIF_LN28FDSOI_SPLLRAM  MIF_MLPL_WLPD          # block not modelled; the catch-all answers 0
+AON_MIX_SLICE              EDGELOCK_HDSK_CTRL     # block not modelled; the catch-all answers 0
+AON_MIX_SLICE              EDGELOCK_HDSK_STAT     # block not modelled; the catch-all answers 0
+AON_MIX_SLICE              FUNC_STAT              # block not modelled; the catch-all answers 0
+AON_MIX_SLICE              LPM_SETTING_0          # block not modelled; the catch-all answers 0
+AON_MIX_SLICE              LPM_SETTING_1          # block not modelled; the catch-all answers 0
+AON_MIX_SLICE              LPM_SETTING_2          # block not modelled; the catch-all answers 0
+AON_MIX_SLICE              MLPL_CFG               # block not modelled; the catch-all answers 0
+AON_MIX_SLICE              MLPL_STAT              # block not modelled; the catch-all answers 0
+AON_MIX_SLICE              PSW_CNT_CFG_HF         # block not modelled; the catch-all answers 0
+AON_MIX_SLICE              PSW_CNT_CFG_LF         # block not modelled; the catch-all answers 0
+AON_MIX_SLICE              PSW_CTRL               # block not modelled; the catch-all answers 0
+ASRC                       ASR56K                 # block not modelled; the catch-all answers 0
+ASRC                       ASR76K                 # block not modelled; the catch-all answers 0
+BBNSM                      BBNSM_CTRL             # block not modelled; the catch-all answers 0
+BBNSM                      BBNSM_EVENTS           # block not modelled; the catch-all answers 0
+BBNSM                      BBNSM_FEATURES         # block not modelled; the catch-all answers 0
+BBNSM                      BBNSM_INT_EN           # block not modelled; the catch-all answers 0
+BBNSM                      BBNSM_VID              # block not modelled; the catch-all answers 0
+BLK_CTRL_NS_AONMIX         SSI                    # block not modelled; the catch-all answers 0
+BLK_CTRL_S_AONMIX          AXBS_AON_CTRL          # block not modelled; the catch-all answers 0
+BLK_CTRL_S_AONMIX          EDGELOCK_IRQ_MASK      # block not modelled; the catch-all answers 0
+BLK_CTRL_S_AONMIX          EDGELOCK_RESET_REQ_MASK # block not modelled; the catch-all answers 0
+BLK_CTRL_S_AONMIX          IOMUXC_AON_DOMAIN_CFG  # block not modelled; the catch-all answers 0
+BLK_CTRL_S_AONMIX          IOMUXC_DOMAIN_CFG      # block not modelled; the catch-all answers 0
+BLK_CTRL_S_AONMIX          M33_CFG                # block not modelled; the catch-all answers 0
+BLK_CTRL_S_AONMIX          M7_CFG                 # block not modelled; the catch-all answers 0
+BLK_CTRL_WAKEUPMIX         AXI_ATTR_CFG           # block not modelled; the catch-all answers 0
+BLK_CTRL_WAKEUPMIX         ECAT_MISC_CFG          # block not modelled; the catch-all answers 0
+BLK_CTRL_WAKEUPMIX         EMC_B1_IO_CTRL         # block not modelled; the catch-all answers 0
+BLK_CTRL_WAKEUPMIX         EMC_B2_IO_CTRL         # block not modelled; the catch-all answers 0
+BLK_CTRL_WAKEUPMIX         GPIO_B1_IO_CTRL        # block not modelled; the catch-all answers 0
+BLK_CTRL_WAKEUPMIX         GPIO_B2_IO_CTRL        # block not modelled; the catch-all answers 0
+BLK_CTRL_WAKEUPMIX         SD_B1_IO_CTRL          # block not modelled; the catch-all answers 0
+BLK_CTRL_WAKEUPMIX         SD_B2_IO_CTRL          # block not modelled; the catch-all answers 0
+BLK_CTRL_WAKEUPMIX         SSI                    # block not modelled; the catch-all answers 0
+BLK_CTRL_WAKEUPMIX         USBPHY_MISC_CTRL       # block not modelled; the catch-all answers 0
+BLK_CTRL_WAKEUPMIX         XBAR_AOI_WE            # block not modelled; the catch-all answers 0
+CAN1                       CTRL2                  # block not modelled; the catch-all answers 0
+CAN1                       FDCTRL                 # block not modelled; the catch-all answers 0
+CAN1                       MECR                   # block not modelled; the catch-all answers 0
+CAN2                       CTRL2                  # block not modelled; the catch-all answers 0
+CAN2                       FDCTRL                 # block not modelled; the catch-all answers 0
+CAN2                       MECR                   # block not modelled; the catch-all answers 0
+CAN3                       CTRL2                  # block not modelled; the catch-all answers 0
+CAN3                       FDCTRL                 # block not modelled; the catch-all answers 0
+CAN3                       MECR                   # block not modelled; the catch-all answers 0
+CCM                        GPR_SHARED0_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED0_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED0_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED0_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED10_AUTHEN    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED10_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED10_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED10_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED11_AUTHEN    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED11_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED11_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED11_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED12_AUTHEN    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED12_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED12_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED12_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED13_AUTHEN    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED13_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED13_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED13_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED14_AUTHEN    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED14_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED14_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED14_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED15_AUTHEN    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED15_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED15_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED15_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED1_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED1_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED1_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED1_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED2_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED2_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED2_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED2_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED3_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED3_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED3_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED3_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED4_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED4_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED4_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED4_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED5_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED5_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED5_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED5_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED6_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED6_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED6_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED6_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED7_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED7_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED7_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED7_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED8_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED8_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED8_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED8_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED9_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED9_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED9_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CCM                        GPR_SHARED9_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CM33PLATFORM_MIX_SLICE     EDGELOCK_HDSK_CTRL     # block not modelled; the catch-all answers 0
+CM33PLATFORM_MIX_SLICE     EDGELOCK_HDSK_STAT     # block not modelled; the catch-all answers 0
+CM33PLATFORM_MIX_SLICE     FUNC_STAT              # block not modelled; the catch-all answers 0
+CM33PLATFORM_MIX_SLICE     LPM_SETTING_0          # block not modelled; the catch-all answers 0
+CM33PLATFORM_MIX_SLICE     LPM_SETTING_1          # block not modelled; the catch-all answers 0
+CM33PLATFORM_MIX_SLICE     LPM_SETTING_2          # block not modelled; the catch-all answers 0
+CM33PLATFORM_MIX_SLICE     MLPL_CFG               # block not modelled; the catch-all answers 0
+CM33PLATFORM_MIX_SLICE     MLPL_STAT              # block not modelled; the catch-all answers 0
+CM33PLATFORM_MIX_SLICE     PSW_CNT_CFG_HF         # block not modelled; the catch-all answers 0
+CM33PLATFORM_MIX_SLICE     PSW_CNT_CFG_LF         # block not modelled; the catch-all answers 0
+CM33PLATFORM_MIX_SLICE     PSW_CTRL               # block not modelled; the catch-all answers 0
+CM7PLATFORM_MIX_SLICE      EDGELOCK_HDSK_CTRL     # block not modelled; the catch-all answers 0
+CM7PLATFORM_MIX_SLICE      EDGELOCK_HDSK_STAT     # block not modelled; the catch-all answers 0
+CM7PLATFORM_MIX_SLICE      FUNC_STAT              # block not modelled; the catch-all answers 0
+CM7PLATFORM_MIX_SLICE      LPM_SETTING_0          # block not modelled; the catch-all answers 0
+CM7PLATFORM_MIX_SLICE      LPM_SETTING_1          # block not modelled; the catch-all answers 0
+CM7PLATFORM_MIX_SLICE      LPM_SETTING_2          # block not modelled; the catch-all answers 0
+CM7PLATFORM_MIX_SLICE      MLPL_CFG               # block not modelled; the catch-all answers 0
+CM7PLATFORM_MIX_SLICE      MLPL_STAT              # block not modelled; the catch-all answers 0
+CM7PLATFORM_MIX_SLICE      PSW_CNT_CFG_HF         # block not modelled; the catch-all answers 0
+CM7PLATFORM_MIX_SLICE      PSW_CNT_CFG_LF         # block not modelled; the catch-all answers 0
+CM7PLATFORM_MIX_SLICE      PSW_CTRL               # block not modelled; the catch-all answers 0
+CM7PLATFORM_TCM            MIF_DLY_ARR_HF         # block not modelled; the catch-all answers 0
+CM7PLATFORM_TCM            MIF_DLY_SLEEP          # block not modelled; the catch-all answers 0
+CM7PLATFORM_TCM            MIF_MLPL_ARR_PDN       # block not modelled; the catch-all answers 0
+CM7PLATFORM_TCM            MIF_MLPL_SLEEP         # block not modelled; the catch-all answers 0
+CMP1                       C3                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CMP2                       C3                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CMP3                       C3                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+CMP4                       C3                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+DAC                        CR                     # block not modelled; the catch-all answers 0
+DCDC                       CURRENT_TRG            # block not modelled; the catch-all answers 0
+DCDC                       FILTER_CNT             # block not modelled; the catch-all answers 0
+DCDC                       OK_CNT                 # block not modelled; the catch-all answers 0
+DCDC                       REG0                   # block not modelled; the catch-all answers 0
+DCDC                       REG1                   # block not modelled; the catch-all answers 0
+DCDC                       REG2                   # block not modelled; the catch-all answers 0
+DCDC                       REG3                   # block not modelled; the catch-all answers 0
+DCDC                       TRG_0_AUTHEN           # block not modelled; the catch-all answers 0
+DCDC                       TRG_1_AUTHEN           # block not modelled; the catch-all answers 0
+DCDC                       TRG_GPC_0              # block not modelled; the catch-all answers 0
+DCDC                       TRG_GPC_1              # block not modelled; the catch-all answers 0
+DCDC                       TRG_SW_0               # block not modelled; the catch-all answers 0
+DCDC                       TRG_SW_1               # block not modelled; the catch-all answers 0
+ECAT                       AL_EVENT_REQUEST       # block not modelled; the catch-all answers 0
+ECAT                       ESC_DL_CONTROL         # block not modelled; the catch-all answers 0
+ECAT                       PDI_AL_EVENT_MASK      # block not modelled; the catch-all answers 0
+ECAT                       RECEIVE_TIMES          # block not modelled; the catch-all answers 0
+ECAT                       RECEIVE_TIME_PORT_1    # block not modelled; the catch-all answers 0
+EMDIO_BASE                 EMDIO_CFG              # block not modelled; the catch-all answers 0
+EMDIO_BASE                 MDIO_CFG               # block not modelled; the catch-all answers 0
+EMDIO_GLOBAL               HBTCAPR                # block not modelled; the catch-all answers 0
+EMDIO_GLOBAL               HBTOR2                 # block not modelled; the catch-all answers 0
+EMDIO_GLOBAL               IPBRR0                 # block not modelled; the catch-all answers 0
+EMDIO_GLOBAL               IPBRR1                 # block not modelled; the catch-all answers 0
+EMDIO_GLOBAL               NETCCLKR               # block not modelled; the catch-all answers 0
+EMDIO_GLOBAL               SMACR                  # block not modelled; the catch-all answers 0
+EMDIO_GLOBAL               SMBUCR                 # block not modelled; the catch-all answers 0
+EMDIO_GLOBAL               SMCAPR                 # block not modelled; the catch-all answers 0
+EMDIO_GLOBAL               SMCLWMR                # block not modelled; the catch-all answers 0
+EMDIO_GLOBAL               SMDTR                  # block not modelled; the catch-all answers 0
+ENETC0_BASE                PMR                    # block not modelled; the catch-all answers 0
+ENETC0_BASE                PRIO2TCMR0             # block not modelled; the catch-all answers 0
+ENETC0_COMMON              ECTCAPR                # block not modelled; the catch-all answers 0
+ENETC0_COMMON              ESQRCAPR               # block not modelled; the catch-all answers 0
+ENETC0_COMMON              ESQRTCAPR              # block not modelled; the catch-all answers 0
+ENETC0_COMMON              ETCAPR                 # block not modelled; the catch-all answers 0
+ENETC0_COMMON              ETTCAPR                # block not modelled; the catch-all answers 0
+ENETC0_COMMON              FMECAPR                # block not modelled; the catch-all answers 0
+ENETC0_COMMON              FMICAPR                # block not modelled; the catch-all answers 0
+ENETC0_COMMON              FMITCAPR               # block not modelled; the catch-all answers 0
+ENETC0_COMMON              ISFHTCAPR              # block not modelled; the catch-all answers 0
+ENETC0_COMMON              OSR                    # block not modelled; the catch-all answers 0
+ENETC0_COMMON              RPCAPR                 # block not modelled; the catch-all answers 0
+ENETC0_ETH_MAC_PORT        PEMDIOSR               # block not modelled; the catch-all answers 0
+ENETC0_ETH_MAC_PORT        PM0_IEVENT             # block not modelled; the catch-all answers 0
+ENETC0_ETH_MAC_PORT        PM0_IF_MODE            # block not modelled; the catch-all answers 0
+ENETC0_ETH_MAC_PORT        PM0_MAXFRM             # block not modelled; the catch-all answers 0
+ENETC0_ETH_MAC_PORT        PM0_MDIO_CFG           # block not modelled; the catch-all answers 0
+ENETC0_ETH_MAC_PORT        PM0_MINFRM             # block not modelled; the catch-all answers 0
+ENETC0_ETH_MAC_PORT        PM1_IEVENT             # block not modelled; the catch-all answers 0
+ENETC0_ETH_MAC_PORT        PM1_IF_MODE            # block not modelled; the catch-all answers 0
+ENETC0_ETH_MAC_PORT        PM1_MAXFRM             # block not modelled; the catch-all answers 0
+ENETC0_ETH_MAC_PORT        PM1_MINFRM             # block not modelled; the catch-all answers 0
+ENETC0_GLOBAL              HBTCAPR                # block not modelled; the catch-all answers 0
+ENETC0_GLOBAL              HBTOR2                 # block not modelled; the catch-all answers 0
+ENETC0_GLOBAL              IPBRR0                 # block not modelled; the catch-all answers 0
+ENETC0_GLOBAL              IPBRR1                 # block not modelled; the catch-all answers 0
+ENETC0_GLOBAL              NETCCLKR               # block not modelled; the catch-all answers 0
+ENETC0_GLOBAL              SMACR                  # block not modelled; the catch-all answers 0
+ENETC0_GLOBAL              SMBUCR                 # block not modelled; the catch-all answers 0
+ENETC0_GLOBAL              SMCAPR                 # block not modelled; the catch-all answers 0
+ENETC0_GLOBAL              SMCLWMR                # block not modelled; the catch-all answers 0
+ENETC0_GLOBAL              SMDTR                  # block not modelled; the catch-all answers 0
+ENETC0_PORT                BPDVR                  # block not modelled; the catch-all answers 0
+ENETC0_PORT                BPSCR0                 # block not modelled; the catch-all answers 0
+ENETC0_PORT                BPSCR1                 # block not modelled; the catch-all answers 0
+ENETC0_PORT                BPSTGSR                # block not modelled; the catch-all answers 0
+ENETC0_PORT                PCR                    # block not modelled; the catch-all answers 0
+ENETC0_PORT                PCTFCR                 # block not modelled; the catch-all answers 0
+ENETC0_PORT                PDGSR                  # block not modelled; the catch-all answers 0
+ENETC0_PORT                PIPV2QMR0              # block not modelled; the catch-all answers 0
+ENETC0_PORT                PISIDCR                # block not modelled; the catch-all answers 0
+ENETC0_PORT                PPCR                   # block not modelled; the catch-all answers 0
+ENETC0_PORT                PRXSDUOR               # block not modelled; the catch-all answers 0
+ENETC0_PORT                PTAR                   # block not modelled; the catch-all answers 0
+ENETC0_PORT                PTGSHCR                # block not modelled; the catch-all answers 0
+ENETC0_PORT                PTXSDUOR               # block not modelled; the catch-all answers 0
+ENETC0_SI0                 SIBCAR                 # block not modelled; the catch-all answers 0
+ENETC0_SI0                 SICAPR1                # block not modelled; the catch-all answers 0
+ENETC0_SI0                 SICCAR                 # block not modelled; the catch-all answers 0
+ENETC0_SI0                 SIMCAR                 # block not modelled; the catch-all answers 0
+ENETC0_SI0                 SISR                   # block not modelled; the catch-all answers 0
+ENETC1_BASE                PMR                    # block not modelled; the catch-all answers 0
+ENETC1_BASE                PRIO2TCMR0             # block not modelled; the catch-all answers 0
+ENETC1_COMMON              ECTCAPR                # block not modelled; the catch-all answers 0
+ENETC1_COMMON              ESQRCAPR               # block not modelled; the catch-all answers 0
+ENETC1_COMMON              ESQRTCAPR              # block not modelled; the catch-all answers 0
+ENETC1_COMMON              ETCAPR                 # block not modelled; the catch-all answers 0
+ENETC1_COMMON              ETTCAPR                # block not modelled; the catch-all answers 0
+ENETC1_COMMON              FMECAPR                # block not modelled; the catch-all answers 0
+ENETC1_COMMON              FMICAPR                # block not modelled; the catch-all answers 0
+ENETC1_COMMON              FMITCAPR               # block not modelled; the catch-all answers 0
+ENETC1_COMMON              ISFHTCAPR              # block not modelled; the catch-all answers 0
+ENETC1_COMMON              OSR                    # block not modelled; the catch-all answers 0
+ENETC1_COMMON              RPCAPR                 # block not modelled; the catch-all answers 0
+ENETC1_GLOBAL              HBTCAPR                # block not modelled; the catch-all answers 0
+ENETC1_GLOBAL              HBTOR2                 # block not modelled; the catch-all answers 0
+ENETC1_GLOBAL              IPBRR0                 # block not modelled; the catch-all answers 0
+ENETC1_GLOBAL              IPBRR1                 # block not modelled; the catch-all answers 0
+ENETC1_GLOBAL              NETCCLKR               # block not modelled; the catch-all answers 0
+ENETC1_GLOBAL              SMACR                  # block not modelled; the catch-all answers 0
+ENETC1_GLOBAL              SMBUCR                 # block not modelled; the catch-all answers 0
+ENETC1_GLOBAL              SMCAPR                 # block not modelled; the catch-all answers 0
+ENETC1_GLOBAL              SMCLWMR                # block not modelled; the catch-all answers 0
+ENETC1_GLOBAL              SMDTR                  # block not modelled; the catch-all answers 0
+ENETC1_PORT                BPDVR                  # block not modelled; the catch-all answers 0
+ENETC1_PORT                BPSCR0                 # block not modelled; the catch-all answers 0
+ENETC1_PORT                BPSCR1                 # block not modelled; the catch-all answers 0
+ENETC1_PORT                BPSTGSR                # block not modelled; the catch-all answers 0
+ENETC1_PORT                PCR                    # block not modelled; the catch-all answers 0
+ENETC1_PORT                PCTFCR                 # block not modelled; the catch-all answers 0
+ENETC1_PORT                PDGSR                  # block not modelled; the catch-all answers 0
+ENETC1_PORT                PIPV2QMR0              # block not modelled; the catch-all answers 0
+ENETC1_PORT                PISIDCR                # block not modelled; the catch-all answers 0
+ENETC1_PORT                PPCR                   # block not modelled; the catch-all answers 0
+ENETC1_PORT                PRXSDUOR               # block not modelled; the catch-all answers 0
+ENETC1_PORT                PTAR                   # block not modelled; the catch-all answers 0
+ENETC1_PORT                PTGSHCR                # block not modelled; the catch-all answers 0
+ENETC1_PORT                PTXSDUOR               # block not modelled; the catch-all answers 0
+ENETC1_PSEUDO_MAC_PORT     PPMCR                  # block not modelled; the catch-all answers 0
+ENETC1_PSEUDO_MAC_PORT     PPMSR                  # block not modelled; the catch-all answers 0
+ENETC1_SI0                 SIBCAR                 # block not modelled; the catch-all answers 0
+ENETC1_SI0                 SICAPR1                # block not modelled; the catch-all answers 0
+ENETC1_SI0                 SICCAR                 # block not modelled; the catch-all answers 0
+ENETC1_SI0                 SIMCAR                 # block not modelled; the catch-all answers 0
+ENETC1_SI0                 SISR                   # block not modelled; the catch-all answers 0
+ENETC1_SI1                 SIBCAR                 # block not modelled; the catch-all answers 0
+ENETC1_SI1                 SICAPR1                # block not modelled; the catch-all answers 0
+ENETC1_SI1                 SICCAR                 # block not modelled; the catch-all answers 0
+ENETC1_SI1                 SIMCAR                 # block not modelled; the catch-all answers 0
+ENETC1_SI1                 SISR                   # block not modelled; the catch-all answers 0
+FLEXSPI1                   AHBCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI1                   FLSHCR4                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI1                   INTR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI1                   LUTCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI1                   LUTKEY                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI1                   MCR0                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI1                   MCR1                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI1                   MCR2                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI1                   STS0                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI1                   STS2                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI2                   AHBCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI2                   FLSHCR4                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI2                   INTR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI2                   LUTCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI2                   LUTKEY                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI2                   MCR0                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI2                   MCR1                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI2                   MCR2                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI2                   STS0                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI2                   STS2                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI_SLV                MODULE_CONTROL         # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI_SLV                MODULE_STATUS          # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI_SLV                READ_REGISTER_COMMAND0 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI_SLV                RW_COMMAND_BASE        # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI_SLV                WRITE_COMMAND_CONTROL  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+GPC_SYS_SLEEP_CTRL         PMIC_CTRL              # block not modelled; the catch-all answers 0
+GPC_SYS_SLEEP_CTRL         SS_DCDC_IN_CTRL        # block not modelled; the catch-all answers 0
+GPC_SYS_SLEEP_CTRL         SS_DCDC_OUT_CTRL       # block not modelled; the catch-all answers 0
+GPC_SYS_SLEEP_CTRL         SS_PMIC_IN_CTRL        # block not modelled; the catch-all answers 0
+GPC_SYS_SLEEP_CTRL         SS_PMIC_OUT_CTRL       # block not modelled; the catch-all answers 0
+GPC_SYS_SLEEP_CTRL         SS_STEP0_IN_CTRL       # block not modelled; the catch-all answers 0
+GPC_SYS_SLEEP_CTRL         SS_STEP0_OUT_CTRL      # block not modelled; the catch-all answers 0
+GPC_SYS_SLEEP_CTRL         SS_STEP1_IN_CTRL       # block not modelled; the catch-all answers 0
+GPC_SYS_SLEEP_CTRL         SS_STEP1_OUT_CTRL      # block not modelled; the catch-all answers 0
+GPC_SYS_SLEEP_CTRL         SS_STEP2_IN_CTRL       # block not modelled; the catch-all answers 0
+GPC_SYS_SLEEP_CTRL         SS_STEP3_IN_CTRL       # block not modelled; the catch-all answers 0
+GPC_SYS_SLEEP_CTRL         SS_STEP3_OUT_CTRL      # block not modelled; the catch-all answers 0
+I3C1                       IBIEXT1                # block not modelled; the catch-all answers 0
+I3C1                       MDATACTRL              # block not modelled; the catch-all answers 0
+I3C1                       MDMACTRL               # block not modelled; the catch-all answers 0
+I3C1                       MSTATUS                # block not modelled; the catch-all answers 0
+I3C1                       SCAPABILITIES          # block not modelled; the catch-all answers 0
+I3C1                       SCAPABILITIES2         # block not modelled; the catch-all answers 0
+I3C1                       SCCCMASK               # block not modelled; the catch-all answers 0
+I3C1                       SDATACTRL              # block not modelled; the catch-all answers 0
+I3C1                       SDMACTRL               # block not modelled; the catch-all answers 0
+I3C1                       SERRWARNMASK           # block not modelled; the catch-all answers 0
+I3C1                       SIDEXT                 # block not modelled; the catch-all answers 0
+I3C1                       SIDPARTNO              # block not modelled; the catch-all answers 0
+I3C1                       SINTSET                # block not modelled; the catch-all answers 0
+I3C1                       SSTATUS                # block not modelled; the catch-all answers 0
+I3C1                       STCCLOCK               # block not modelled; the catch-all answers 0
+I3C1                       SVENDORID              # block not modelled; the catch-all answers 0
+I3C2                       IBIEXT1                # block not modelled; the catch-all answers 0
+I3C2                       MDATACTRL              # block not modelled; the catch-all answers 0
+I3C2                       MDMACTRL               # block not modelled; the catch-all answers 0
+I3C2                       MSTATUS                # block not modelled; the catch-all answers 0
+I3C2                       SCAPABILITIES          # block not modelled; the catch-all answers 0
+I3C2                       SCAPABILITIES2         # block not modelled; the catch-all answers 0
+I3C2                       SCCCMASK               # block not modelled; the catch-all answers 0
+I3C2                       SDATACTRL              # block not modelled; the catch-all answers 0
+I3C2                       SDMACTRL               # block not modelled; the catch-all answers 0
+I3C2                       SERRWARNMASK           # block not modelled; the catch-all answers 0
+I3C2                       SIDEXT                 # block not modelled; the catch-all answers 0
+I3C2                       SIDPARTNO              # block not modelled; the catch-all answers 0
+I3C2                       SINTSET                # block not modelled; the catch-all answers 0
+I3C2                       SSTATUS                # block not modelled; the catch-all answers 0
+I3C2                       STCCLOCK               # block not modelled; the catch-all answers 0
+I3C2                       SVENDORID              # block not modelled; the catch-all answers 0
+LPI2C1                     MSR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C1                     SASR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C1                     SRDR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C1                     SRDROR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C2                     MSR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C2                     SASR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C2                     SRDR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C2                     SRDROR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C3                     MSR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C3                     SASR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C3                     SRDR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C3                     SRDROR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C4                     MSR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C4                     SASR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C4                     SRDR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C4                     SRDROR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C5                     MRDR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C5                     MRDROR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C5                     MSR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C5                     SASR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C5                     SRDR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C5                     SRDROR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C6                     MRDR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C6                     MRDROR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C6                     MSR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C6                     SASR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C6                     SRDR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPI2C6                     SRDROR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPSPI1                     SR                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPSPI1                     TCR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPSPI2                     SR                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPSPI2                     TCR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPSPI3                     SR                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPSPI3                     TCR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPSPI4                     SR                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPSPI4                     TCR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPSPI5                     RSR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPSPI5                     SR                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPSPI5                     TCR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPSPI6                     RSR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPSPI6                     SR                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPSPI6                     TCR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART1                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART1                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART1                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART1                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART1                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART10                   BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART10                   DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART10                   DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART10                   FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART10                   TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART11                   BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART11                   DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART11                   DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART11                   FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART11                   TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART12                   BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART12                   DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART12                   DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART12                   FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART12                   TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART2                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART2                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART2                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART2                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART2                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART3                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART3                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART3                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART3                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART3                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART4                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART4                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART4                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART4                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART4                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART5                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART5                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART5                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART5                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART5                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART6                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART6                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART6                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART6                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART6                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART7                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART7                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART7                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART7                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART7                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART8                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART8                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART8                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART8                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART8                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART9                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART9                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART9                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART9                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+LPUART9                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+MEGA_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_IG            # block not modelled; the catch-all answers 0
+MEGA_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_PD_B          # block not modelled; the catch-all answers 0
+MEGA_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_WLPD          # block not modelled; the catch-all answers 0
+MEGA_MIX_SLICE             EDGELOCK_HDSK_CTRL     # block not modelled; the catch-all answers 0
+MEGA_MIX_SLICE             EDGELOCK_HDSK_STAT     # block not modelled; the catch-all answers 0
+MEGA_MIX_SLICE             FUNC_STAT              # block not modelled; the catch-all answers 0
+MEGA_MIX_SLICE             LPM_SETTING_0          # block not modelled; the catch-all answers 0
+MEGA_MIX_SLICE             LPM_SETTING_1          # block not modelled; the catch-all answers 0
+MEGA_MIX_SLICE             LPM_SETTING_2          # block not modelled; the catch-all answers 0
+MEGA_MIX_SLICE             MLPL_CFG               # block not modelled; the catch-all answers 0
+MEGA_MIX_SLICE             MLPL_STAT              # block not modelled; the catch-all answers 0
+MEGA_MIX_SLICE             PSW_CNT_CFG_HF         # block not modelled; the catch-all answers 0
+MEGA_MIX_SLICE             PSW_CNT_CFG_LF         # block not modelled; the catch-all answers 0
+MEGA_MIX_SLICE             PSW_CTRL               # block not modelled; the catch-all answers 0
+NETC_F0_PCI_HDR_TYPE0      PCIE_CFC_SRIOV_CAP_HDR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_F1_PCI_HDR_TYPE0      PCIE_CFC_SRIOV_CAP_HDR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_F2_PCI_HDR_TYPE0      PCIE_CFC_SRIOV_CAP_HDR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_F3_PCI_HDR_TYPE0      PCIE_CFC_SRIOV_CAP_HDR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_F4_PCI_HDR_TYPE0      PCIE_CFC_SRIOV_CAP_HDR # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  CAPR0                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  CAPR1                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  CAPR2                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  CAPR3                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  CMCAPR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  EMDIOBCR               # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  EMDIO_CFG              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  HBTCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  HBTMAR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  IPFTMCAPR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L0CAPR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L0TXBCCTR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L1BCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L1CAPR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L1TXBCCTR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L2BCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L2CAPR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L2TXBCCTR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L3BCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L3CAPR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L3TXBCCTR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L4BCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L4CAPR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L4TXBCCTR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L5BCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L5CAPR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  L5TXBCCTR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  NETCCLKCR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  NETCCLKFR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  NETCFLRCR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  SGLTTR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  SMDTR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_IERB                  TGSMCAPR               # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_IG            # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_PD_B          # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_WLPD          # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_MIX_SLICE             EDGELOCK_HDSK_CTRL     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_MIX_SLICE             EDGELOCK_HDSK_STAT     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_MIX_SLICE             FUNC_STAT              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_MIX_SLICE             LPM_SETTING_0          # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_MIX_SLICE             LPM_SETTING_1          # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_MIX_SLICE             LPM_SETTING_2          # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_MIX_SLICE             MLPL_CFG               # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_MIX_SLICE             MLPL_STAT              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_MIX_SLICE             PSW_CNT_CFG_HF         # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_MIX_SLICE             PSW_CNT_CFG_LF         # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_MIX_SLICE             PSW_CTRL               # MODELLED BLOCK, reset value not set -- a real lie, fix me
+OTFAD1                     SR                     # block not modelled; the catch-all answers 0
+OTFAD2                     SR                     # block not modelled; the catch-all answers 0
+PDM                        FIFO_CTRL              # block not modelled; the catch-all answers 0
+PDM                        VAD0_CTRL_2            # block not modelled; the catch-all answers 0
+PDM                        VAD0_NCONFIG           # block not modelled; the catch-all answers 0
+PDM                        VAD0_STAT              # block not modelled; the catch-all answers 0
+PDM                        VAD0_ZCD               # block not modelled; the catch-all answers 0
+RTWDOG1                    CS                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+RTWDOG1                    TOVAL                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+RTWDOG2                    CS                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+RTWDOG2                    TOVAL                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+RTWDOG3                    CS                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+RTWDOG3                    TOVAL                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+RTWDOG4                    CS                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+RTWDOG4                    TOVAL                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+RTWDOG5                    CS                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+RTWDOG5                    TOVAL                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+SAI1                       TCSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+SAI2                       TCSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+SAI3                       TCSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+SAI4                       TCSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+SEMC                       BR10                   # block not modelled; the catch-all answers 0
+SEMC                       BR11                   # block not modelled; the catch-all answers 0
+SEMC                       BR9                    # block not modelled; the catch-all answers 0
+SEMC                       DLLCR                  # block not modelled; the catch-all answers 0
+SEMC                       NANDCR2                # block not modelled; the catch-all answers 0
+SEMC                       SDRAMCR0               # block not modelled; the catch-all answers 0
+SEMC                       SDRAMCR1               # block not modelled; the catch-all answers 0
+SEMC                       SDRAMCR2               # block not modelled; the catch-all answers 0
+SEMC                       SDRAMCR3               # block not modelled; the catch-all answers 0
+SEMC                       STS0                   # block not modelled; the catch-all answers 0
+SEMC                       STS13                  # block not modelled; the catch-all answers 0
+SINC1                      PARAMETER              # block not modelled; the catch-all answers 0
+SINC1                      SR                     # block not modelled; the catch-all answers 0
+SINC2                      PARAMETER              # block not modelled; the catch-all answers 0
+SINC2                      SR                     # block not modelled; the catch-all answers 0
+SINC3                      PARAMETER              # block not modelled; the catch-all answers 0
+SINC3                      SR                     # block not modelled; the catch-all answers 0
+SPDIF                      SCR                    # block not modelled; the catch-all answers 0
+SPDIF                      SIS                    # block not modelled; the catch-all answers 0
+SPDIF                      STC                    # block not modelled; the catch-all answers 0
+SRC_GENERAL_REG            SBMR2                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+SRC_GENERAL_REG            SRMASK                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+SRC_GENERAL_REG            SRSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+SRC_GENERAL_REG            SRSR_BBSM              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+SW0_BASE                   BPCAPR                 # block not modelled; the catch-all answers 0
+SW0_BASE                   BRCAPR                 # block not modelled; the catch-all answers 0
+SW0_BASE                   CCAR                   # block not modelled; the catch-all answers 0
+SW0_BASE                   FCAPR                  # block not modelled; the catch-all answers 0
+SW0_BASE                   FDBHTCAPR              # block not modelled; the catch-all answers 0
+SW0_BASE                   IMDCR0                 # block not modelled; the catch-all answers 0
+SW0_BASE                   IPMFHTCAPR             # block not modelled; the catch-all answers 0
+SW0_BASE                   MPCR                   # block not modelled; the catch-all answers 0
+SW0_BASE                   SCAPR0                 # block not modelled; the catch-all answers 0
+SW0_BASE                   SCAPR1                 # block not modelled; the catch-all answers 0
+SW0_BASE                   SMBCAPR                # block not modelled; the catch-all answers 0
+SW0_BASE                   VFHTCAPR               # block not modelled; the catch-all answers 0
+SW0_COMMON                 ECTCAPR                # block not modelled; the catch-all answers 0
+SW0_COMMON                 ESQRCAPR               # block not modelled; the catch-all answers 0
+SW0_COMMON                 ESQRTCAPR              # block not modelled; the catch-all answers 0
+SW0_COMMON                 ETCAPR                 # block not modelled; the catch-all answers 0
+SW0_COMMON                 ETTCAPR                # block not modelled; the catch-all answers 0
+SW0_COMMON                 FMECAPR                # block not modelled; the catch-all answers 0
+SW0_COMMON                 FMICAPR                # block not modelled; the catch-all answers 0
+SW0_COMMON                 FMITCAPR               # block not modelled; the catch-all answers 0
+SW0_COMMON                 ISFHTCAPR              # block not modelled; the catch-all answers 0
+SW0_COMMON                 OSR                    # block not modelled; the catch-all answers 0
+SW0_COMMON                 RPCAPR                 # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT0          PEMDIOSR               # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT0          PM0_IEVENT             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT0          PM0_IF_MODE            # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT0          PM0_MAXFRM             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT0          PM0_MDIO_CFG           # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT0          PM0_MINFRM             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT0          PM1_IEVENT             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT0          PM1_IF_MODE            # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT0          PM1_MAXFRM             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT0          PM1_MINFRM             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT1          PEMDIOSR               # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT1          PM0_IEVENT             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT1          PM0_IF_MODE            # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT1          PM0_MAXFRM             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT1          PM0_MDIO_CFG           # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT1          PM0_MINFRM             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT1          PM1_IEVENT             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT1          PM1_IF_MODE            # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT1          PM1_MAXFRM             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT1          PM1_MINFRM             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT2          PEMDIOSR               # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT2          PM0_IEVENT             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT2          PM0_IF_MODE            # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT2          PM0_MAXFRM             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT2          PM0_MDIO_CFG           # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT2          PM0_MINFRM             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT2          PM1_IEVENT             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT2          PM1_IF_MODE            # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT2          PM1_MAXFRM             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT2          PM1_MINFRM             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT3          PEMDIOSR               # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT3          PM0_IEVENT             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT3          PM0_IF_MODE            # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT3          PM0_MAXFRM             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT3          PM0_MDIO_CFG           # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT3          PM0_MINFRM             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT3          PM1_IEVENT             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT3          PM1_IF_MODE            # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT3          PM1_MAXFRM             # block not modelled; the catch-all answers 0
+SW0_ETH_MAC_PORT3          PM1_MINFRM             # block not modelled; the catch-all answers 0
+SW0_GLOBAL                 HBTCAPR                # block not modelled; the catch-all answers 0
+SW0_GLOBAL                 HBTOR2                 # block not modelled; the catch-all answers 0
+SW0_GLOBAL                 IPBRR0                 # block not modelled; the catch-all answers 0
+SW0_GLOBAL                 IPBRR1                 # block not modelled; the catch-all answers 0
+SW0_GLOBAL                 NETCCLKR               # block not modelled; the catch-all answers 0
+SW0_GLOBAL                 SMACR                  # block not modelled; the catch-all answers 0
+SW0_GLOBAL                 SMBUCR                 # block not modelled; the catch-all answers 0
+SW0_GLOBAL                 SMCAPR                 # block not modelled; the catch-all answers 0
+SW0_GLOBAL                 SMCLWMR                # block not modelled; the catch-all answers 0
+SW0_GLOBAL                 SMDTR                  # block not modelled; the catch-all answers 0
+SW0_PORT0                  BPDVR                  # block not modelled; the catch-all answers 0
+SW0_PORT0                  BPSCR0                 # block not modelled; the catch-all answers 0
+SW0_PORT0                  BPSCR1                 # block not modelled; the catch-all answers 0
+SW0_PORT0                  BPSTGSR                # block not modelled; the catch-all answers 0
+SW0_PORT0                  PCR                    # block not modelled; the catch-all answers 0
+SW0_PORT0                  PCTFCR                 # block not modelled; the catch-all answers 0
+SW0_PORT0                  PDGSR                  # block not modelled; the catch-all answers 0
+SW0_PORT0                  PIPV2QMR0              # block not modelled; the catch-all answers 0
+SW0_PORT0                  PISIDCR                # block not modelled; the catch-all answers 0
+SW0_PORT0                  PPCR                   # block not modelled; the catch-all answers 0
+SW0_PORT0                  PRXSDUOR               # block not modelled; the catch-all answers 0
+SW0_PORT0                  PTAR                   # block not modelled; the catch-all answers 0
+SW0_PORT0                  PTGSHCR                # block not modelled; the catch-all answers 0
+SW0_PORT0                  PTXSDUOR               # block not modelled; the catch-all answers 0
+SW0_PORT1                  BPDVR                  # block not modelled; the catch-all answers 0
+SW0_PORT1                  BPSCR0                 # block not modelled; the catch-all answers 0
+SW0_PORT1                  BPSCR1                 # block not modelled; the catch-all answers 0
+SW0_PORT1                  BPSTGSR                # block not modelled; the catch-all answers 0
+SW0_PORT1                  PCR                    # block not modelled; the catch-all answers 0
+SW0_PORT1                  PCTFCR                 # block not modelled; the catch-all answers 0
+SW0_PORT1                  PDGSR                  # block not modelled; the catch-all answers 0
+SW0_PORT1                  PIPV2QMR0              # block not modelled; the catch-all answers 0
+SW0_PORT1                  PISIDCR                # block not modelled; the catch-all answers 0
+SW0_PORT1                  PPCR                   # block not modelled; the catch-all answers 0
+SW0_PORT1                  PRXSDUOR               # block not modelled; the catch-all answers 0
+SW0_PORT1                  PTAR                   # block not modelled; the catch-all answers 0
+SW0_PORT1                  PTGSHCR                # block not modelled; the catch-all answers 0
+SW0_PORT1                  PTXSDUOR               # block not modelled; the catch-all answers 0
+SW0_PORT2                  BPDVR                  # block not modelled; the catch-all answers 0
+SW0_PORT2                  BPSCR0                 # block not modelled; the catch-all answers 0
+SW0_PORT2                  BPSCR1                 # block not modelled; the catch-all answers 0
+SW0_PORT2                  BPSTGSR                # block not modelled; the catch-all answers 0
+SW0_PORT2                  PCR                    # block not modelled; the catch-all answers 0
+SW0_PORT2                  PCTFCR                 # block not modelled; the catch-all answers 0
+SW0_PORT2                  PDGSR                  # block not modelled; the catch-all answers 0
+SW0_PORT2                  PIPV2QMR0              # block not modelled; the catch-all answers 0
+SW0_PORT2                  PISIDCR                # block not modelled; the catch-all answers 0
+SW0_PORT2                  PPCR                   # block not modelled; the catch-all answers 0
+SW0_PORT2                  PRXSDUOR               # block not modelled; the catch-all answers 0
+SW0_PORT2                  PTAR                   # block not modelled; the catch-all answers 0
+SW0_PORT2                  PTGSHCR                # block not modelled; the catch-all answers 0
+SW0_PORT2                  PTXSDUOR               # block not modelled; the catch-all answers 0
+SW0_PORT3                  BPDVR                  # block not modelled; the catch-all answers 0
+SW0_PORT3                  BPSCR0                 # block not modelled; the catch-all answers 0
+SW0_PORT3                  BPSCR1                 # block not modelled; the catch-all answers 0
+SW0_PORT3                  BPSTGSR                # block not modelled; the catch-all answers 0
+SW0_PORT3                  PCR                    # block not modelled; the catch-all answers 0
+SW0_PORT3                  PCTFCR                 # block not modelled; the catch-all answers 0
+SW0_PORT3                  PDGSR                  # block not modelled; the catch-all answers 0
+SW0_PORT3                  PIPV2QMR0              # block not modelled; the catch-all answers 0
+SW0_PORT3                  PISIDCR                # block not modelled; the catch-all answers 0
+SW0_PORT3                  PPCR                   # block not modelled; the catch-all answers 0
+SW0_PORT3                  PRXSDUOR               # block not modelled; the catch-all answers 0
+SW0_PORT3                  PTAR                   # block not modelled; the catch-all answers 0
+SW0_PORT3                  PTGSHCR                # block not modelled; the catch-all answers 0
+SW0_PORT3                  PTXSDUOR               # block not modelled; the catch-all answers 0
+SW0_PORT4                  BPDVR                  # block not modelled; the catch-all answers 0
+SW0_PORT4                  BPSCR0                 # block not modelled; the catch-all answers 0
+SW0_PORT4                  BPSCR1                 # block not modelled; the catch-all answers 0
+SW0_PORT4                  BPSTGSR                # block not modelled; the catch-all answers 0
+SW0_PORT4                  PCR                    # block not modelled; the catch-all answers 0
+SW0_PORT4                  PCTFCR                 # block not modelled; the catch-all answers 0
+SW0_PORT4                  PDGSR                  # block not modelled; the catch-all answers 0
+SW0_PORT4                  PIPV2QMR0              # block not modelled; the catch-all answers 0
+SW0_PORT4                  PISIDCR                # block not modelled; the catch-all answers 0
+SW0_PORT4                  PPCR                   # block not modelled; the catch-all answers 0
+SW0_PORT4                  PRXSDUOR               # block not modelled; the catch-all answers 0
+SW0_PORT4                  PTAR                   # block not modelled; the catch-all answers 0
+SW0_PORT4                  PTGSHCR                # block not modelled; the catch-all answers 0
+SW0_PORT4                  PTXSDUOR               # block not modelled; the catch-all answers 0
+SW0_PSEUDO_MAC_PORT4       PPMCR                  # block not modelled; the catch-all answers 0
+SW0_PSEUDO_MAC_PORT4       PPMSR                  # block not modelled; the catch-all answers 0
+SYS_CTR_CONTROL            CNTFID0                # block not modelled; the catch-all answers 0
+SYS_CTR_CONTROL            CNTFID1                # block not modelled; the catch-all answers 0
+SYS_CTR_CONTROL            CNTSR                  # block not modelled; the catch-all answers 0
+TMPSNS                     STATUS0                # block not modelled; the catch-all answers 0
+TMR0_BASE                  TMR_CAPR               # block not modelled; the catch-all answers 0
+TMR0_BASE                  TMR_CTRL               # block not modelled; the catch-all answers 0
+TMR0_BASE                  TMR_FIPER_CTRL         # block not modelled; the catch-all answers 0
+TMR0_BASE                  TMR_ID                 # block not modelled; the catch-all answers 0
+TMR0_BASE                  TMR_PRSC               # block not modelled; the catch-all answers 0
+TMR0_BASE                  TMR_STAT               # block not modelled; the catch-all answers 0
+TMR0_GLOBAL                HBTCAPR                # block not modelled; the catch-all answers 0
+TMR0_GLOBAL                HBTOR2                 # block not modelled; the catch-all answers 0
+TMR0_GLOBAL                IPBRR0                 # block not modelled; the catch-all answers 0
+TMR0_GLOBAL                IPBRR1                 # block not modelled; the catch-all answers 0
+TMR0_GLOBAL                NETCCLKR               # block not modelled; the catch-all answers 0
+TMR0_GLOBAL                SMACR                  # block not modelled; the catch-all answers 0
+TMR0_GLOBAL                SMBUCR                 # block not modelled; the catch-all answers 0
+TMR0_GLOBAL                SMCAPR                 # block not modelled; the catch-all answers 0
+TMR0_GLOBAL                SMCLWMR                # block not modelled; the catch-all answers 0
+TMR0_GLOBAL                SMDTR                  # block not modelled; the catch-all answers 0
+TPM1                       MOD                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+TPM2                       MOD                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+TPM3                       MOD                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+TPM4                       MOD                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+TPM5                       MOD                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+TPM6                       MOD                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+TRDC1                      TRDC_CR                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+TRDC1                      TRDC_FLW_PBASE         # MODELLED BLOCK, reset value not set -- a real lie, fix me
+TRDC1                      TRDC_IDAU_CR           # MODELLED BLOCK, reset value not set -- a real lie, fix me
+TRDC2                      TRDC_CR                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+TRDC2                      TRDC_FLW_PBASE         # MODELLED BLOCK, reset value not set -- a real lie, fix me
+TRDC2                      TRDC_IDAU_CR           # MODELLED BLOCK, reset value not set -- a real lie, fix me
+TRDC3                      TRDC_CR                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+TRDC3                      TRDC_FLW_PBASE         # MODELLED BLOCK, reset value not set -- a real lie, fix me
+TRDC3                      TRDC_IDAU_CR           # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBHSDCD1                  CLOCK                  # block not modelled; the catch-all answers 0
+USBHSDCD1                  TIMER0                 # block not modelled; the catch-all answers 0
+USBHSDCD1                  TIMER1                 # block not modelled; the catch-all answers 0
+USBHSDCD1                  TIMER2_BC11            # block not modelled; the catch-all answers 0
+USBHSDCD2                  CLOCK                  # block not modelled; the catch-all answers 0
+USBHSDCD2                  TIMER0                 # block not modelled; the catch-all answers 0
+USBHSDCD2                  TIMER1                 # block not modelled; the catch-all answers 0
+USBHSDCD2                  TIMER2_BC11            # block not modelled; the catch-all answers 0
+USBNC_OTG1                 CTRL1                  # block not modelled; the catch-all answers 0
+USBNC_OTG1                 HSIC_CTRL              # block not modelled; the catch-all answers 0
+USBNC_OTG2                 CTRL1                  # block not modelled; the catch-all answers 0
+USBNC_OTG2                 HSIC_CTRL              # block not modelled; the catch-all answers 0
+USBPHY1                    ANACTRL                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    ANACTRL_CLR            # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    ANACTRL_SET            # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    ANACTRL_TOG            # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    DEBUG1                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    DEBUG1_CLR             # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    DEBUG1_SET             # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    DEBUG1_TOG             # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    DEBUG_CLR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    DEBUG_SET              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    DEBUG_TOG              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    PLL_SIC                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    PLL_SIC_CLR            # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    PLL_SIC_SET            # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    PLL_SIC_TOG            # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    PWD                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    PWD_CLR                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    PWD_SET                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    PWD_TOG                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    TRIM_OVERRIDE_EN       # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    TRIM_OVERRIDE_EN_CLR   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    TRIM_OVERRIDE_EN_SET   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    TRIM_OVERRIDE_EN_TOG   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    TX                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    TX_CLR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    TX_SET                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    TX_TOG                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    USB1_CHRG_DETECT       # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    USB1_CHRG_DETECT_CLR   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    USB1_CHRG_DETECT_SET   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    USB1_CHRG_DETECT_TOG   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    USB1_LOOPBACK          # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    USB1_LOOPBACK_CLR      # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    USB1_LOOPBACK_SET      # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    USB1_LOOPBACK_TOG      # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    USB1_VBUS_DETECT       # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    USB1_VBUS_DETECT_CLR   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    USB1_VBUS_DETECT_SET   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    USB1_VBUS_DETECT_TOG   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    USB1_VBUS_DET_STAT     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY1                    VERSION                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    ANACTRL                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    ANACTRL_CLR            # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    ANACTRL_SET            # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    ANACTRL_TOG            # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    DEBUG1                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    DEBUG1_CLR             # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    DEBUG1_SET             # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    DEBUG1_TOG             # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    DEBUG_CLR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    DEBUG_SET              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    DEBUG_TOG              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    PLL_SIC                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    PLL_SIC_CLR            # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    PLL_SIC_SET            # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    PLL_SIC_TOG            # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    PWD                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    PWD_CLR                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    PWD_SET                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    PWD_TOG                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    TRIM_OVERRIDE_EN       # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    TRIM_OVERRIDE_EN_CLR   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    TRIM_OVERRIDE_EN_SET   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    TRIM_OVERRIDE_EN_TOG   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    TX                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    TX_CLR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    TX_SET                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    TX_TOG                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    USB1_CHRG_DETECT       # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    USB1_CHRG_DETECT_CLR   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    USB1_CHRG_DETECT_SET   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    USB1_CHRG_DETECT_TOG   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    USB1_LOOPBACK          # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    USB1_LOOPBACK_CLR      # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    USB1_LOOPBACK_SET      # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    USB1_LOOPBACK_TOG      # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    USB1_VBUS_DETECT       # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    USB1_VBUS_DETECT_CLR   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    USB1_VBUS_DETECT_SET   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    USB1_VBUS_DETECT_TOG   # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    USB1_VBUS_DET_STAT     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USBPHY2                    VERSION                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   BURSTSIZE              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   CONFIGFLAG             # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   ENDPTCTRL0             # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   HCCPARAMS              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   HCSPARAMS              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   HWDEVICE               # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   HWGENERAL              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   HWHOST                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   HWRXBUF                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   HWTXBUF                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   ID                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   OTGSC                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   PORTSC1                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   SBUSCFG                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   USBCMD                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   USBMODE                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG1                   USBSTS                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   BURSTSIZE              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   CONFIGFLAG             # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   ENDPTCTRL0             # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   HCCPARAMS              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   HCSPARAMS              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   HWDEVICE               # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   HWGENERAL              # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   HWHOST                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   HWRXBUF                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   HWTXBUF                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   ID                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   OTGSC                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   PORTSC1                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   SBUSCFG                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   USBCMD                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   USBMODE                # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USB_OTG2                   USBSTS                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
+USDHC1                     BLK_ATT                # block not modelled; the catch-all answers 0
+USDHC1                     CQCAP                  # block not modelled; the catch-all answers 0
+USDHC1                     CQRMEM                 # block not modelled; the catch-all answers 0
+USDHC1                     CQSSC1                 # block not modelled; the catch-all answers 0
+USDHC1                     CQVER                  # block not modelled; the catch-all answers 0
+USDHC1                     DLL_STATUS             # block not modelled; the catch-all answers 0
+USDHC1                     HOST_CTRL_CAP          # block not modelled; the catch-all answers 0
+USDHC1                     MIX_CTRL               # block not modelled; the catch-all answers 0
+USDHC1                     PROT_CTRL              # block not modelled; the catch-all answers 0
+USDHC1                     STROBE_DLL_STATUS      # block not modelled; the catch-all answers 0
+USDHC1                     SYS_CTRL               # block not modelled; the catch-all answers 0
+USDHC1                     TUNING_CTRL            # block not modelled; the catch-all answers 0
+USDHC1                     VEND_SPEC              # block not modelled; the catch-all answers 0
+USDHC1                     VEND_SPEC2             # block not modelled; the catch-all answers 0
+USDHC1                     WTMK_LVL               # block not modelled; the catch-all answers 0
+USDHC2                     BLK_ATT                # block not modelled; the catch-all answers 0
+USDHC2                     CQCAP                  # block not modelled; the catch-all answers 0
+USDHC2                     CQRMEM                 # block not modelled; the catch-all answers 0
+USDHC2                     CQSSC1                 # block not modelled; the catch-all answers 0
+USDHC2                     CQVER                  # block not modelled; the catch-all answers 0
+USDHC2                     DLL_STATUS             # block not modelled; the catch-all answers 0
+USDHC2                     HOST_CTRL_CAP          # block not modelled; the catch-all answers 0
+USDHC2                     MIX_CTRL               # block not modelled; the catch-all answers 0
+USDHC2                     PROT_CTRL              # block not modelled; the catch-all answers 0
+USDHC2                     STROBE_DLL_STATUS      # block not modelled; the catch-all answers 0
+USDHC2                     SYS_CTRL               # block not modelled; the catch-all answers 0
+USDHC2                     TUNING_CTRL            # block not modelled; the catch-all answers 0
+USDHC2                     VEND_SPEC              # block not modelled; the catch-all answers 0
+USDHC2                     VEND_SPEC2             # block not modelled; the catch-all answers 0
+USDHC2                     WTMK_LVL               # block not modelled; the catch-all answers 0
+WAKEUP_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_IG            # block not modelled; the catch-all answers 0
+WAKEUP_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_PD_B          # block not modelled; the catch-all answers 0
+WAKEUP_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_WLPD          # block not modelled; the catch-all answers 0
+WAKEUP_MIX_SLICE           EDGELOCK_HDSK_CTRL     # block not modelled; the catch-all answers 0
+WAKEUP_MIX_SLICE           EDGELOCK_HDSK_STAT     # block not modelled; the catch-all answers 0
+WAKEUP_MIX_SLICE           FUNC_STAT              # block not modelled; the catch-all answers 0
+WAKEUP_MIX_SLICE           LPM_SETTING_0          # block not modelled; the catch-all answers 0
+WAKEUP_MIX_SLICE           LPM_SETTING_1          # block not modelled; the catch-all answers 0
+WAKEUP_MIX_SLICE           LPM_SETTING_2          # block not modelled; the catch-all answers 0
+WAKEUP_MIX_SLICE           MLPL_CFG               # block not modelled; the catch-all answers 0
+WAKEUP_MIX_SLICE           MLPL_STAT              # block not modelled; the catch-all answers 0
+WAKEUP_MIX_SLICE           PSW_CNT_CFG_HF         # block not modelled; the catch-all answers 0
+WAKEUP_MIX_SLICE           PSW_CNT_CFG_LF         # block not modelled; the catch-all answers 0
+WAKEUP_MIX_SLICE           PSW_CTRL               # block not modelled; the catch-all answers 0

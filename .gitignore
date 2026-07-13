@@ -66,3 +66,4 @@ tests/mcxn-enet-tcp/*.elf
 tests/mcxn-enet-lab/*.elf
 tests/mcxn-enet-udp/*.elf
 /build-aarch64/
+tests/imxrt1180-reset-values/rm.txt
