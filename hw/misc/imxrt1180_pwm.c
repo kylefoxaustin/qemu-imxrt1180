@@ -46,6 +46,8 @@
 #define R_VAL3      0x16
 #define R_VAL4      0x1A
 #define R_VAL5      0x1E
+#define R_DTCNT0    0x30        /* Deadtime Count 0 (PERI_PWM.h)  */
+#define R_DTCNT1    0x32        /* Deadtime Count 1               */
 #define R_STS       0x24
 #define R_INTEN     0x26
 #define R_DMAEN     0x28
@@ -187,6 +189,20 @@ static uint64_t imxrt1180_pwm_read(void *opaque, hwaddr offset, unsigned size)
         uint16_t init = *smreg(s, sm, R_INIT);
         uint16_t modulo = pwm_modulo(s, sm);
         uint16_t down = (uint16_t)ptimer_get_count(s->timer[sm]);
+
+        /*
+         * A STOPPED COUNTER IS AT ITS INIT VALUE, NOT ONE PAST IT.
+         *
+         * This synthesised a position unconditionally.  At reset INIT = VAL1 = 0, so
+         * pwm_modulo() is 1 and the stopped ptimer reads 0 -- and the expression
+         * returned init + (1 - 0) = 1.  CNT READ 1 OUT OF RESET WHERE THE SILICON
+         * READS 0, on a counter whose whole job is to say where in the PWM period
+         * you are.  The reset-value gate could not see it: CNT is 16-bit, and the
+         * gate kept only 32-bit registers.
+         */
+        if (!ptimer_get_limit(s->timer[sm]) || modulo == 0) {
+            return init;                 /* not running: sitting at INIT */
+        }
         return (uint16_t)(init + (modulo - down));
     }
     return s->regs[offset / 2];
@@ -303,6 +319,37 @@ static void imxrt1180_pwm_reset(DeviceState *dev)
     memset(s->buf_init, 0, sizeof(s->buf_init));
     memset(s->buf_val, 0, sizeof(s->buf_val));
     memset(s->duty, 0, sizeof(s->duty));
+
+    /*
+     * ========================= WE RESET THE DEAD TIME TO ZERO =========================
+     *
+     * DTCNT0/DTCNT1 are the DEADTIME COUNT REGISTERS (PERI_PWM.h: "Deadtime Count
+     * Register 0/1").  On silicon they reset to 0x07FF -- 2047 counts of dead time.
+     * A memset to zero says: NO DEAD TIME.
+     *
+     * Dead time is the interval that keeps the high-side and low-side transistors of
+     * an inverter leg from conducting at the same instant.  Zero dead time is a
+     * SHOOT-THROUGH: a direct short across the DC bus, through both transistors of a
+     * leg.  Firmware that programs duty cycles and trusts the hardware's reset dead
+     * time -- which is exactly what the reset value is FOR -- runs perfectly here and
+     * destroys the inverter on a real board.
+     *
+     *   THE MODEL WAS SILENTLY GIVING THE GUEST A MOTOR DRIVE WITH NO DEAD TIME, ON
+     *   THE FOC FRONTIER, AND EVERY PWM TEST WAS GREEN.
+     *
+     * The gate could not see it: these are 16-bit registers, and the reset-value gate
+     * kept ONLY 32-bit ones and dropped 410 others without a counter -- 185 of them
+     * eFlexPWM.  A REFUSAL IS NOT A CHECK (mcxn947qemu).
+     *
+     * CTRL resets to 0x0400 = FULL (PWM_CTRL_FULL_MASK): reload at the full cycle.
+     * We claimed no reload point was selected at all.
+     */
+    for (unsigned sm = 0; sm < IMXRT1180_PWM_NSM; sm++) {
+        *smreg(s, sm, R_CTRL)   = 0x0400;    /* FULL: full-cycle reload   */
+        *smreg(s, sm, R_DTCNT0) = 0x07FF;    /* DEAD TIME -- not zero     */
+        *smreg(s, sm, R_DTCNT1) = 0x07FF;
+    }
+
     for (unsigned sm = 0; sm < IMXRT1180_PWM_NSM; sm++) {
         ptimer_transaction_begin(s->timer[sm]);
         ptimer_stop(s->timer[sm]);

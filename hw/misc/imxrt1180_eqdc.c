@@ -155,6 +155,32 @@ static void imxrt1180_eqdc_reset(DeviceState *dev)
     IMXRT1180EQDCState *s = IMXRT1180_EQDC(dev);
 
     memset(s->regs, 0, sizeof(s->regs));
+
+    /*
+     * ============ ZERO IS NOT "NO SPEED" HERE -- IT IS INFINITE SPEED ============
+     *
+     * POSDPER is the Position Difference PERIOD counter: the number of clocks between
+     * successive encoder edges.  A speed observer DIVIDES BY IT.  On silicon it resets
+     * to 0xFFFF -- the maximum period, i.e. "no edge has been seen, the shaft is not
+     * turning".  A memset to zero says the exact opposite: ZERO CLOCKS BETWEEN EDGES.
+     *
+     *   A FOC SPEED LOOP READING OUR RESET VALUE COMPUTES A DIVIDE-BY-ZERO, OR AN
+     *   INFINITE ROTOR VELOCITY, BEFORE THE MOTOR HAS MOVED AT ALL.
+     *
+     * Same for its buffer/hold registers and LASTEDGE (the timestamp of the last edge:
+     * 0xFFFF = "none yet").  Offsets from PERI_EQDC.h, values from the RM's reset
+     * column.  All 16-bit -- which is why the gate had never once looked at them: it
+     * kept only 32-bit registers and dropped 33 EQDC rows without a counter.
+     */
+    s->regs[0x06 / 2] = 0xFFFF;      /* LASTEDGE    -- no edge seen yet   */
+    s->regs[0x08 / 2] = 0xFFFF;      /* POSDPER     -- maximum period     */
+    s->regs[0x0A / 2] = 0xFFFF;      /* POSDPERBFR                        */
+    s->regs[0x18 / 2] = 0xFFFF;      /* LASTEDGEH                         */
+    s->regs[0x1A / 2] = 0xFFFF;      /* POSDPERH                          */
+    s->regs[0x28 / 2] = 0x8000;      /* UCOMP0                            */
+    s->regs[0x50 / 2] = 0x0001;      /* UVERID                            */
+    s->regs[0x52 / 2] = 0x0001;      /* LVERID                            */
+
     s->no_encoder_logged = false;
     qemu_set_irq(s->irq, 0);
 }

@@ -555,8 +555,8 @@ def main(rm_txt, out_json):
         if len(types) > 1:
             ambiguous += 1          # DROP, never guess -- and COUNT what you dropped
             continue
-        if width != 32:
-            notwide += 1            # 16-bit blocks (eFlexPWM, QTMR) -- WAS SILENT
+        if width not in (8, 16, 32):
+            notwide += 1            # 64-bit: qtest has no readq for our purposes
             continue
         if acc not in ("RW", "RO", "R"):
             notread += 1            # write-only: nothing to read back -- WAS SILENT
@@ -564,7 +564,7 @@ def main(rm_txt, out_json):
         t = next(iter(types))
         for inst, ity in inst2type.items():
             if ity == t:
-                golden.append({"inst": inst, "reg": name,
+                golden.append({"inst": inst, "reg": name, "w": width,
                                "addr": bases[inst] + off, "reset": reset})
 
     golden.sort(key=lambda x: (x["inst"], x["addr"]))
@@ -600,8 +600,7 @@ def main(rm_txt, out_json):
     print("                            different reset values for them (shared names)")
     print("  unmatched in CMSIS      : %d   (RM names a register CMSIS does not put there)" % unmatched)
     print("  ambiguous (>1 periph)   : %d   (DROPPED, not guessed)" % ambiguous)
-    print("  not 32-bit              : %d   (16-bit blocks: eFlexPWM, QTMR -- WAS SILENT)"
-          % notwide)
+    print("  width not 8/16/32       : %d   (nothing to read back with qtest)" % notwide)
     print("  not readable            : %d   (write-only: no reset value to read back)"
           % notread)
     print("  struct arrays unresolved: %d   (DROPPED, not guessed)"

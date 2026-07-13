@@ -112,9 +112,57 @@ def probe(regs):
     deadline = threading.Timer(TIMEOUT, p.kill)
     deadline.start()
     vals = []
+
+    # ==================== THE WRITE MUST NOT BLOCK THE READ ====================
+    #
+    # This used to write EVERY question in ONE blocking write and only THEN start
+    # reading.  At 6106 registers that is 103,802 BYTES INTO A 65,536-BYTE PIPE --
+    # 1.58x OVER.  It completed anyway, for one reason and one reason only: QEMU
+    # drains its stdin as it goes, so the pipe never quite filled.
+    #
+    #   WE WERE NOT SAFE.  WE WERE CORRECT BY LUCK -- AND THE THING THAT SPENDS THE
+    #   LUCK IS THE FIX WE KEEP MAKING: every register the extractor learns to see
+    #   pushes this further past the line.  Today's coverage fix (4643 -> 6106) moved
+    #   it from ~1.2x to 1.58x.  THE REPAIR AND THE TRIGGER WERE THE SAME COMMIT.
+    #
+    # If the subject ever stops draining -- a wedged device model, which is EXACTLY
+    # the class this gate exists to find -- the writer blocks on a full pipe while
+    # the reader has not started, and NOBODY IS DRAINING.  Classic deadlock.
+    # 91emulator: "I spent twenty minutes convinced a device model was aborting on a
+    # read."  A HARNESS DEADLOCK IS INDISTINGUISHABLE FROM A GUEST BUG -- and it
+    # arrives disguised as your own success.
+    #
+    # So: the writer runs in its OWN thread.  A full pipe now blocks the WRITER,
+    # never the READER, and the reader keeps draining.  (mcxn947qemu, 91emulator.)
+    # READ EACH REGISTER AT ITS OWN WIDTH.
+    #
+    # This gate used to keep ONLY 32-bit registers and drop the rest -- 410 of them,
+    # SILENTLY, with no counter.  That class is eFlexPWM (185), XBAR (97), EQDC (33):
+    # THE ENTIRE FOC FRONTIER.  The motor PWM, the quadrature encoder and the
+    # PWM->ADC sync path had never once been looked at by the only oracle in this
+    # tree that the model cannot satisfy by agreeing with itself.
+    #
+    #   A REFUSAL IS NOT A CHECK.  (mcxn947qemu)  The registers it refused still
+    #   needed one, and nobody had written it.
+    #
+    # Reading a 16-bit register with `readl` would splice its neighbour into the top
+    # half and compare garbage -- so the width comes from the RM's own width column,
+    # and a wrong width would be a FALSE WITNESS, not a gap.
+    QTEST_READ = {8: "readb", 16: "readw", 32: "readl"}
+
+    def ask():
+        try:
+            p.stdin.write("".join("%s 0x%x\n" % (QTEST_READ[r["w"]], r["addr"])
+                                  for r in regs))
+            p.stdin.flush()
+            p.stdin.close()
+        except (BrokenPipeError, OSError):
+            pass                          # the deadline killed the subject: fine
+
+    writer = threading.Thread(target=ask, daemon=True)
+    writer.start()
+
     try:
-        p.stdin.write("".join("readl 0x%x\n" % r["addr"] for r in regs))
-        p.stdin.flush()
         while len(vals) < len(regs):
             line = p.stdout.readline()
             if not line:
