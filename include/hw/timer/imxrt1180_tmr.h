@@ -14,6 +14,7 @@
 #include "hw/core/sysbus.h"
 #include "hw/core/ptimer.h"
 #include "qom/object.h"
+#include "hw/misc/imxrt1180_ccm.h"
 
 #define TYPE_IMXRT1180_TMR "imxrt1180-tmr"
 OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180TMRState, IMXRT1180_TMR)
@@ -36,6 +37,13 @@ struct IMXRT1180TMRState {
     IMXRT1180TMRChan chan[IMXRT1180_TMR_NCHAN];
     uint16_t regs[IMXRT1180_TMR_SIZE / 2];
     uint32_t tmr_clk;                     /* primary count clock (Hz) */
+    /* THE CLOCK IS NOT A CONSTANT.  It is CLOCK_ROOT[clk_root] in the CCM, read at
+     * the point of use -- the guest rewrites the roots in BOARD_InitBootClocks()
+     * and some examples re-mux again afterwards.  This block used to hold a
+     * hardcoded default behind `if (!clk) clk = DEFAULT;`, which made the missing
+     * wiring invisible and ran the timer at the wrong rate. */
+    IMXRT1180CCMState *ccm;
+    uint32_t clk_root;            /* kCLOCK_Root_* index */
 };
 
 #endif /* HW_TIMER_IMXRT1180_TMR_H */

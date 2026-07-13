@@ -13,6 +13,7 @@
 #include "hw/core/irq.h"
 #include "hw/timer/imxrt1180_lpit.h"
 #include "migration/vmstate.h"
+#include "hw/core/qdev-properties.h"
 
 /* Register offsets. */
 #define LPIT_VERID  0x00
@@ -33,8 +34,6 @@
 #define TCTRL_T_EN 0x1
 #define CHAN_MASK  ((1u << IMXRT1180_LPIT_NCHAN) - 1)
 
-#define LPIT_FREQ_DEFAULT 24000000u   /* nominal LPIT bus clock */
-
 static void lpit_update_irq(IMXRT1180LPITState *s)
 {
     qemu_set_irq(s->irq, (s->msr & s->mier & CHAN_MASK) != 0);
@@ -53,10 +52,19 @@ static void lpit_channel_set_enabled(IMXRT1180LPITState *s, unsigned ch,
 {
     ptimer_transaction_begin(s->timer[ch]);
     if (enable && (s->mcr & MCR_M_CEN)) {
-        ptimer_set_freq(s->timer[ch], s->freq);
-        /* LPIT period = (TVAL + 1) clocks. */
-        ptimer_set_limit(s->timer[ch], (uint64_t)s->tval[ch] + 1, 1);
-        ptimer_run(s->timer[ch], 0);   /* periodic */
+        /* ASK THE CLOCK TREE NOW, not at realize.  The guest programmed these roots
+         * in BOARD_InitBootClocks() long after we were created, and the lpit_pwm
+         * example re-muxes LPIT3 again after that. */
+        uint32_t hz = imxrt1180_ccm_periph_hz(s->ccm, s->clk_root,
+                                              "imxrt1180-lpit");
+        if (hz) {
+            ptimer_set_freq(s->timer[ch], hz);
+            /* LPIT period = (TVAL + 1) clocks. */
+            ptimer_set_limit(s->timer[ch], (uint64_t)s->tval[ch] + 1, 1);
+            ptimer_run(s->timer[ch], 0);   /* periodic */
+        } else {
+            ptimer_stop(s->timer[ch]);     /* no clock => no ticks.  Not 24 MHz. */
+        }
     } else {
         ptimer_stop(s->timer[ch]);
     }
@@ -206,9 +214,6 @@ static void imxrt1180_lpit_realize(DeviceState *dev, Error **errp)
 {
     IMXRT1180LPITState *s = IMXRT1180_LPIT(dev);
 
-    if (s->freq == 0) {
-        s->freq = LPIT_FREQ_DEFAULT;
-    }
     for (unsigned ch = 0; ch < IMXRT1180_LPIT_NCHAN; ch++) {
         s->chan[ch].s = s;
         s->chan[ch].ch = ch;
@@ -237,6 +242,18 @@ static const VMStateDescription vmstate_imxrt1180_lpit = {
     },
 };
 
+/*
+ * NO "clk" PROPERTY, AND NO DEFAULT.  This block used to carry a hardcoded
+ * frequency behind `if (!clk) clk = DEFAULT;` -- and the SoC never set it, so the
+ * fallback WAS the clock, silently, at the wrong rate.  The frequency now comes
+ * from CLOCK_ROOT[clk-root] in the CCM, read at the point of use.
+ */
+static const Property imxrt1180_lpit_properties[] = {
+    DEFINE_PROP_LINK("ccm", IMXRT1180LPITState, ccm,
+                     TYPE_IMXRT1180_CCM, IMXRT1180CCMState *),
+    DEFINE_PROP_UINT32("clk-root", IMXRT1180LPITState, clk_root, 0),
+};
+
 static void imxrt1180_lpit_class_init(ObjectClass *klass, const void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
@@ -244,6 +261,7 @@ static void imxrt1180_lpit_class_init(ObjectClass *klass, const void *data)
     dc->realize = imxrt1180_lpit_realize;
     device_class_set_legacy_reset(dc, imxrt1180_lpit_reset);
     dc->vmsd = &vmstate_imxrt1180_lpit;
+    device_class_set_props(dc, imxrt1180_lpit_properties);
 }
 
 static const TypeInfo imxrt1180_lpit_types[] = {

@@ -77,8 +77,6 @@ static const unsigned val_off[6] = {
     R_VAL0, R_VAL1, R_VAL2, R_VAL3, R_VAL4, R_VAL5
 };
 
-#define PWM_CLK_DEFAULT 200000000u   /* nominal fast-peripheral clock (Hz) */
-
 static uint16_t *smreg(IMXRT1180PWMState *s, unsigned sm, unsigned off)
 {
     return &s->regs[(sm * SM_STRIDE + off) / 2];
@@ -127,7 +125,17 @@ static void pwm_sm_start(IMXRT1180PWMState *s, unsigned sm)
         return;
     }
     ptimer_transaction_begin(s->timer[sm]);
-    ptimer_set_freq(s->timer[sm], s->pwm_clk / prescale);
+    uint32_t hz = imxrt1180_ccm_periph_hz(s->ccm, s->clk_root, "imxrt1180-pwm");
+    if (!hz) {
+        /* No clock => no carrier.  NOT a plausible 200 MHz: this block drives the
+         * FOC loop, and a wrong-but-plausible carrier is invisible to a golden that
+         * checks phase-current AMPLITUDE.  Commit before leaving -- an open ptimer
+         * transaction is an assertion failure, not a silent leak. */
+        ptimer_stop(s->timer[sm]);
+        ptimer_transaction_commit(s->timer[sm]);
+        return;
+    }
+    ptimer_set_freq(s->timer[sm], hz / prescale);
     ptimer_set_limit(s->timer[sm], modulo, 1);
     ptimer_run(s->timer[sm], 0);           /* periodic reload */
     ptimer_transaction_commit(s->timer[sm]);
@@ -308,9 +316,6 @@ static void imxrt1180_pwm_realize(DeviceState *dev, Error **errp)
 {
     IMXRT1180PWMState *s = IMXRT1180_PWM(dev);
 
-    if (s->pwm_clk == 0) {
-        s->pwm_clk = PWM_CLK_DEFAULT;
-    }
     for (unsigned sm = 0; sm < IMXRT1180_PWM_NSM; sm++) {
         s->sub[sm].pwm = s;
         s->sub[sm].idx = sm;
@@ -342,8 +347,16 @@ static const VMStateDescription vmstate_imxrt1180_pwm = {
     },
 };
 
+/*
+ * NO "clk" PROPERTY, AND NO DEFAULT.  This block used to carry a hardcoded
+ * frequency behind `if (!clk) clk = DEFAULT;` -- and the SoC never set it, so the
+ * FALLBACK WAS THE CLOCK, silently, at the wrong rate.  The frequency now comes
+ * from CLOCK_ROOT[clk-root] in the CCM, read at the point of use.
+ */
 static const Property imxrt1180_pwm_properties[] = {
-    DEFINE_PROP_UINT32("pwm-clk", IMXRT1180PWMState, pwm_clk, 0),
+    DEFINE_PROP_LINK("ccm", IMXRT1180PWMState, ccm,
+                     TYPE_IMXRT1180_CCM, IMXRT1180CCMState *),
+    DEFINE_PROP_UINT32("clk-root", IMXRT1180PWMState, clk_root, 0),
 };
 
 static void imxrt1180_pwm_class_init(ObjectClass *klass, const void *data)

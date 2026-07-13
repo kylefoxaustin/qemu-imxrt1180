@@ -13,6 +13,7 @@
 #include "hw/core/irq.h"
 #include "hw/timer/imxrt1180_tpm.h"
 #include "migration/vmstate.h"
+#include "hw/core/qdev-properties.h"
 
 #define R_VERID 0x0
 #define R_PARAM 0x4
@@ -24,7 +25,6 @@
 #define SC_CMOD 0x18
 #define SC_TOIE 0x40
 #define SC_TOF 0x80
-#define TPM_CLK_DEFAULT 24000000u
 
 static void tpm_update(IMXRT1180TPMState *s)
 {
@@ -40,9 +40,15 @@ static void tpm_run(IMXRT1180TPMState *s)
 {
     ptimer_transaction_begin(s->timer);
     if ((s->sc & SC_CMOD) && (s->mod & 0xFFFF)) {
-        ptimer_set_freq(s->timer, s->clk / (1u << (s->sc & SC_PS)));
-        ptimer_set_limit(s->timer, (uint64_t)(s->mod & 0xFFFF) + 1, 1);
-        ptimer_run(s->timer, 0);
+        uint32_t hz = imxrt1180_ccm_periph_hz(s->ccm, s->clk_root,
+                                              "imxrt1180-tpm");
+        if (hz) {
+            ptimer_set_freq(s->timer, hz / (1u << (s->sc & SC_PS)));
+            ptimer_set_limit(s->timer, (uint64_t)(s->mod & 0xFFFF) + 1, 1);
+            ptimer_run(s->timer, 0);
+        } else {
+            ptimer_stop(s->timer);      /* no clock => no ticks.  Not 24 MHz. */
+        }
     } else {
         ptimer_stop(s->timer);
     }
@@ -100,7 +106,6 @@ static void tpm_reset(DeviceState *dev)
 static void tpm_realize(DeviceState *dev, Error **errp)
 {
     IMXRT1180TPMState *s = IMXRT1180_TPM(dev);
-    if (!s->clk) { s->clk = TPM_CLK_DEFAULT; }
     s->timer = ptimer_init(tpm_tick, s, PTIMER_POLICY_NO_IMMEDIATE_TRIGGER | PTIMER_POLICY_NO_IMMEDIATE_RELOAD);
     memory_region_init_io(&s->iomem, OBJECT(s), &tpm_ops, s, TYPE_IMXRT1180_TPM, 0x1000);
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
@@ -114,10 +119,23 @@ static const VMStateDescription vmstate_tpm = {
         VMSTATE_UINT32_ARRAY(regs, IMXRT1180TPMState, 0x100/4),
         VMSTATE_PTIMER(timer, IMXRT1180TPMState),
         VMSTATE_END_OF_LIST() } };
+/*
+ * NO "clk" PROPERTY, AND NO DEFAULT.  This block used to carry a hardcoded
+ * frequency behind `if (!clk) clk = DEFAULT;` -- and the SoC never set it, so the
+ * FALLBACK WAS THE CLOCK, silently, at the wrong rate.  The frequency now comes
+ * from CLOCK_ROOT[clk-root] in the CCM, read at the point of use.
+ */
+static const Property tpm_properties[] = {
+    DEFINE_PROP_LINK("ccm", IMXRT1180TPMState, ccm,
+                     TYPE_IMXRT1180_CCM, IMXRT1180CCMState *),
+    DEFINE_PROP_UINT32("clk-root", IMXRT1180TPMState, clk_root, 0),
+};
+
 static void tpm_class_init(ObjectClass *k, const void *d)
 {
     DeviceClass *dc = DEVICE_CLASS(k);
     dc->realize = tpm_realize; device_class_set_legacy_reset(dc, tpm_reset); dc->vmsd = &vmstate_tpm;
+    device_class_set_props(dc, tpm_properties);
 }
 static const TypeInfo tpm_types[] = {{ .name = TYPE_IMXRT1180_TPM, .parent = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(IMXRT1180TPMState), .class_init = tpm_class_init }};

@@ -290,6 +290,23 @@ uint32_t imxrt1180_ccm_root_hz(IMXRT1180CCMState *s, unsigned root)
     return hz / div;
 }
 
+uint32_t imxrt1180_ccm_periph_hz(IMXRT1180CCMState *s, unsigned root,
+                                 const char *dev)
+{
+    uint32_t hz = s ? imxrt1180_ccm_root_hz(s, root) : 0;
+
+    if (!hz) {
+        /* NOT a fallback.  The caller must not tick. */
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "%s: clock root %u yields no frequency (gated off, or its "
+                      "source is not modelled) -- the block has NO CLOCK and will "
+                      "not run.  This is deliberate: a plausible default here is "
+                      "how six timers ran at the wrong rate undetected.\n",
+                      dev, root);
+    }
+    return hz;
+}
+
 /* ---- OBSERVE.  The block counts edges of the clock its SELECT field picks. */
 static bool ccm_obs_slice(hwaddr off, unsigned reg, unsigned *slice)
 {

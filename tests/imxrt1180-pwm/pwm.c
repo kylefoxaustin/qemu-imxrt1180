@@ -62,49 +62,73 @@
  * downstream current-loop result a lie, so the FREQUENCY is the thing that has
  * to be asserted, against a number the model did not supply.
  *
- * ============ WHAT THIS GOLDEN DOES *NOT* VERIFY -- THE TRUST ANCHOR ==========
+ * ============ THE TRUST ANCHOR -- FIXED 2026-07-13, AND THIS IS THE STORY ======
  *
  * "A test cannot validate its own trust anchor." (ollama_95_neutron, 2026-07-12.)
  *
- * PWM_HZ below is 200 MHz because that is what the MODEL uses (PWM_CLK_DEFAULT,
- * a documented *nominal* "fast-peripheral clock"). CPU_HZ is likewise the board's
- * own constant. So this test verifies the model's PERIOD LOGIC -- that it honours
- * VAL1/INIT and CTRL.PRSC, swept across both -- against the clock it is GIVEN.
- * It does NOT, and cannot, verify that the clock itself is right: if PWM_CLK were
- * wrong, this golden would be wrong in exactly the same direction and still pass.
+ * THIS FILE USED TO SAY, IN THIS COMMENT, IN SO MANY WORDS:
  *
- * That matters, because it is not hypothetical. The stock NXP FOC demo
- * (mc_pmsm) targets M1_PWM_FREQ = 16 kHz and derives VAL1 from the REAL root via
- * CLOCK_GetRootClockFreq(); its entire control-loop timestep (M1_FAST_LOOP_TS =
- * 1/16000) depends on that. Our CCM reports NOMINAL, not computed, frequencies
- * (a documented limitation), so the ABSOLUTE emulated carrier frequency is
- * currently UNVERIFIED -- only its scaling with the programmed registers is.
+ *     "PWM_HZ below is 200 MHz BECAUSE THAT IS WHAT THE MODEL USES
+ *      (PWM_CLK_DEFAULT, a documented *nominal* fast-peripheral clock)...
+ *      if PWM_CLK were wrong, this golden would be wrong in exactly the same
+ *      direction and still pass."
  *
- * THE FIX, and it is open work, not a caveat to be lived with: have CCM COMPUTE
- * the PWM root frequency from the PLL/root config the firmware actually programs,
- * and have the PWM model take its clock from CCM. Then the golden can be anchored
- * on the FIRMWARE'S OWN intent (16 kHz) rather than on a constant we chose, and
- * the anchor stops being ours.
+ * IT WAS. THE MODEL'S PWM CLOCK WAS WRONG BY 1.5x. This test took its golden FROM
+ * THE MODEL, so it asked "does the PWM run at the frequency the model says it runs
+ * at" -- a tautology -- and it passed, every time, for the life of the project.
+ * THE MIRROR WAS WRITTEN DOWN, IN THIS COMMENT, AND NOBODY ACTED ON IT.
+ *
+ * The old comment also named the fix and called it open work: "have CCM COMPUTE the
+ * PWM root frequency from the PLL/root config the firmware actually programs, and
+ * have the PWM model take its clock from CCM. Then the anchor stops being ours."
+ * That is now done, so the golden is now anchored where it belongs:
+ *
+ *     THE FIRMWARE PROGRAMS THE CLOCK ROOT, EXACTLY AS BOARD_InitBootClocks DOES,
+ *     AND THE EXPECTED CARRIER IS DERIVED FROM THE SDK's OWN CONSTANTS:
+ *
+ *         SYS_PLL2 = XTAL * PLL_SYS2_528_MFI = 24 MHz * 22 = 528 MHz
+ *         PWM root = SYS_PLL2 / root_div
+ *
+ * AND THE ROOT DIVIDER IS NOW A SWEPT AXIS. A model that ignores the clock tree --
+ * which is exactly what this model did -- reports the SAME period at every root
+ * divider, and fails here. That is the property the old golden could not express,
+ * because it had no notion of a clock tree at all.
  */
+#define CCM_BASE          0x44450000u
+#define CCM_ROOT_CTRL(n)  (*(volatile uint32_t *)(CCM_BASE + (n) * 0x80u))
+#define CLKROOT_BUS_WAKEUP 4u          /* eFlexPWM lives in WAKEUPMIX (0x4265_0000) */
+#define ROOT_MUX_SYSPLL2  (2u << 8)    /* s_clockSourceName[BUS_WAKEUP][2] */
+
+#define XTAL_HZ           24000000u
+#define SYS_PLL2_HZ       (XTAL_HZ * 22u)              /* 528 MHz, fsl_clock.h */
+
 #define CPU_HZ            300000000u
-#define PWM_HZ            200000000u
 #define PWM_PERIOD_TICKS  1000u
 #define PWM_PRESCALE      64u          /* CTRL.PRSC = 6 -> divide by 64 */
 #define CTRL_PRSC_6       (6u << 4)
 
+/* Program a clock root exactly as the firmware does: MUX + (divisor - 1). */
+static void set_pwm_root_div(uint32_t div)
+{
+    CCM_ROOT_CTRL(CLKROOT_BUS_WAKEUP) = ROOT_MUX_SYSPLL2 | (div - 1u);
+}
+
 /*
  * WHY THE CARRIER IS PRESCALED FOR THIS MEASUREMENT.  Un-prescaled the reload
- * rate is 200 kHz -- one interrupt every 5 us of VIRTUAL time, which the
+ * rate is ~132 kHz -- an interrupt every ~7.5 us of VIRTUAL time, which the
  * emulated core cannot service in time. Reloads then COALESCE (the second sets
  * STS.RF again before the ISR has run, so the guest sees ONE interrupt), and
  * counting ISR entries under-counts the true rate. That is an artefact of
  * measuring by interrupt, not a model defect -- but it means the golden must be
  * measured at a rate the guest can actually keep up with.
- *   reload rate = 200e6 / 64 / 1000 = 3125 Hz
- *   CPU cycles per period = 300e6 / 3125 = 96000
+ *   at root div 4:  reload = 132e6 / 64 / 1000 = 2062.5 Hz
+ *                   CPU cycles per period = 300e6 / 2062.5 = 145454
+ *
+ * (There WAS an EXPECT_CPU_CYCLES_PER_PWM macro here, hardcoding 96000 off the
+ * old fabricated 200 MHz. It was DEFINED AND NEVER USED, so it kept compiling
+ * after PWM_HZ was deleted -- a dead golden that still looked authoritative.
+ * Deleted: an unused constant that names a number nobody computes is a trap.)
  */
-#define EXPECT_CPU_CYCLES_PER_PWM \
-    (CPU_HZ / (PWM_HZ / PWM_PRESCALE / PWM_PERIOD_TICKS))     /* 96000 */
 #define MEASURE_PERIODS   10u
 
 static long sh(long op, void *arg)
@@ -193,15 +217,28 @@ void reset_handler(void)
      *      cycles_per_period = CPU_HZ / (PWM_HZ / prescale / modulo)
      */
     static const struct { uint16_t prsc; uint32_t prescale; uint16_t val1;
-                          uint32_t modulo; } shapes[] = {
-        { 6, 64,  499,  1000 },   /* the FOC-shaped carrier                  */
-        { 6, 64,  249,   500 },   /* half the modulo -> half the period      */
-        { 7, 128, 499,  1000 },   /* double the prescaler -> double the period */
-        { 5, 32,  999,  2000 },   /* different prescaler AND modulo          */
+                          uint32_t modulo; uint32_t root_div; } shapes[] = {
+        /* root_div 4 => 528/4 = 132 MHz: THE EVK's ACTUAL Bus_Wakeup SETTING. */
+        { 6, 64,  499,  1000, 4 },   /* the FOC-shaped carrier                  */
+        { 6, 64,  249,   500, 4 },   /* half the modulo -> half the period      */
+        { 7, 128, 499,  1000, 4 },   /* double the prescaler -> double the period */
+        { 5, 32,  999,  2000, 4 },   /* different prescaler AND modulo          */
+
+        /*
+         * THE AXIS THE OLD GOLDEN COULD NOT EXPRESS: THE CLOCK ROOT ITSELF.
+         * Same PWM registers, different root divider. A model that ignores the
+         * clock tree -- which is what this model did until today -- reports an
+         * IDENTICAL period for all three of these and fails.
+         */
+        { 6, 64,  499,  1000, 8  },  /* 66 MHz  -> period doubles vs div 4   */
+        { 6, 64,  499,  1000, 16 },  /* 33 MHz  -> period doubles again      */
+        { 6, 64,  499,  1000, 2  },  /* 264 MHz -> period halves vs div 4    */
     };
     int period_ok = 1;
 
     for (unsigned k = 0; k < sizeof(shapes) / sizeof(shapes[0]); k++) {
+        /* Program the clock root FIRST -- the PWM must read it when it starts. */
+        set_pwm_root_div(shapes[k].root_div);
         /*
          * DIVIDE ONCE, AND LAST. The obvious form,
          *     CPU_HZ / (PWM_HZ / prescale / modulo)
@@ -216,8 +253,9 @@ void reset_handler(void)
          * (Scaled to MHz to keep the product inside 32 bits: this is a freestanding
          * -nostdlib test, so a uint64_t divide would pull in __aeabi_uldivmod.)
          */
+        uint32_t pwm_hz = SYS_PLL2_HZ / shapes[k].root_div;
         uint32_t expect = (shapes[k].prescale * shapes[k].modulo) *
-                          (CPU_HZ / 1000000u) / (PWM_HZ / 1000000u);
+                          (CPU_HZ / 1000000u) / (pwm_hz / 1000000u);
 
         /* Reprogram this shape: INIT = -(modulo/2), VAL1 = modulo/2 - 1. */
         PWM_MCTRL = 0;                                  /* stop  */

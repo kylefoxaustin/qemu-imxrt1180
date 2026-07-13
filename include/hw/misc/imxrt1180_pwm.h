@@ -14,6 +14,7 @@
 #include "hw/core/sysbus.h"
 #include "hw/core/ptimer.h"
 #include "qom/object.h"
+#include "hw/misc/imxrt1180_ccm.h"
 
 #define TYPE_IMXRT1180_PWM "imxrt1180-pwm"
 OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180PWMState, IMXRT1180_PWM)
@@ -46,6 +47,13 @@ struct IMXRT1180PWMState {
 
     uint16_t duty[IMXRT1180_PWM_NSM];       /* computed PWMA duty, per-mille */
     uint32_t pwm_clk;                       /* submodule counter clock (Hz)  */
+    /* THE CLOCK IS NOT A CONSTANT.  It is CLOCK_ROOT[clk_root] in the CCM, read at
+     * the point of use -- the guest rewrites the roots in BOARD_InitBootClocks()
+     * and some examples re-mux again afterwards.  This block used to hold a
+     * hardcoded default behind `if (!clk) clk = DEFAULT;`, which made the missing
+     * wiring invisible and ran the timer at the wrong rate. */
+    IMXRT1180CCMState *ccm;
+    uint32_t clk_root;            /* kCLOCK_Root_* index */
 };
 
 /* Accessors for a virtual-motor plant. */

@@ -46,4 +46,17 @@ struct IMXRT1180CCMState {
  */
 uint32_t imxrt1180_ccm_root_hz(IMXRT1180CCMState *s, unsigned root);
 
+/*
+ * The same, for a peripheral: logs (once, to the operator) when the root yields no
+ * frequency, and still returns 0.
+ *
+ * 0 MEANS "THIS PERIPHERAL HAS NO CLOCK", AND A BLOCK WITH NO CLOCK DOES NOT TICK.
+ * Do NOT substitute a plausible default here.  A hardcoded fallback is exactly what
+ * made six timers in this model run at the wrong rate for the life of the project,
+ * because a wrong-but-plausible clock looks like a working one and a stopped clock
+ * gets diagnosed in a minute.  WHERE THE INPUT IS MISSING, EXPOSE IT, DON'T ABSORB IT.
+ */
+uint32_t imxrt1180_ccm_periph_hz(IMXRT1180CCMState *s, unsigned root,
+                                 const char *dev);
+
 #endif /* HW_MISC_IMXRT1180_CCM_H */

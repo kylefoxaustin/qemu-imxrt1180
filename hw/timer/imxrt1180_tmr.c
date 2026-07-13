@@ -44,8 +44,6 @@
 /* CSCTRL bits. */
 #define CSCTRL_TCF1     0x0010
 
-#define TMR_CLK_DEFAULT 240000000u
-
 static uint16_t *reg(IMXRT1180TMRState *s, unsigned ch, unsigned off)
 {
     return &s->regs[(ch * CH_STRIDE + off) / 2];
@@ -87,9 +85,15 @@ static void tmr_ch_update(IMXRT1180TMRState *s, unsigned ch)
         uint16_t comp1 = *reg(s, ch, R_COMP1);
         uint16_t load  = *reg(s, ch, R_LOAD);
         uint32_t period = (uint16_t)(comp1 - load) + 1u;   /* modulo count */
-        ptimer_set_freq(s->timer[ch], s->tmr_clk / div);
-        ptimer_set_limit(s->timer[ch], period, 1);
-        ptimer_run(s->timer[ch], 0);                 /* periodic */
+        uint32_t hz = imxrt1180_ccm_periph_hz(s->ccm, s->clk_root,
+                                              "imxrt1180-tmr");
+        if (hz) {
+            ptimer_set_freq(s->timer[ch], hz / div);
+            ptimer_set_limit(s->timer[ch], period, 1);
+            ptimer_run(s->timer[ch], 0);             /* periodic */
+        } else {
+            ptimer_stop(s->timer[ch]);   /* no clock => no ticks.  Not 240 MHz. */
+        }
     } else {
         ptimer_stop(s->timer[ch]);
     }
@@ -171,9 +175,6 @@ static void imxrt1180_tmr_realize(DeviceState *dev, Error **errp)
 {
     IMXRT1180TMRState *s = IMXRT1180_TMR(dev);
 
-    if (s->tmr_clk == 0) {
-        s->tmr_clk = TMR_CLK_DEFAULT;
-    }
     for (unsigned c = 0; c < IMXRT1180_TMR_NCHAN; c++) {
         s->chan[c].s = s;
         s->chan[c].ch = c;
@@ -198,8 +199,16 @@ static const VMStateDescription vmstate_imxrt1180_tmr = {
     },
 };
 
+/*
+ * NO "clk" PROPERTY, AND NO DEFAULT.  This block used to carry a hardcoded
+ * frequency behind `if (!clk) clk = DEFAULT;` -- and the SoC never set it, so the
+ * FALLBACK WAS THE CLOCK, silently, at the wrong rate.  The frequency now comes
+ * from CLOCK_ROOT[clk-root] in the CCM, read at the point of use.
+ */
 static const Property imxrt1180_tmr_properties[] = {
-    DEFINE_PROP_UINT32("tmr-clk", IMXRT1180TMRState, tmr_clk, 0),
+    DEFINE_PROP_LINK("ccm", IMXRT1180TMRState, ccm,
+                     TYPE_IMXRT1180_CCM, IMXRT1180CCMState *),
+    DEFINE_PROP_UINT32("clk-root", IMXRT1180TMRState, clk_root, 0),
 };
 
 static void imxrt1180_tmr_class_init(ObjectClass *klass, const void *data)

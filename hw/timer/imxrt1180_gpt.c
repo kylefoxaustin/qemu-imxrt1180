@@ -13,6 +13,7 @@
 #include "hw/core/irq.h"
 #include "hw/timer/imxrt1180_gpt.h"
 #include "migration/vmstate.h"
+#include "hw/core/qdev-properties.h"
 
 #define R_CR 0x0
 #define R_PR 0x4
@@ -24,7 +25,6 @@
 #define CR_SWR 0x8000        /* software reset (self-clearing) */
 #define SR_OF1 0x1
 #define IR_OF1IE 0x1
-#define GPT_CLK_DEFAULT 24000000u
 
 static void gpt_update(IMXRT1180GPTState *s)
 {
@@ -40,9 +40,15 @@ static void gpt_run(IMXRT1180GPTState *s)
 {
     ptimer_transaction_begin(s->timer);
     if ((s->cr & CR_EN) && s->ocr1) {
-        ptimer_set_freq(s->timer, s->clk / ((s->pr & 0xFFF) + 1));
-        ptimer_set_limit(s->timer, (uint64_t)s->ocr1 + 1, 1);
-        ptimer_run(s->timer, 0);
+        uint32_t hz = imxrt1180_ccm_periph_hz(s->ccm, s->clk_root,
+                                              "imxrt1180-gpt");
+        if (hz) {
+            ptimer_set_freq(s->timer, hz / ((s->pr & 0xFFF) + 1));
+            ptimer_set_limit(s->timer, (uint64_t)s->ocr1 + 1, 1);
+            ptimer_run(s->timer, 0);
+        } else {
+            ptimer_stop(s->timer);      /* no clock => no ticks.  Not 24 MHz. */
+        }
     } else {
         ptimer_stop(s->timer);
     }
@@ -95,7 +101,6 @@ static void gpt_reset(DeviceState *dev)
 static void gpt_realize(DeviceState *dev, Error **errp)
 {
     IMXRT1180GPTState *s = IMXRT1180_GPT(dev);
-    if (!s->clk) { s->clk = GPT_CLK_DEFAULT; }
     s->timer = ptimer_init(gpt_tick, s, PTIMER_POLICY_NO_IMMEDIATE_TRIGGER | PTIMER_POLICY_NO_IMMEDIATE_RELOAD);
     memory_region_init_io(&s->iomem, OBJECT(s), &gpt_ops, s, TYPE_IMXRT1180_GPT, 0x1000);
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
@@ -108,10 +113,23 @@ static const VMStateDescription vmstate_gpt = {
         VMSTATE_UINT32(sr, IMXRT1180GPTState), VMSTATE_UINT32(ir, IMXRT1180GPTState),
         VMSTATE_UINT32(ocr1, IMXRT1180GPTState), VMSTATE_PTIMER(timer, IMXRT1180GPTState),
         VMSTATE_END_OF_LIST() } };
+/*
+ * NO "clk" PROPERTY, AND NO DEFAULT.  This block used to carry a hardcoded
+ * frequency behind `if (!clk) clk = DEFAULT;` -- and the SoC never set it, so the
+ * FALLBACK WAS THE CLOCK, silently, at the wrong rate.  The frequency now comes
+ * from CLOCK_ROOT[clk-root] in the CCM, read at the point of use.
+ */
+static const Property gpt_properties[] = {
+    DEFINE_PROP_LINK("ccm", IMXRT1180GPTState, ccm,
+                     TYPE_IMXRT1180_CCM, IMXRT1180CCMState *),
+    DEFINE_PROP_UINT32("clk-root", IMXRT1180GPTState, clk_root, 0),
+};
+
 static void gpt_class_init(ObjectClass *k, const void *d)
 {
     DeviceClass *dc = DEVICE_CLASS(k);
     dc->realize = gpt_realize; device_class_set_legacy_reset(dc, gpt_reset); dc->vmsd = &vmstate_gpt;
+    device_class_set_props(dc, gpt_properties);
 }
 static const TypeInfo gpt_types[] = {{ .name = TYPE_IMXRT1180_GPT, .parent = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(IMXRT1180GPTState), .class_init = gpt_class_init }};

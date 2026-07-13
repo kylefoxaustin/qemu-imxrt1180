@@ -194,6 +194,46 @@ static void imxrt1180_add_rdy(IMXRT1180State *s, const char *name, hwaddr base,
     sysbus_mmio_map(SYS_BUS_DEVICE(d), 0, base);
 }
 
+
+/*
+ * PERIPHERAL -> CCM CLOCK ROOT (kCLOCK_Root_* index, fsl_clock.h clock_root_t).
+ *
+ * Derived, not guessed:
+ *   - LPTMR1..3, GPT1..2, LPIT3, TPM2/4/5/6 have their OWN roots. The RM prints
+ *     lptimerN_clk_root / gptN_clk_root / lpit3_clk_root / tpmN_clk_root for
+ *     exactly these and no others.
+ *   - LPIT1/2, TPM1/3, QTMR and eFlexPWM have NO dedicated root: they are fed from
+ *     the bus clock of the MIX they live in.  AONMIX is 0x44xx_xxxx, WAKEUPMIX is
+ *     0x42xx_xxxx (LPUART1, a known AON block, is 0x4438_0000).  The SDK examples
+ *     confirm the two we can check: LPIT1 and TPM1 read kCLOCK_Root_Bus_Aon, QTMR
+ *     reads kCLOCK_Root_Bus_Wakeup.
+ *
+ * ⚠ AND HERE IS WHY THAT LAST GROUP IS *UNVERIFIABLE ON THIS BOARD*: the EVK's
+ *   clock_config.c sets Bus_Aon AND Bus_Wakeup to the SAME thing -- SysPll2Out/4 =
+ *   132 MHz.  So a wrong AON/WAKEUP choice yields the RIGHT NUMBER here and would
+ *   only diverge on a board that configures them differently.  CORRECT BY LUCK IS
+ *   NOT CORRECT.  Assigned by MIX (the silicon fact), not by the frequency that
+ *   happens to match.  The SDK's pwm example reads Bus_Aon for a block that lives
+ *   in WAKEUPMIX -- which is only harmless because the two roots are equal.
+ */
+#define CLKROOT_BUS_AON     3
+#define CLKROOT_BUS_WAKEUP  4
+#define CLKROOT_LPIT3      11
+#define CLKROOT_LPTIMER1   12
+#define CLKROOT_TPM2       15
+#define CLKROOT_GPT1       19
+
+/* LPIT1 (AONMIX 0x442F), LPIT2 (WAKEUPMIX 0x424C), LPIT3 (own root). */
+static const uint32_t lpit_root[IMXRT1180_NUM_LPIT] = {
+    CLKROOT_BUS_AON, CLKROOT_BUS_WAKEUP, CLKROOT_LPIT3,
+};
+/* TPM1 (AON), TPM2 (own), TPM3 (WAKEUP), TPM4/5/6 (own: 16, 17, 18). */
+static const uint32_t tpm_root[IMXRT1180_NUM_TPM] = {
+    CLKROOT_BUS_AON, CLKROOT_TPM2, CLKROOT_BUS_WAKEUP,
+    CLKROOT_TPM2 + 1, CLKROOT_TPM2 + 2, CLKROOT_TPM2 + 3,
+};
+
+
 static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
 {
     IMXRT1180State *s             = IMXRT1180_SOC(dev);
@@ -617,6 +657,10 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         { 0x42CC0000, 149 },  /* LPIT3 */
     };
     for (int i = 0; i < IMXRT1180_NUM_LPIT; i++) {
+        object_property_set_link(OBJECT(&s->lpit[i]), "ccm",
+                                 OBJECT(&s->ccm), &error_abort);
+        object_property_set_uint(OBJECT(&s->lpit[i]), "clk-root",
+                                 lpit_root[i], &error_abort);
         if (!sysbus_realize(SYS_BUS_DEVICE(&s->lpit[i]), errp)) {
             return;
         }
@@ -756,6 +800,10 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     };
     for (int i = 0; i < IMXRT1180_NUM_PWM; i++) {
         SysBusDevice *sbd = SYS_BUS_DEVICE(&s->pwm[i]);
+        object_property_set_link(OBJECT(&s->pwm[i]), "ccm",
+                                 OBJECT(&s->ccm), &error_abort);
+        object_property_set_uint(OBJECT(&s->pwm[i]), "clk-root",
+                                 CLKROOT_BUS_WAKEUP, &error_abort);
         if (!sysbus_realize(sbd, errp)) {
             return;
         }
@@ -835,6 +883,10 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     /* QuadTimer TMR1..8 — 4-channel 16-bit timers. */
     static const unsigned tmr_irq[IMXRT1180_NUM_TMR] = { 0, 233, 164, 151, 4, 5, 6, 7 };
     for (int i = 0; i < IMXRT1180_NUM_TMR; i++) {
+        object_property_set_link(OBJECT(&s->tmr[i]), "ccm",
+                                 OBJECT(&s->ccm), &error_abort);
+        object_property_set_uint(OBJECT(&s->tmr[i]), "clk-root",
+                                 CLKROOT_BUS_WAKEUP, &error_abort);
         if (!sysbus_realize(SYS_BUS_DEVICE(&s->tmr[i]), errp)) {
             return;
         }
@@ -848,6 +900,10 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     static const struct { hwaddr base; unsigned irq; } lptmr_cfg[IMXRT1180_NUM_LPTMR] = {
         { 0x44300000, 18 }, { 0x424D0000, 67 }, { 0x42CD0000, 150 } };
     for (int i = 0; i < IMXRT1180_NUM_LPTMR; i++) {
+        object_property_set_link(OBJECT(&s->lptmr[i]), "ccm",
+                                 OBJECT(&s->ccm), &error_abort);
+        object_property_set_uint(OBJECT(&s->lptmr[i]), "clk-root",
+                                 CLKROOT_LPTIMER1 + i, &error_abort);
         if (!sysbus_realize(SYS_BUS_DEVICE(&s->lptmr[i]), errp)) { return; }
         sysbus_mmio_map(SYS_BUS_DEVICE(&s->lptmr[i]), 0, lptmr_cfg[i].base);
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->lptmr[i]), 0, qdev_get_gpio_in(m33, lptmr_cfg[i].irq));
@@ -855,6 +911,10 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     static const struct { hwaddr base; unsigned irq; } gpt_cfg[IMXRT1180_NUM_GPT] = {
         { 0x446C0000, 209 }, { 0x42EC0000, 210 } };
     for (int i = 0; i < IMXRT1180_NUM_GPT; i++) {
+        object_property_set_link(OBJECT(&s->gpt[i]), "ccm",
+                                 OBJECT(&s->ccm), &error_abort);
+        object_property_set_uint(OBJECT(&s->gpt[i]), "clk-root",
+                                 CLKROOT_GPT1 + i, &error_abort);
         if (!sysbus_realize(SYS_BUS_DEVICE(&s->gpt[i]), errp)) { return; }
         sysbus_mmio_map(SYS_BUS_DEVICE(&s->gpt[i]), 0, gpt_cfg[i].base);
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->gpt[i]), 0, qdev_get_gpio_in(m33, gpt_cfg[i].irq));
@@ -863,6 +923,10 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         { 0x44310000, 36 }, { 0x44320000, 37 }, { 0x424E0000, 75 },
         { 0x424F0000, 76 }, { 0x42500000, 77 }, { 0x42510000, 78 } };
     for (int i = 0; i < IMXRT1180_NUM_TPM; i++) {
+        object_property_set_link(OBJECT(&s->tpm[i]), "ccm",
+                                 OBJECT(&s->ccm), &error_abort);
+        object_property_set_uint(OBJECT(&s->tpm[i]), "clk-root",
+                                 tpm_root[i], &error_abort);
         if (!sysbus_realize(SYS_BUS_DEVICE(&s->tpm[i]), errp)) { return; }
         sysbus_mmio_map(SYS_BUS_DEVICE(&s->tpm[i]), 0, tpm_cfg[i].base);
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->tpm[i]), 0, qdev_get_gpio_in(m33, tpm_cfg[i].irq));

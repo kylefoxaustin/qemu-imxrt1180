@@ -12,6 +12,7 @@
 #include "hw/core/irq.h"
 #include "hw/timer/imxrt1180_lptmr.h"
 #include "migration/vmstate.h"
+#include "hw/core/qdev-properties.h"
 
 #define R_CSR 0x0
 #define R_PSR 0x4
@@ -20,7 +21,6 @@
 #define CSR_TEN 0x1
 #define CSR_TIE 0x40
 #define CSR_TCF 0x80
-#define LPTMR_CLK_DEFAULT 24000000u
 
 static void lptmr_update(IMXRT1180LPTMRState *s)
 {
@@ -42,9 +42,15 @@ static void lptmr_run(IMXRT1180LPTMRState *s)
         } else {
             div = 1;
         }
-        ptimer_set_freq(s->timer, s->clk / div);
-        ptimer_set_limit(s->timer, (uint64_t)(s->cmr & 0xFFFF) + 1, 1);
-        ptimer_run(s->timer, 0);
+        uint32_t hz = imxrt1180_ccm_periph_hz(s->ccm, s->clk_root,
+                                              "imxrt1180-lptmr");
+        if (hz) {
+            ptimer_set_freq(s->timer, hz / div);
+            ptimer_set_limit(s->timer, (uint64_t)(s->cmr & 0xFFFF) + 1, 1);
+            ptimer_run(s->timer, 0);
+        } else {
+            ptimer_stop(s->timer);      /* no clock => no ticks.  Not 24 MHz. */
+        }
     } else {
         ptimer_stop(s->timer);
     }
@@ -91,7 +97,6 @@ static void lptmr_reset(DeviceState *dev)
 static void lptmr_realize(DeviceState *dev, Error **errp)
 {
     IMXRT1180LPTMRState *s = IMXRT1180_LPTMR(dev);
-    if (!s->clk) { s->clk = LPTMR_CLK_DEFAULT; }
     s->timer = ptimer_init(lptmr_tick, s, PTIMER_POLICY_NO_IMMEDIATE_TRIGGER | PTIMER_POLICY_NO_IMMEDIATE_RELOAD);
     memory_region_init_io(&s->iomem, OBJECT(s), &lptmr_ops, s, TYPE_IMXRT1180_LPTMR, 0x1000);
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
@@ -103,10 +108,23 @@ static const VMStateDescription vmstate_lptmr = {
         VMSTATE_UINT32(csr, IMXRT1180LPTMRState), VMSTATE_UINT32(psr, IMXRT1180LPTMRState),
         VMSTATE_UINT32(cmr, IMXRT1180LPTMRState), VMSTATE_PTIMER(timer, IMXRT1180LPTMRState),
         VMSTATE_END_OF_LIST() } };
+/*
+ * NO "clk" PROPERTY, AND NO DEFAULT.  This block used to carry a hardcoded
+ * frequency behind `if (!clk) clk = DEFAULT;` -- and the SoC never set it, so the
+ * FALLBACK WAS THE CLOCK, silently, at the wrong rate.  The frequency now comes
+ * from CLOCK_ROOT[clk-root] in the CCM, read at the point of use.
+ */
+static const Property lptmr_properties[] = {
+    DEFINE_PROP_LINK("ccm", IMXRT1180LPTMRState, ccm,
+                     TYPE_IMXRT1180_CCM, IMXRT1180CCMState *),
+    DEFINE_PROP_UINT32("clk-root", IMXRT1180LPTMRState, clk_root, 0),
+};
+
 static void lptmr_class_init(ObjectClass *k, const void *d)
 {
     DeviceClass *dc = DEVICE_CLASS(k);
     dc->realize = lptmr_realize; device_class_set_legacy_reset(dc, lptmr_reset); dc->vmsd = &vmstate_lptmr;
+    device_class_set_props(dc, lptmr_properties);
 }
 static const TypeInfo lptmr_types[] = {{ .name = TYPE_IMXRT1180_LPTMR, .parent = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(IMXRT1180LPTMRState), .class_init = lptmr_class_init }};
