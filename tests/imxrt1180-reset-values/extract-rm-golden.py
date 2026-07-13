@@ -159,6 +159,79 @@ WIDTH  = re.compile(r'^(8|16|32|64)$')
 ACCESS = re.compile(r'^(RW|RO|WO|W1C|R|W)$')
 RESET  = re.compile(r'^([0-9A-F]{4}_[0-9A-F]{4}|[0-9A-F]{2}_[0-9A-F]{4}|[0-9A-F]{1,16})h$')
 
+# ---------------------------------------------------------------------------
+# CMSIS FIELD.  groups: 1=name  2=flat array count  3=offset  4=array step
+#
+# THE BUG THIS REGEX USED TO HAVE, AND IT COST 4371 REGISTERS:
+# it expands "[N]" when N sits on the FIELD --
+#       __IO uint32_t ADC1_TRIG[4];   /**< array offset: 0x2C0, array step: 0x4 */
+# but CMSIS ALSO declares register arrays as a STRUCT ARRAY, where the count sits
+# on the CLOSING BRACE OF THE ENCLOSING STRUCT and the field is a plain scalar:
+#
+#       struct {                        /* offset: 0x0, array step: 0x80 */
+#           __IO uint32_t CONTROL;      /**< array offset: 0x0, array step: 0x80 */
+#           ...
+#       } CLOCK_ROOT[CCM_CLOCK_ROOT_COUNT];        /* 74 */
+#
+# This regex saw the inner scalar and emitted ONE register literally called
+# "CONTROL" at offset 0.  The manual calls it CLOCK_ROOT0_CONTROL.  THEY NEVER
+# JOINED, so an entire register class was INVISIBLE TO THE GATE -- including all
+# 74 CCM clock roots (the clock tree), the 149 LPCG clock gates, OSCPLL, OBSERVE,
+# and eFlexPWM's SM submodules.  The gate printed "unmatched in CMSIS: 4371" on
+# every single run and returned PASS.  A published number that cannot FAIL the
+# gate is decoration -- see EXPECTED_GOLDEN below, which is the fix for that.
+# ---------------------------------------------------------------------------
+FIELD = re.compile(r'__[IO]+\s+\w+\s+(\w+)\s*(?:\[(\d+)\])?\s*;\s*/\*\*<[^*]*?'
+                   r'(?:array )?offset:\s*(0x[0-9A-Fa-f]+)'
+                   r'(?:[^*]*?array step:\s*(0x[0-9A-Fa-f]+))?')
+
+# struct { ... } NAME[COUNT];   -- COUNT is nearly always a #define, not a literal.
+#
+# THIS CANNOT BE A REGEX, AND MY FIRST ATTEMPT WAS ONE.  `struct\s*\{(.*?)\}\s*(\w+)\[`
+# is not brace-aware, so on a two-level type like ENETC_SI --
+#
+#       struct {                       /* a PLAIN nested struct, NOT an array */
+#           __IO uint32_t PSIMSGRR;
+#           struct { ... } VSI_NUM[..];         <- an array INSIDE it
+#       } PSI_A;
+#       ...
+#       struct { ... } BDR[ENETC_SI_BDR_COUNT];
+#
+# -- the non-greedy span ran from an OUTER `struct {` to a LATER `} BDR[...];`,
+# swallowing 16344 characters and DELETING 67 flat registers that had been covered.
+# It was a COVERAGE REGRESSION hiding inside a coverage FIX, and the only reason I
+# caught it is that I diffed the new golden against the old one instead of admiring
+# the bigger number.  ALWAYS DIFF THE ORACLE, NOT JUST THE RESULT.
+STRUCT_OPEN  = re.compile(r'\bstruct\s*\{')
+STRUCT_TAIL  = re.compile(r'\}\s*(\w+)\s*\[(\w+)\]\s*;')
+STRUCT_STEP  = re.compile(r'/\*[^*]*?array step:\s*(0x[0-9A-Fa-f]+)')
+DEFINE_INT   = re.compile(r'#define\s+(\w+)\s+\(?(\d+|0x[0-9A-Fa-f]+)[uU]?\)?\s*$', re.M)
+
+DROPPED_STRUCT_ARRAYS = []      # DROP, never guess -- and COUNT what you dropped
+
+
+def find_struct_arrays(body):
+    """Brace-balanced `struct {...} NAME[COUNT];` spans.  (start, end, inner, name, count)"""
+    out = []
+    for m in STRUCT_OPEN.finditer(body):
+        i = m.end() - 1                       # sits on '{'
+        depth, j = 0, m.end() - 1
+        while j < len(body):
+            if body[j] == '{':
+                depth += 1
+            elif body[j] == '}':
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        else:
+            continue                          # unbalanced: leave it alone
+        tail = STRUCT_TAIL.match(body[j:])
+        if tail:                              # ...it IS an array.  A plain `} PSI_A;`
+            out.append((m.start(), j + tail.end(),   # is left in place: its fields
+                        body[i + 1:j], tail.group(1), tail.group(2)))  # carry absolute
+    return out                                                          # offsets already
+
 SDK    = os.environ.get("SDK_ROOT", os.path.expanduser("~/.cache/rt1180-sdk/sdk/mcuxsdk"))
 DEV    = os.path.join(SDK, "devices/RT/RT1180")
 COMMON = os.path.join(DEV, "MIMXRT1189/MIMXRT1189_cm33_COMMON.h")
@@ -180,6 +253,32 @@ ANCHORS = [
     ("VERID", 0x0, 0x02002C1B),     # an LPI2C-family VERID
     ("PARAM", 0x4, 0x0F041008),
     ("MCR0",  0x0, 0xFFFF80C2),     # FlexSPI MCR0 -- unique name, non-zero reset
+    # Struct-array registers.  Hand-read from the RM's own summary tables.  The
+    # RM parser always read these correctly -- it was the CMSIS JOIN that dropped
+    # them -- so these anchors alone would NOT have caught the bug.  That is what
+    # GOLDEN_ANCHORS below is for.  Kept because 73 * 0x80 == 0x2480 is an
+    # INDEPENDENT confirmation of the array stride, from the manual, not the header.
+    ("CLOCK_ROOT73_CONTROL", 0x2480, 0x00000000),
+    ("LPCG0_DIRECT",         0x8000, 0x00000001),
+    ("OSCPLL0_STATUS0",      0x5020, 0x00000001),
+]
+
+# ---------------------------------------------------------------------------
+# GOLDEN_ANCHORS -- "DID THE CLASS I EXPECT TO BE COVERED ACTUALLY GET COVERED?"
+#
+# THE CONTROL WHOSE ABSENCE COST 4371 REGISTERS.  Every ANCHOR above passed, on
+# every run, while an entire register class silently failed to JOIN and never
+# reached the golden.  A parser anchor proves you can READ the document; it says
+# NOTHING about whether the row survived to the output.
+#
+# So: assert that specific (instance, register) pairs are IN the emitted golden.
+# A whole class going missing now FAILS here instead of being quietly not-tested.
+# ---------------------------------------------------------------------------
+GOLDEN_ANCHORS = [
+    ("CCM",  "CLOCK_ROOT0_CONTROL"),    # the clock tree -- 74 roots
+    ("CCM",  "CLOCK_ROOT73_CONTROL"),   # ...and its far end, so the stride is proven
+    ("CCM",  "LPCG0_DIRECT"),           # the 149 clock gates
+    ("CCM",  "OSCPLL0_STATUS0"),        # the oscillators/PLLs
 ]
 
 
@@ -236,17 +335,68 @@ def parse_rm(path):
     return rows, arrays
 
 
+def expand_struct_array(inner, arr, count_tok, counts, regs):
+    """struct {...} CLOCK_ROOT[74];  ->  CLOCK_ROOT0_CONTROL, CLOCK_ROOT1_CONTROL, ..."""
+    n = int(count_tok, 0) if count_tok.isdigit() else counts.get(count_tok)
+    if not n:
+        DROPPED_STRUCT_ARRAYS.append((arr, count_tok, "count unresolved"))
+        return
+    sstep = STRUCT_STEP.search(inner)
+    sstep = int(sstep.group(1), 16) if sstep else None
+
+    for f in FIELD.finditer(inner):
+        fname, off = f.group(1), int(f.group(3), 16)
+        step = int(f.group(4), 16) if f.group(4) else sstep
+        if not step:
+            DROPPED_STRUCT_ARRAYS.append((arr, fname, "no array step"))
+            continue
+        if n == 1:
+            # A ONE-ELEMENT struct array (SYSPM's PMCR[1]).  The manual has no index
+            # to print, so it prints the bare name -- and expanding to "PMCR0_PMCR"
+            # DELETED four registers that had been covered.  Found by diffing the
+            # oracle, not by reading it.
+            regs[fname] = off
+
+        for k in range(n):
+            # THE MANUAL SPELLS THESE TWO DIFFERENT WAYS AND WE DO NOT GET TO PICK:
+            #     CCM  ->  CLOCK_ROOT0_CONTROL   (underscore)
+            #     PWM  ->  SM0CTRL               (no underscore)
+            # Guessing one silently loses the other -- the same "where is the index?"
+            # mistake that cost mcxn947qemu every ADCn_TRIG.  So emit BOTH candidate
+            # spellings: the RM is the golden, and a name it never prints never joins.
+            # A collision across peripheral TYPES still lands in the ambiguity drop.
+            regs["%s%d_%s" % (arr, k, fname)] = off + k * step
+            regs["%s%d%s"  % (arr, k, fname)] = off + k * step
+
+
 def parse_cmsis():
     """peripheral type -> {register: offset}, NON-SECURE bases, and instance -> type."""
     periph = {}
     for path in sorted(glob.glob(os.path.join(PERIPH, "PERI_*.h"))):
         src = open(path, errors="replace").read()
+        counts = {m.group(1): int(m.group(2), 0)
+                  for m in DEFINE_INT.finditer(src)}
+
         for m in re.finditer(r'typedef struct \{(.*?)\} (\w+)_Type;', src, re.S):
-            regs = {}
-            for f in re.finditer(
-                    r'__[IO]+\s+\w+\s+(\w+)\s*(?:\[(\d+)\])?\s*;\s*/\*\*<[^*]*?'
-                    r'(?:array )?offset:\s*(0x[0-9A-Fa-f]+)'
-                    r'(?:[^*]*?array step:\s*(0x[0-9A-Fa-f]+))?', m.group(1)):
+            body, regs = m.group(1), {}
+
+            # Struct arrays FIRST, and strip them out of the body -- otherwise their
+            # inner scalars also get emitted as bogus flat names ("CONTROL" @ 0x0).
+            # INNERMOST FIRST (a struct array can sit inside another struct), and
+            # iterate to a fixpoint so an outer array is expanded only once its
+            # nested one is gone.  Anything that is NOT an array is left in the body:
+            # a plain `struct {...} PSI_A;` is just grouping, and its fields already
+            # carry absolute offsets, so the flat scanner below reads them correctly.
+            while True:
+                spans = [s for s in find_struct_arrays(body)
+                         if not STRUCT_OPEN.search(s[2])]      # innermost only
+                if not spans:
+                    break
+                for start, end, inner, arr, cnt in reversed(spans):
+                    expand_struct_array(inner, arr, cnt, counts, regs)
+                    body = body[:start] + body[end:]
+
+            for f in FIELD.finditer(body):
                 name, n, off = f.group(1), f.group(2), int(f.group(3), 16)
                 if n:
                     step = int(f.group(4), 16) if f.group(4) else 4
@@ -323,7 +473,7 @@ def main(rm_txt, out_json):
         for n, o in regs.items():
             owner[(n, o)].add(t)
 
-    golden, unmatched, ambiguous = [], 0, 0
+    golden, unmatched, ambiguous, notwide, notread = [], 0, 0, 0, 0
     for name, off, width, acc, reset in rows:
         types = owner.get((name, off))
         if not types:
@@ -332,7 +482,11 @@ def main(rm_txt, out_json):
         if len(types) > 1:
             ambiguous += 1          # DROP, never guess -- and COUNT what you dropped
             continue
-        if width != 32 or acc not in ("RW", "RO", "R"):
+        if width != 32:
+            notwide += 1            # 16-bit blocks (eFlexPWM, QTMR) -- WAS SILENT
+            continue
+        if acc not in ("RW", "RO", "R"):
+            notread += 1            # write-only: nothing to read back -- WAS SILENT
             continue
         t = next(iter(types))
         for inst, ity in inst2type.items():
@@ -347,6 +501,21 @@ def main(rm_txt, out_json):
         if k not in key:
             key.add(k)
             ded.append(g)
+    # ---- DID THE CLASSES I EXPECT TO BE COVERED ACTUALLY REACH THE OUTPUT?
+    have = {(g["inst"], g["reg"]) for g in ded}
+    missing = [a for a in GOLDEN_ANCHORS if a not in have]
+    if missing:
+        print("\nGOLDEN IS MISSING A CLASS IT IS SUPPOSED TO COVER:")
+        for inst, reg in missing:
+            print("    %s / %s  -- parsed from the RM, but it never reached the golden"
+                  % (inst, reg))
+        print("\nThe RM parser can read a row and the CMSIS JOIN can still drop it.")
+        print("A parser anchor proves you can READ the document.  This proves the row")
+        print("SURVIVED TO THE OUTPUT -- which is the claim the gate actually makes.")
+        sys.exit(1)
+    print("golden anchors            : %d/%d classes reached the output"
+          % (len(GOLDEN_ANCHORS), len(GOLDEN_ANCHORS)))
+
     json.dump(ded, open(out_json, "w"), indent=0)
 
     print("RM rows parsed            : %d  (%d array ranges expanded)" % (len(rows), arrays))
@@ -358,6 +527,12 @@ def main(rm_txt, out_json):
     print("                            different reset values for them (shared names)")
     print("  unmatched in CMSIS      : %d   (RM names a register CMSIS does not put there)" % unmatched)
     print("  ambiguous (>1 periph)   : %d   (DROPPED, not guessed)" % ambiguous)
+    print("  not 32-bit              : %d   (16-bit blocks: eFlexPWM, QTMR -- WAS SILENT)"
+          % notwide)
+    print("  not readable            : %d   (write-only: no reset value to read back)"
+          % notread)
+    print("  struct arrays unresolved: %d   (DROPPED, not guessed)"
+          % len(DROPPED_STRUCT_ARRAYS))
     print("CMSIS                     : %d peripheral types, %d instances, "
           "%d TrustZone pairs resolved to the NON-SECURE base" % (len(periph), len(inst2type), sec))
     print("golden                    : %d registers, %d instances -> %s"

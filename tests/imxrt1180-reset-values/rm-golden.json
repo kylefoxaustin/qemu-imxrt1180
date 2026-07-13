@@ -1531,6 +1531,2922 @@
 },
 {
 "inst": "CCM",
+"reg": "CLOCK_ROOT0_CONTROL",
+"addr": 1145372672,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT0_CONTROL_SET",
+"addr": 1145372676,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT0_CONTROL_CLR",
+"addr": 1145372680,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT0_CONTROL_TOG",
+"addr": 1145372684,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT0_STATUS0",
+"addr": 1145372704,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT0_AUTHEN",
+"addr": 1145372720,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT1_CONTROL",
+"addr": 1145372800,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT1_CONTROL_SET",
+"addr": 1145372804,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT1_CONTROL_CLR",
+"addr": 1145372808,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT1_CONTROL_TOG",
+"addr": 1145372812,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT1_STATUS0",
+"addr": 1145372832,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT1_AUTHEN",
+"addr": 1145372848,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT2_CONTROL",
+"addr": 1145372928,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT2_CONTROL_SET",
+"addr": 1145372932,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT2_CONTROL_CLR",
+"addr": 1145372936,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT2_CONTROL_TOG",
+"addr": 1145372940,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT2_STATUS0",
+"addr": 1145372960,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT2_AUTHEN",
+"addr": 1145372976,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT3_CONTROL",
+"addr": 1145373056,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT3_CONTROL_SET",
+"addr": 1145373060,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT3_CONTROL_CLR",
+"addr": 1145373064,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT3_CONTROL_TOG",
+"addr": 1145373068,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT3_STATUS0",
+"addr": 1145373088,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT3_AUTHEN",
+"addr": 1145373104,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT4_CONTROL",
+"addr": 1145373184,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT4_CONTROL_SET",
+"addr": 1145373188,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT4_CONTROL_CLR",
+"addr": 1145373192,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT4_CONTROL_TOG",
+"addr": 1145373196,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT4_STATUS0",
+"addr": 1145373216,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT4_AUTHEN",
+"addr": 1145373232,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT5_CONTROL",
+"addr": 1145373312,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT5_CONTROL_SET",
+"addr": 1145373316,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT5_CONTROL_CLR",
+"addr": 1145373320,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT5_CONTROL_TOG",
+"addr": 1145373324,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT5_STATUS0",
+"addr": 1145373344,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT5_AUTHEN",
+"addr": 1145373360,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT6_CONTROL",
+"addr": 1145373440,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT6_CONTROL_SET",
+"addr": 1145373444,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT6_CONTROL_CLR",
+"addr": 1145373448,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT6_CONTROL_TOG",
+"addr": 1145373452,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT6_STATUS0",
+"addr": 1145373472,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT6_AUTHEN",
+"addr": 1145373488,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT7_CONTROL",
+"addr": 1145373568,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT7_CONTROL_SET",
+"addr": 1145373572,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT7_CONTROL_CLR",
+"addr": 1145373576,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT7_CONTROL_TOG",
+"addr": 1145373580,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT7_STATUS0",
+"addr": 1145373600,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT7_AUTHEN",
+"addr": 1145373616,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT8_CONTROL",
+"addr": 1145373696,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT8_CONTROL_SET",
+"addr": 1145373700,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT8_CONTROL_CLR",
+"addr": 1145373704,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT8_CONTROL_TOG",
+"addr": 1145373708,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT8_STATUS0",
+"addr": 1145373728,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT8_AUTHEN",
+"addr": 1145373744,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT9_CONTROL",
+"addr": 1145373824,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT9_CONTROL_SET",
+"addr": 1145373828,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT9_CONTROL_CLR",
+"addr": 1145373832,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT9_CONTROL_TOG",
+"addr": 1145373836,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT9_STATUS0",
+"addr": 1145373856,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT9_AUTHEN",
+"addr": 1145373872,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT10_CONTROL",
+"addr": 1145373952,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT10_CONTROL_SET",
+"addr": 1145373956,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT10_CONTROL_CLR",
+"addr": 1145373960,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT10_CONTROL_TOG",
+"addr": 1145373964,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT10_STATUS0",
+"addr": 1145373984,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT10_AUTHEN",
+"addr": 1145374000,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT11_CONTROL",
+"addr": 1145374080,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT11_CONTROL_SET",
+"addr": 1145374084,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT11_CONTROL_CLR",
+"addr": 1145374088,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT11_CONTROL_TOG",
+"addr": 1145374092,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT11_STATUS0",
+"addr": 1145374112,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT11_AUTHEN",
+"addr": 1145374128,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT12_CONTROL",
+"addr": 1145374208,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT12_CONTROL_SET",
+"addr": 1145374212,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT12_CONTROL_CLR",
+"addr": 1145374216,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT12_CONTROL_TOG",
+"addr": 1145374220,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT12_STATUS0",
+"addr": 1145374240,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT12_AUTHEN",
+"addr": 1145374256,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT13_CONTROL",
+"addr": 1145374336,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT13_CONTROL_SET",
+"addr": 1145374340,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT13_CONTROL_CLR",
+"addr": 1145374344,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT13_CONTROL_TOG",
+"addr": 1145374348,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT13_STATUS0",
+"addr": 1145374368,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT13_AUTHEN",
+"addr": 1145374384,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT14_CONTROL",
+"addr": 1145374464,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT14_CONTROL_SET",
+"addr": 1145374468,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT14_CONTROL_CLR",
+"addr": 1145374472,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT14_CONTROL_TOG",
+"addr": 1145374476,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT14_STATUS0",
+"addr": 1145374496,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT14_AUTHEN",
+"addr": 1145374512,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT15_CONTROL",
+"addr": 1145374592,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT15_CONTROL_SET",
+"addr": 1145374596,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT15_CONTROL_CLR",
+"addr": 1145374600,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT15_CONTROL_TOG",
+"addr": 1145374604,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT15_STATUS0",
+"addr": 1145374624,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT15_AUTHEN",
+"addr": 1145374640,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT16_CONTROL",
+"addr": 1145374720,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT16_CONTROL_SET",
+"addr": 1145374724,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT16_CONTROL_CLR",
+"addr": 1145374728,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT16_CONTROL_TOG",
+"addr": 1145374732,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT16_STATUS0",
+"addr": 1145374752,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT16_AUTHEN",
+"addr": 1145374768,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT17_CONTROL",
+"addr": 1145374848,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT17_CONTROL_SET",
+"addr": 1145374852,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT17_CONTROL_CLR",
+"addr": 1145374856,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT17_CONTROL_TOG",
+"addr": 1145374860,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT17_STATUS0",
+"addr": 1145374880,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT17_AUTHEN",
+"addr": 1145374896,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT18_CONTROL",
+"addr": 1145374976,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT18_CONTROL_SET",
+"addr": 1145374980,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT18_CONTROL_CLR",
+"addr": 1145374984,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT18_CONTROL_TOG",
+"addr": 1145374988,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT18_STATUS0",
+"addr": 1145375008,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT18_AUTHEN",
+"addr": 1145375024,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT19_CONTROL",
+"addr": 1145375104,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT19_CONTROL_SET",
+"addr": 1145375108,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT19_CONTROL_CLR",
+"addr": 1145375112,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT19_CONTROL_TOG",
+"addr": 1145375116,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT19_STATUS0",
+"addr": 1145375136,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT19_AUTHEN",
+"addr": 1145375152,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT20_CONTROL",
+"addr": 1145375232,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT20_CONTROL_SET",
+"addr": 1145375236,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT20_CONTROL_CLR",
+"addr": 1145375240,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT20_CONTROL_TOG",
+"addr": 1145375244,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT20_STATUS0",
+"addr": 1145375264,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT20_AUTHEN",
+"addr": 1145375280,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT21_CONTROL",
+"addr": 1145375360,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT21_CONTROL_SET",
+"addr": 1145375364,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT21_CONTROL_CLR",
+"addr": 1145375368,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT21_CONTROL_TOG",
+"addr": 1145375372,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT21_STATUS0",
+"addr": 1145375392,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT21_AUTHEN",
+"addr": 1145375408,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT22_CONTROL",
+"addr": 1145375488,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT22_CONTROL_SET",
+"addr": 1145375492,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT22_CONTROL_CLR",
+"addr": 1145375496,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT22_CONTROL_TOG",
+"addr": 1145375500,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT22_STATUS0",
+"addr": 1145375520,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT22_AUTHEN",
+"addr": 1145375536,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT23_CONTROL",
+"addr": 1145375616,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT23_CONTROL_SET",
+"addr": 1145375620,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT23_CONTROL_CLR",
+"addr": 1145375624,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT23_CONTROL_TOG",
+"addr": 1145375628,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT23_STATUS0",
+"addr": 1145375648,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT23_AUTHEN",
+"addr": 1145375664,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT24_CONTROL",
+"addr": 1145375744,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT24_CONTROL_SET",
+"addr": 1145375748,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT24_CONTROL_CLR",
+"addr": 1145375752,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT24_CONTROL_TOG",
+"addr": 1145375756,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT24_STATUS0",
+"addr": 1145375776,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT24_AUTHEN",
+"addr": 1145375792,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT25_CONTROL",
+"addr": 1145375872,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT25_CONTROL_SET",
+"addr": 1145375876,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT25_CONTROL_CLR",
+"addr": 1145375880,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT25_CONTROL_TOG",
+"addr": 1145375884,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT25_STATUS0",
+"addr": 1145375904,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT25_AUTHEN",
+"addr": 1145375920,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT26_CONTROL",
+"addr": 1145376000,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT26_CONTROL_SET",
+"addr": 1145376004,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT26_CONTROL_CLR",
+"addr": 1145376008,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT26_CONTROL_TOG",
+"addr": 1145376012,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT26_STATUS0",
+"addr": 1145376032,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT26_AUTHEN",
+"addr": 1145376048,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT27_CONTROL",
+"addr": 1145376128,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT27_CONTROL_SET",
+"addr": 1145376132,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT27_CONTROL_CLR",
+"addr": 1145376136,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT27_CONTROL_TOG",
+"addr": 1145376140,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT27_STATUS0",
+"addr": 1145376160,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT27_AUTHEN",
+"addr": 1145376176,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT28_CONTROL",
+"addr": 1145376256,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT28_CONTROL_SET",
+"addr": 1145376260,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT28_CONTROL_CLR",
+"addr": 1145376264,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT28_CONTROL_TOG",
+"addr": 1145376268,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT28_STATUS0",
+"addr": 1145376288,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT28_AUTHEN",
+"addr": 1145376304,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT29_CONTROL",
+"addr": 1145376384,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT29_CONTROL_SET",
+"addr": 1145376388,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT29_CONTROL_CLR",
+"addr": 1145376392,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT29_CONTROL_TOG",
+"addr": 1145376396,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT29_STATUS0",
+"addr": 1145376416,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT29_AUTHEN",
+"addr": 1145376432,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT30_CONTROL",
+"addr": 1145376512,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT30_CONTROL_SET",
+"addr": 1145376516,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT30_CONTROL_CLR",
+"addr": 1145376520,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT30_CONTROL_TOG",
+"addr": 1145376524,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT30_STATUS0",
+"addr": 1145376544,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT30_AUTHEN",
+"addr": 1145376560,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT31_CONTROL",
+"addr": 1145376640,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT31_CONTROL_SET",
+"addr": 1145376644,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT31_CONTROL_CLR",
+"addr": 1145376648,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT31_CONTROL_TOG",
+"addr": 1145376652,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT31_STATUS0",
+"addr": 1145376672,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT31_AUTHEN",
+"addr": 1145376688,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT32_CONTROL",
+"addr": 1145376768,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT32_CONTROL_SET",
+"addr": 1145376772,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT32_CONTROL_CLR",
+"addr": 1145376776,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT32_CONTROL_TOG",
+"addr": 1145376780,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT32_STATUS0",
+"addr": 1145376800,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT32_AUTHEN",
+"addr": 1145376816,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT33_CONTROL",
+"addr": 1145376896,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT33_CONTROL_SET",
+"addr": 1145376900,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT33_CONTROL_CLR",
+"addr": 1145376904,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT33_CONTROL_TOG",
+"addr": 1145376908,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT33_STATUS0",
+"addr": 1145376928,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT33_AUTHEN",
+"addr": 1145376944,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT34_CONTROL",
+"addr": 1145377024,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT34_CONTROL_SET",
+"addr": 1145377028,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT34_CONTROL_CLR",
+"addr": 1145377032,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT34_CONTROL_TOG",
+"addr": 1145377036,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT34_STATUS0",
+"addr": 1145377056,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT34_AUTHEN",
+"addr": 1145377072,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT35_CONTROL",
+"addr": 1145377152,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT35_CONTROL_SET",
+"addr": 1145377156,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT35_CONTROL_CLR",
+"addr": 1145377160,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT35_CONTROL_TOG",
+"addr": 1145377164,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT35_STATUS0",
+"addr": 1145377184,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT35_AUTHEN",
+"addr": 1145377200,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT36_CONTROL",
+"addr": 1145377280,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT36_CONTROL_SET",
+"addr": 1145377284,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT36_CONTROL_CLR",
+"addr": 1145377288,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT36_CONTROL_TOG",
+"addr": 1145377292,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT36_STATUS0",
+"addr": 1145377312,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT36_AUTHEN",
+"addr": 1145377328,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT37_CONTROL",
+"addr": 1145377408,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT37_CONTROL_SET",
+"addr": 1145377412,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT37_CONTROL_CLR",
+"addr": 1145377416,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT37_CONTROL_TOG",
+"addr": 1145377420,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT37_STATUS0",
+"addr": 1145377440,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT37_AUTHEN",
+"addr": 1145377456,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT38_CONTROL",
+"addr": 1145377536,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT38_CONTROL_SET",
+"addr": 1145377540,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT38_CONTROL_CLR",
+"addr": 1145377544,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT38_CONTROL_TOG",
+"addr": 1145377548,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT38_STATUS0",
+"addr": 1145377568,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT38_AUTHEN",
+"addr": 1145377584,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT39_CONTROL",
+"addr": 1145377664,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT39_CONTROL_SET",
+"addr": 1145377668,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT39_CONTROL_CLR",
+"addr": 1145377672,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT39_CONTROL_TOG",
+"addr": 1145377676,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT39_STATUS0",
+"addr": 1145377696,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT39_AUTHEN",
+"addr": 1145377712,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT40_CONTROL",
+"addr": 1145377792,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT40_CONTROL_SET",
+"addr": 1145377796,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT40_CONTROL_CLR",
+"addr": 1145377800,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT40_CONTROL_TOG",
+"addr": 1145377804,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT40_STATUS0",
+"addr": 1145377824,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT40_AUTHEN",
+"addr": 1145377840,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT41_CONTROL",
+"addr": 1145377920,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT41_CONTROL_SET",
+"addr": 1145377924,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT41_CONTROL_CLR",
+"addr": 1145377928,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT41_CONTROL_TOG",
+"addr": 1145377932,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT41_STATUS0",
+"addr": 1145377952,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT41_AUTHEN",
+"addr": 1145377968,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT42_CONTROL",
+"addr": 1145378048,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT42_CONTROL_SET",
+"addr": 1145378052,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT42_CONTROL_CLR",
+"addr": 1145378056,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT42_CONTROL_TOG",
+"addr": 1145378060,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT42_STATUS0",
+"addr": 1145378080,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT42_AUTHEN",
+"addr": 1145378096,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT43_CONTROL",
+"addr": 1145378176,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT43_CONTROL_SET",
+"addr": 1145378180,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT43_CONTROL_CLR",
+"addr": 1145378184,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT43_CONTROL_TOG",
+"addr": 1145378188,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT43_STATUS0",
+"addr": 1145378208,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT43_AUTHEN",
+"addr": 1145378224,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT44_CONTROL",
+"addr": 1145378304,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT44_CONTROL_SET",
+"addr": 1145378308,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT44_CONTROL_CLR",
+"addr": 1145378312,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT44_CONTROL_TOG",
+"addr": 1145378316,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT44_STATUS0",
+"addr": 1145378336,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT44_AUTHEN",
+"addr": 1145378352,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT45_CONTROL",
+"addr": 1145378432,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT45_CONTROL_SET",
+"addr": 1145378436,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT45_CONTROL_CLR",
+"addr": 1145378440,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT45_CONTROL_TOG",
+"addr": 1145378444,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT45_STATUS0",
+"addr": 1145378464,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT45_AUTHEN",
+"addr": 1145378480,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT46_CONTROL",
+"addr": 1145378560,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT46_CONTROL_SET",
+"addr": 1145378564,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT46_CONTROL_CLR",
+"addr": 1145378568,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT46_CONTROL_TOG",
+"addr": 1145378572,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT46_STATUS0",
+"addr": 1145378592,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT46_AUTHEN",
+"addr": 1145378608,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT47_CONTROL",
+"addr": 1145378688,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT47_CONTROL_SET",
+"addr": 1145378692,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT47_CONTROL_CLR",
+"addr": 1145378696,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT47_CONTROL_TOG",
+"addr": 1145378700,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT47_STATUS0",
+"addr": 1145378720,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT47_AUTHEN",
+"addr": 1145378736,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT48_CONTROL",
+"addr": 1145378816,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT48_CONTROL_SET",
+"addr": 1145378820,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT48_CONTROL_CLR",
+"addr": 1145378824,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT48_CONTROL_TOG",
+"addr": 1145378828,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT48_STATUS0",
+"addr": 1145378848,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT48_AUTHEN",
+"addr": 1145378864,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT49_CONTROL",
+"addr": 1145378944,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT49_CONTROL_SET",
+"addr": 1145378948,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT49_CONTROL_CLR",
+"addr": 1145378952,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT49_CONTROL_TOG",
+"addr": 1145378956,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT49_STATUS0",
+"addr": 1145378976,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT49_AUTHEN",
+"addr": 1145378992,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT50_CONTROL",
+"addr": 1145379072,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT50_CONTROL_SET",
+"addr": 1145379076,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT50_CONTROL_CLR",
+"addr": 1145379080,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT50_CONTROL_TOG",
+"addr": 1145379084,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT50_STATUS0",
+"addr": 1145379104,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT50_AUTHEN",
+"addr": 1145379120,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT51_CONTROL",
+"addr": 1145379200,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT51_CONTROL_SET",
+"addr": 1145379204,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT51_CONTROL_CLR",
+"addr": 1145379208,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT51_CONTROL_TOG",
+"addr": 1145379212,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT51_STATUS0",
+"addr": 1145379232,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT51_AUTHEN",
+"addr": 1145379248,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT52_CONTROL",
+"addr": 1145379328,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT52_CONTROL_SET",
+"addr": 1145379332,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT52_CONTROL_CLR",
+"addr": 1145379336,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT52_CONTROL_TOG",
+"addr": 1145379340,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT52_STATUS0",
+"addr": 1145379360,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT52_AUTHEN",
+"addr": 1145379376,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT53_CONTROL",
+"addr": 1145379456,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT53_CONTROL_SET",
+"addr": 1145379460,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT53_CONTROL_CLR",
+"addr": 1145379464,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT53_CONTROL_TOG",
+"addr": 1145379468,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT53_STATUS0",
+"addr": 1145379488,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT53_AUTHEN",
+"addr": 1145379504,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT54_CONTROL",
+"addr": 1145379584,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT54_CONTROL_SET",
+"addr": 1145379588,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT54_CONTROL_CLR",
+"addr": 1145379592,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT54_CONTROL_TOG",
+"addr": 1145379596,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT54_STATUS0",
+"addr": 1145379616,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT54_AUTHEN",
+"addr": 1145379632,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT55_CONTROL",
+"addr": 1145379712,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT55_CONTROL_SET",
+"addr": 1145379716,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT55_CONTROL_CLR",
+"addr": 1145379720,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT55_CONTROL_TOG",
+"addr": 1145379724,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT55_STATUS0",
+"addr": 1145379744,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT55_AUTHEN",
+"addr": 1145379760,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT56_CONTROL",
+"addr": 1145379840,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT56_CONTROL_SET",
+"addr": 1145379844,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT56_CONTROL_CLR",
+"addr": 1145379848,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT56_CONTROL_TOG",
+"addr": 1145379852,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT56_STATUS0",
+"addr": 1145379872,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT56_AUTHEN",
+"addr": 1145379888,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT57_CONTROL",
+"addr": 1145379968,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT57_CONTROL_SET",
+"addr": 1145379972,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT57_CONTROL_CLR",
+"addr": 1145379976,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT57_CONTROL_TOG",
+"addr": 1145379980,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT57_STATUS0",
+"addr": 1145380000,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT57_AUTHEN",
+"addr": 1145380016,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT58_CONTROL",
+"addr": 1145380096,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT58_CONTROL_SET",
+"addr": 1145380100,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT58_CONTROL_CLR",
+"addr": 1145380104,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT58_CONTROL_TOG",
+"addr": 1145380108,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT58_STATUS0",
+"addr": 1145380128,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT58_AUTHEN",
+"addr": 1145380144,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT59_CONTROL",
+"addr": 1145380224,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT59_CONTROL_SET",
+"addr": 1145380228,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT59_CONTROL_CLR",
+"addr": 1145380232,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT59_CONTROL_TOG",
+"addr": 1145380236,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT59_STATUS0",
+"addr": 1145380256,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT59_AUTHEN",
+"addr": 1145380272,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT60_CONTROL",
+"addr": 1145380352,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT60_CONTROL_SET",
+"addr": 1145380356,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT60_CONTROL_CLR",
+"addr": 1145380360,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT60_CONTROL_TOG",
+"addr": 1145380364,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT60_STATUS0",
+"addr": 1145380384,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT60_AUTHEN",
+"addr": 1145380400,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT61_CONTROL",
+"addr": 1145380480,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT61_CONTROL_SET",
+"addr": 1145380484,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT61_CONTROL_CLR",
+"addr": 1145380488,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT61_CONTROL_TOG",
+"addr": 1145380492,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT61_STATUS0",
+"addr": 1145380512,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT61_AUTHEN",
+"addr": 1145380528,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT62_CONTROL",
+"addr": 1145380608,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT62_CONTROL_SET",
+"addr": 1145380612,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT62_CONTROL_CLR",
+"addr": 1145380616,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT62_CONTROL_TOG",
+"addr": 1145380620,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT62_STATUS0",
+"addr": 1145380640,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT62_AUTHEN",
+"addr": 1145380656,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT63_CONTROL",
+"addr": 1145380736,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT63_CONTROL_SET",
+"addr": 1145380740,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT63_CONTROL_CLR",
+"addr": 1145380744,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT63_CONTROL_TOG",
+"addr": 1145380748,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT63_STATUS0",
+"addr": 1145380768,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT63_AUTHEN",
+"addr": 1145380784,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT64_CONTROL",
+"addr": 1145380864,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT64_CONTROL_SET",
+"addr": 1145380868,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT64_CONTROL_CLR",
+"addr": 1145380872,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT64_CONTROL_TOG",
+"addr": 1145380876,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT64_STATUS0",
+"addr": 1145380896,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT64_AUTHEN",
+"addr": 1145380912,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT65_CONTROL",
+"addr": 1145380992,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT65_CONTROL_SET",
+"addr": 1145380996,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT65_CONTROL_CLR",
+"addr": 1145381000,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT65_CONTROL_TOG",
+"addr": 1145381004,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT65_STATUS0",
+"addr": 1145381024,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT65_AUTHEN",
+"addr": 1145381040,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT66_CONTROL",
+"addr": 1145381120,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT66_CONTROL_SET",
+"addr": 1145381124,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT66_CONTROL_CLR",
+"addr": 1145381128,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT66_CONTROL_TOG",
+"addr": 1145381132,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT66_STATUS0",
+"addr": 1145381152,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT66_AUTHEN",
+"addr": 1145381168,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT67_CONTROL",
+"addr": 1145381248,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT67_CONTROL_SET",
+"addr": 1145381252,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT67_CONTROL_CLR",
+"addr": 1145381256,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT67_CONTROL_TOG",
+"addr": 1145381260,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT67_STATUS0",
+"addr": 1145381280,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT67_AUTHEN",
+"addr": 1145381296,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT68_CONTROL",
+"addr": 1145381376,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT68_CONTROL_SET",
+"addr": 1145381380,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT68_CONTROL_CLR",
+"addr": 1145381384,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT68_CONTROL_TOG",
+"addr": 1145381388,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT68_STATUS0",
+"addr": 1145381408,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT68_AUTHEN",
+"addr": 1145381424,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT69_CONTROL",
+"addr": 1145381504,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT69_CONTROL_SET",
+"addr": 1145381508,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT69_CONTROL_CLR",
+"addr": 1145381512,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT69_CONTROL_TOG",
+"addr": 1145381516,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT69_STATUS0",
+"addr": 1145381536,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT69_AUTHEN",
+"addr": 1145381552,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT70_CONTROL",
+"addr": 1145381632,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT70_CONTROL_SET",
+"addr": 1145381636,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT70_CONTROL_CLR",
+"addr": 1145381640,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT70_CONTROL_TOG",
+"addr": 1145381644,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT70_STATUS0",
+"addr": 1145381664,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT70_AUTHEN",
+"addr": 1145381680,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT71_CONTROL",
+"addr": 1145381760,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT71_CONTROL_SET",
+"addr": 1145381764,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT71_CONTROL_CLR",
+"addr": 1145381768,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT71_CONTROL_TOG",
+"addr": 1145381772,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT71_STATUS0",
+"addr": 1145381792,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT71_AUTHEN",
+"addr": 1145381808,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT72_CONTROL",
+"addr": 1145381888,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT72_CONTROL_SET",
+"addr": 1145381892,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT72_CONTROL_CLR",
+"addr": 1145381896,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT72_CONTROL_TOG",
+"addr": 1145381900,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT72_STATUS0",
+"addr": 1145381920,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT72_AUTHEN",
+"addr": 1145381936,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT73_CONTROL",
+"addr": 1145382016,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT73_CONTROL_SET",
+"addr": 1145382020,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT73_CONTROL_CLR",
+"addr": 1145382024,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT73_CONTROL_TOG",
+"addr": 1145382028,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT73_STATUS0",
+"addr": 1145382048,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "CLOCK_ROOT73_AUTHEN",
+"addr": 1145382064,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_CONTROL",
+"addr": 1145390080,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_CONTROL_SET",
+"addr": 1145390084,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_CONTROL_CLR",
+"addr": 1145390088,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_CONTROL_TOG",
+"addr": 1145390092,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_STATUS",
+"addr": 1145390112,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_AUTHEN",
+"addr": 1145390128,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_AUTHEN_SET",
+"addr": 1145390132,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_AUTHEN_CLR",
+"addr": 1145390136,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_AUTHEN_TOG",
+"addr": 1145390140,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_FREQUENCY_CURRENT",
+"addr": 1145390144,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_FREQUENCY_MIN",
+"addr": 1145390148,
+"reset": 4294967232
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_FREQUENCY_MAX",
+"addr": 1145390152,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_PERIOD_CURRENT",
+"addr": 1145390160,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_PERIOD_MIN",
+"addr": 1145390164,
+"reset": 4294967295
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_PERIOD_MAX",
+"addr": 1145390168,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_HIGH_CURRENT",
+"addr": 1145390176,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_HIGH_MIN",
+"addr": 1145390180,
+"reset": 4294967295
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_HIGH_MAX",
+"addr": 1145390184,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_LOW_CURRENT",
+"addr": 1145390192,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_LOW_MIN",
+"addr": 1145390196,
+"reset": 4294967295
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE0_LOW_MAX",
+"addr": 1145390200,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_CONTROL",
+"addr": 1145390208,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_CONTROL_SET",
+"addr": 1145390212,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_CONTROL_CLR",
+"addr": 1145390216,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_CONTROL_TOG",
+"addr": 1145390220,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_STATUS",
+"addr": 1145390240,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_AUTHEN",
+"addr": 1145390256,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_AUTHEN_SET",
+"addr": 1145390260,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_AUTHEN_CLR",
+"addr": 1145390264,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_AUTHEN_TOG",
+"addr": 1145390268,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_FREQUENCY_CURRENT",
+"addr": 1145390272,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_FREQUENCY_MIN",
+"addr": 1145390276,
+"reset": 4294967232
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_FREQUENCY_MAX",
+"addr": 1145390280,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_PERIOD_CURRENT",
+"addr": 1145390288,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_PERIOD_MIN",
+"addr": 1145390292,
+"reset": 4294967295
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_PERIOD_MAX",
+"addr": 1145390296,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_HIGH_CURRENT",
+"addr": 1145390304,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_HIGH_MIN",
+"addr": 1145390308,
+"reset": 4294967295
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_HIGH_MAX",
+"addr": 1145390312,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_LOW_CURRENT",
+"addr": 1145390320,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_LOW_MIN",
+"addr": 1145390324,
+"reset": 4294967295
+},
+{
+"inst": "CCM",
+"reg": "OBSERVE1_LOW_MAX",
+"addr": 1145390328,
+"reset": 0
+},
+{
+"inst": "CCM",
 "reg": "GPR_SHARED0_AUTHEN",
 "addr": 1145391120,
 "reset": 4294901760
@@ -2247,6 +5163,7482 @@
 "inst": "CCM",
 "reg": "GPR_SHARED15_AUTHEN_TOG",
 "addr": 1145391612,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE0_SET",
+"addr": 1145392132,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE0_CLR",
+"addr": 1145392136,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE0_TOG",
+"addr": 1145392140,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE0_AUTHEN",
+"addr": 1145392144,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE0_AUTHEN_SET",
+"addr": 1145392148,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE0_AUTHEN_CLR",
+"addr": 1145392152,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE0_AUTHEN_TOG",
+"addr": 1145392156,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE1_SET",
+"addr": 1145392164,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE1_CLR",
+"addr": 1145392168,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE1_TOG",
+"addr": 1145392172,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE1_AUTHEN",
+"addr": 1145392176,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE1_AUTHEN_SET",
+"addr": 1145392180,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE1_AUTHEN_CLR",
+"addr": 1145392184,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE1_AUTHEN_TOG",
+"addr": 1145392188,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE2_SET",
+"addr": 1145392196,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE2_CLR",
+"addr": 1145392200,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE2_TOG",
+"addr": 1145392204,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE2_AUTHEN",
+"addr": 1145392208,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE2_AUTHEN_SET",
+"addr": 1145392212,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE2_AUTHEN_CLR",
+"addr": 1145392216,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE2_AUTHEN_TOG",
+"addr": 1145392220,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE3_SET",
+"addr": 1145392228,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE3_CLR",
+"addr": 1145392232,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE3_TOG",
+"addr": 1145392236,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE3_AUTHEN",
+"addr": 1145392240,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE3_AUTHEN_SET",
+"addr": 1145392244,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE3_AUTHEN_CLR",
+"addr": 1145392248,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "GPR_PRIVATE3_AUTHEN_TOG",
+"addr": 1145392252,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL0_DIRECT",
+"addr": 1145393152,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL0_LPM0",
+"addr": 1145393168,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL0_LPM1",
+"addr": 1145393172,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL0_LPM_CUR",
+"addr": 1145393180,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL0_STATUS0",
+"addr": 1145393184,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL0_STATUS1",
+"addr": 1145393188,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL0_AUTHEN",
+"addr": 1145393200,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL1_DIRECT",
+"addr": 1145393216,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL1_LPM0",
+"addr": 1145393232,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL1_LPM1",
+"addr": 1145393236,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL1_LPM_CUR",
+"addr": 1145393244,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL1_STATUS0",
+"addr": 1145393248,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL1_STATUS1",
+"addr": 1145393252,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL1_AUTHEN",
+"addr": 1145393264,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL2_DIRECT",
+"addr": 1145393280,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL2_LPM0",
+"addr": 1145393296,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL2_LPM1",
+"addr": 1145393300,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL2_LPM_CUR",
+"addr": 1145393308,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL2_STATUS0",
+"addr": 1145393312,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL2_STATUS1",
+"addr": 1145393316,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL2_AUTHEN",
+"addr": 1145393328,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL3_DIRECT",
+"addr": 1145393344,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL3_LPM0",
+"addr": 1145393360,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL3_LPM1",
+"addr": 1145393364,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL3_LPM_CUR",
+"addr": 1145393372,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL3_STATUS0",
+"addr": 1145393376,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL3_STATUS1",
+"addr": 1145393380,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL3_AUTHEN",
+"addr": 1145393392,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL4_DIRECT",
+"addr": 1145393408,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL4_LPM0",
+"addr": 1145393424,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL4_LPM1",
+"addr": 1145393428,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL4_LPM_CUR",
+"addr": 1145393436,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL4_STATUS0",
+"addr": 1145393440,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL4_STATUS1",
+"addr": 1145393444,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL4_AUTHEN",
+"addr": 1145393456,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL5_DIRECT",
+"addr": 1145393472,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL5_LPM0",
+"addr": 1145393488,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL5_LPM1",
+"addr": 1145393492,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL5_LPM_CUR",
+"addr": 1145393500,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL5_STATUS0",
+"addr": 1145393504,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL5_STATUS1",
+"addr": 1145393508,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL5_AUTHEN",
+"addr": 1145393520,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL6_DIRECT",
+"addr": 1145393536,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL6_LPM0",
+"addr": 1145393552,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL6_LPM1",
+"addr": 1145393556,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL6_LPM_CUR",
+"addr": 1145393564,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL6_STATUS0",
+"addr": 1145393568,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL6_STATUS1",
+"addr": 1145393572,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL6_AUTHEN",
+"addr": 1145393584,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL7_DIRECT",
+"addr": 1145393600,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL7_LPM0",
+"addr": 1145393616,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL7_LPM1",
+"addr": 1145393620,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL7_LPM_CUR",
+"addr": 1145393628,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL7_STATUS0",
+"addr": 1145393632,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL7_STATUS1",
+"addr": 1145393636,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL7_AUTHEN",
+"addr": 1145393648,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL8_DIRECT",
+"addr": 1145393664,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL8_LPM0",
+"addr": 1145393680,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL8_LPM1",
+"addr": 1145393684,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL8_LPM_CUR",
+"addr": 1145393692,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL8_STATUS0",
+"addr": 1145393696,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL8_STATUS1",
+"addr": 1145393700,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL8_AUTHEN",
+"addr": 1145393712,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL9_DIRECT",
+"addr": 1145393728,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL9_LPM0",
+"addr": 1145393744,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL9_LPM1",
+"addr": 1145393748,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL9_LPM_CUR",
+"addr": 1145393756,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL9_STATUS0",
+"addr": 1145393760,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL9_STATUS1",
+"addr": 1145393764,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL9_AUTHEN",
+"addr": 1145393776,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL10_DIRECT",
+"addr": 1145393792,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL10_LPM0",
+"addr": 1145393808,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL10_LPM1",
+"addr": 1145393812,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL10_LPM_CUR",
+"addr": 1145393820,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL10_STATUS0",
+"addr": 1145393824,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL10_STATUS1",
+"addr": 1145393828,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL10_AUTHEN",
+"addr": 1145393840,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL11_DIRECT",
+"addr": 1145393856,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL11_LPM0",
+"addr": 1145393872,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL11_LPM1",
+"addr": 1145393876,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL11_LPM_CUR",
+"addr": 1145393884,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL11_STATUS0",
+"addr": 1145393888,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL11_STATUS1",
+"addr": 1145393892,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL11_AUTHEN",
+"addr": 1145393904,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL12_DIRECT",
+"addr": 1145393920,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL12_LPM0",
+"addr": 1145393936,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL12_LPM1",
+"addr": 1145393940,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL12_LPM_CUR",
+"addr": 1145393948,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL12_STATUS0",
+"addr": 1145393952,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL12_STATUS1",
+"addr": 1145393956,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL12_AUTHEN",
+"addr": 1145393968,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL13_DIRECT",
+"addr": 1145393984,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL13_LPM0",
+"addr": 1145394000,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL13_LPM1",
+"addr": 1145394004,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL13_LPM_CUR",
+"addr": 1145394012,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL13_STATUS0",
+"addr": 1145394016,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL13_STATUS1",
+"addr": 1145394020,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL13_AUTHEN",
+"addr": 1145394032,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL14_DIRECT",
+"addr": 1145394048,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL14_LPM0",
+"addr": 1145394064,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL14_LPM1",
+"addr": 1145394068,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL14_LPM_CUR",
+"addr": 1145394076,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL14_STATUS0",
+"addr": 1145394080,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL14_STATUS1",
+"addr": 1145394084,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL14_AUTHEN",
+"addr": 1145394096,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL15_DIRECT",
+"addr": 1145394112,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL15_LPM0",
+"addr": 1145394128,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL15_LPM1",
+"addr": 1145394132,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL15_LPM_CUR",
+"addr": 1145394140,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL15_STATUS0",
+"addr": 1145394144,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL15_STATUS1",
+"addr": 1145394148,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL15_AUTHEN",
+"addr": 1145394160,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL16_DIRECT",
+"addr": 1145394176,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL16_LPM0",
+"addr": 1145394192,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL16_LPM1",
+"addr": 1145394196,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL16_LPM_CUR",
+"addr": 1145394204,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL16_STATUS0",
+"addr": 1145394208,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL16_STATUS1",
+"addr": 1145394212,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL16_AUTHEN",
+"addr": 1145394224,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL17_DIRECT",
+"addr": 1145394240,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL17_LPM0",
+"addr": 1145394256,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL17_LPM1",
+"addr": 1145394260,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL17_LPM_CUR",
+"addr": 1145394268,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL17_STATUS0",
+"addr": 1145394272,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL17_STATUS1",
+"addr": 1145394276,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL17_AUTHEN",
+"addr": 1145394288,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL18_DIRECT",
+"addr": 1145394304,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL18_LPM0",
+"addr": 1145394320,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL18_LPM1",
+"addr": 1145394324,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL18_LPM_CUR",
+"addr": 1145394332,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL18_STATUS0",
+"addr": 1145394336,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL18_STATUS1",
+"addr": 1145394340,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL18_AUTHEN",
+"addr": 1145394352,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL19_DIRECT",
+"addr": 1145394368,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL19_LPM0",
+"addr": 1145394384,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL19_LPM1",
+"addr": 1145394388,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL19_LPM_CUR",
+"addr": 1145394396,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL19_STATUS0",
+"addr": 1145394400,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL19_STATUS1",
+"addr": 1145394404,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL19_AUTHEN",
+"addr": 1145394416,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL20_DIRECT",
+"addr": 1145394432,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL20_LPM0",
+"addr": 1145394448,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL20_LPM1",
+"addr": 1145394452,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL20_LPM_CUR",
+"addr": 1145394460,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL20_STATUS0",
+"addr": 1145394464,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL20_STATUS1",
+"addr": 1145394468,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL20_AUTHEN",
+"addr": 1145394480,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL21_DIRECT",
+"addr": 1145394496,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL21_LPM0",
+"addr": 1145394512,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL21_LPM1",
+"addr": 1145394516,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL21_LPM_CUR",
+"addr": 1145394524,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL21_STATUS0",
+"addr": 1145394528,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL21_STATUS1",
+"addr": 1145394532,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL21_AUTHEN",
+"addr": 1145394544,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL22_DIRECT",
+"addr": 1145394560,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL22_LPM0",
+"addr": 1145394576,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL22_LPM1",
+"addr": 1145394580,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL22_LPM_CUR",
+"addr": 1145394588,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL22_STATUS0",
+"addr": 1145394592,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL22_STATUS1",
+"addr": 1145394596,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL22_AUTHEN",
+"addr": 1145394608,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL23_DIRECT",
+"addr": 1145394624,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL23_LPM0",
+"addr": 1145394640,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL23_LPM1",
+"addr": 1145394644,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL23_LPM_CUR",
+"addr": 1145394652,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL23_STATUS0",
+"addr": 1145394656,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL23_STATUS1",
+"addr": 1145394660,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL23_AUTHEN",
+"addr": 1145394672,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL24_DIRECT",
+"addr": 1145394688,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL24_LPM0",
+"addr": 1145394704,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL24_LPM1",
+"addr": 1145394708,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL24_LPM_CUR",
+"addr": 1145394716,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL24_STATUS0",
+"addr": 1145394720,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL24_STATUS1",
+"addr": 1145394724,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "OSCPLL24_AUTHEN",
+"addr": 1145394736,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG0_DIRECT",
+"addr": 1145405440,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG0_LPM0",
+"addr": 1145405456,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG0_LPM1",
+"addr": 1145405460,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG0_LPM_CUR",
+"addr": 1145405468,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG0_STATUS0",
+"addr": 1145405472,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG0_STATUS1",
+"addr": 1145405476,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG0_AUTHEN",
+"addr": 1145405488,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG1_DIRECT",
+"addr": 1145405504,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG1_LPM0",
+"addr": 1145405520,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG1_LPM1",
+"addr": 1145405524,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG1_LPM_CUR",
+"addr": 1145405532,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG1_STATUS0",
+"addr": 1145405536,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG1_STATUS1",
+"addr": 1145405540,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG1_AUTHEN",
+"addr": 1145405552,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG2_DIRECT",
+"addr": 1145405568,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG2_LPM0",
+"addr": 1145405584,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG2_LPM1",
+"addr": 1145405588,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG2_LPM_CUR",
+"addr": 1145405596,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG2_STATUS0",
+"addr": 1145405600,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG2_STATUS1",
+"addr": 1145405604,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG2_AUTHEN",
+"addr": 1145405616,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG3_DIRECT",
+"addr": 1145405632,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG3_LPM0",
+"addr": 1145405648,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG3_LPM1",
+"addr": 1145405652,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG3_LPM_CUR",
+"addr": 1145405660,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG3_STATUS0",
+"addr": 1145405664,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG3_STATUS1",
+"addr": 1145405668,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG3_AUTHEN",
+"addr": 1145405680,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG4_DIRECT",
+"addr": 1145405696,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG4_LPM0",
+"addr": 1145405712,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG4_LPM1",
+"addr": 1145405716,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG4_LPM_CUR",
+"addr": 1145405724,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG4_STATUS0",
+"addr": 1145405728,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG4_STATUS1",
+"addr": 1145405732,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG4_AUTHEN",
+"addr": 1145405744,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG5_DIRECT",
+"addr": 1145405760,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG5_LPM0",
+"addr": 1145405776,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG5_LPM1",
+"addr": 1145405780,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG5_LPM_CUR",
+"addr": 1145405788,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG5_STATUS0",
+"addr": 1145405792,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG5_STATUS1",
+"addr": 1145405796,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG5_AUTHEN",
+"addr": 1145405808,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG6_DIRECT",
+"addr": 1145405824,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG6_LPM0",
+"addr": 1145405840,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG6_LPM1",
+"addr": 1145405844,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG6_LPM_CUR",
+"addr": 1145405852,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG6_STATUS0",
+"addr": 1145405856,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG6_STATUS1",
+"addr": 1145405860,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG6_AUTHEN",
+"addr": 1145405872,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG7_DIRECT",
+"addr": 1145405888,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG7_LPM0",
+"addr": 1145405904,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG7_LPM1",
+"addr": 1145405908,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG7_LPM_CUR",
+"addr": 1145405916,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG7_STATUS0",
+"addr": 1145405920,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG7_STATUS1",
+"addr": 1145405924,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG7_AUTHEN",
+"addr": 1145405936,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG8_DIRECT",
+"addr": 1145405952,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG8_LPM0",
+"addr": 1145405968,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG8_LPM1",
+"addr": 1145405972,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG8_LPM_CUR",
+"addr": 1145405980,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG8_STATUS0",
+"addr": 1145405984,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG8_STATUS1",
+"addr": 1145405988,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG8_AUTHEN",
+"addr": 1145406000,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG9_DIRECT",
+"addr": 1145406016,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG9_LPM0",
+"addr": 1145406032,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG9_LPM1",
+"addr": 1145406036,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG9_LPM_CUR",
+"addr": 1145406044,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG9_STATUS0",
+"addr": 1145406048,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG9_STATUS1",
+"addr": 1145406052,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG9_AUTHEN",
+"addr": 1145406064,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG10_DIRECT",
+"addr": 1145406080,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG10_LPM0",
+"addr": 1145406096,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG10_LPM1",
+"addr": 1145406100,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG10_LPM_CUR",
+"addr": 1145406108,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG10_STATUS0",
+"addr": 1145406112,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG10_STATUS1",
+"addr": 1145406116,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG10_AUTHEN",
+"addr": 1145406128,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG11_DIRECT",
+"addr": 1145406144,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG11_LPM0",
+"addr": 1145406160,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG11_LPM1",
+"addr": 1145406164,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG11_LPM_CUR",
+"addr": 1145406172,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG11_STATUS0",
+"addr": 1145406176,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG11_STATUS1",
+"addr": 1145406180,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG11_AUTHEN",
+"addr": 1145406192,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG12_DIRECT",
+"addr": 1145406208,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG12_LPM0",
+"addr": 1145406224,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG12_LPM1",
+"addr": 1145406228,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG12_LPM_CUR",
+"addr": 1145406236,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG12_STATUS0",
+"addr": 1145406240,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG12_STATUS1",
+"addr": 1145406244,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG12_AUTHEN",
+"addr": 1145406256,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG13_DIRECT",
+"addr": 1145406272,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG13_LPM0",
+"addr": 1145406288,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG13_LPM1",
+"addr": 1145406292,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG13_LPM_CUR",
+"addr": 1145406300,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG13_STATUS0",
+"addr": 1145406304,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG13_STATUS1",
+"addr": 1145406308,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG13_AUTHEN",
+"addr": 1145406320,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG14_DIRECT",
+"addr": 1145406336,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG14_LPM0",
+"addr": 1145406352,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG14_LPM1",
+"addr": 1145406356,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG14_LPM_CUR",
+"addr": 1145406364,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG14_STATUS0",
+"addr": 1145406368,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG14_STATUS1",
+"addr": 1145406372,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG14_AUTHEN",
+"addr": 1145406384,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG15_DIRECT",
+"addr": 1145406400,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG15_LPM0",
+"addr": 1145406416,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG15_LPM1",
+"addr": 1145406420,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG15_LPM_CUR",
+"addr": 1145406428,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG15_STATUS0",
+"addr": 1145406432,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG15_STATUS1",
+"addr": 1145406436,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG15_AUTHEN",
+"addr": 1145406448,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG16_DIRECT",
+"addr": 1145406464,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG16_LPM0",
+"addr": 1145406480,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG16_LPM1",
+"addr": 1145406484,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG16_LPM_CUR",
+"addr": 1145406492,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG16_STATUS0",
+"addr": 1145406496,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG16_STATUS1",
+"addr": 1145406500,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG16_AUTHEN",
+"addr": 1145406512,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG17_DIRECT",
+"addr": 1145406528,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG17_LPM0",
+"addr": 1145406544,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG17_LPM1",
+"addr": 1145406548,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG17_LPM_CUR",
+"addr": 1145406556,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG17_STATUS0",
+"addr": 1145406560,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG17_STATUS1",
+"addr": 1145406564,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG17_AUTHEN",
+"addr": 1145406576,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG18_DIRECT",
+"addr": 1145406592,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG18_LPM0",
+"addr": 1145406608,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG18_LPM1",
+"addr": 1145406612,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG18_LPM_CUR",
+"addr": 1145406620,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG18_STATUS0",
+"addr": 1145406624,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG18_STATUS1",
+"addr": 1145406628,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG18_AUTHEN",
+"addr": 1145406640,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG19_DIRECT",
+"addr": 1145406656,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG19_LPM0",
+"addr": 1145406672,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG19_LPM1",
+"addr": 1145406676,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG19_LPM_CUR",
+"addr": 1145406684,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG19_STATUS0",
+"addr": 1145406688,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG19_STATUS1",
+"addr": 1145406692,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG19_AUTHEN",
+"addr": 1145406704,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG20_DIRECT",
+"addr": 1145406720,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG20_LPM0",
+"addr": 1145406736,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG20_LPM1",
+"addr": 1145406740,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG20_LPM_CUR",
+"addr": 1145406748,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG20_STATUS0",
+"addr": 1145406752,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG20_STATUS1",
+"addr": 1145406756,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG20_AUTHEN",
+"addr": 1145406768,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG21_DIRECT",
+"addr": 1145406784,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG21_LPM0",
+"addr": 1145406800,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG21_LPM1",
+"addr": 1145406804,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG21_LPM_CUR",
+"addr": 1145406812,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG21_STATUS0",
+"addr": 1145406816,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG21_STATUS1",
+"addr": 1145406820,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG21_AUTHEN",
+"addr": 1145406832,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG22_DIRECT",
+"addr": 1145406848,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG22_LPM0",
+"addr": 1145406864,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG22_LPM1",
+"addr": 1145406868,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG22_LPM_CUR",
+"addr": 1145406876,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG22_STATUS0",
+"addr": 1145406880,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG22_STATUS1",
+"addr": 1145406884,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG22_AUTHEN",
+"addr": 1145406896,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG23_DIRECT",
+"addr": 1145406912,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG23_LPM0",
+"addr": 1145406928,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG23_LPM1",
+"addr": 1145406932,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG23_LPM_CUR",
+"addr": 1145406940,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG23_STATUS0",
+"addr": 1145406944,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG23_STATUS1",
+"addr": 1145406948,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG23_AUTHEN",
+"addr": 1145406960,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG24_DIRECT",
+"addr": 1145406976,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG24_LPM0",
+"addr": 1145406992,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG24_LPM1",
+"addr": 1145406996,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG24_LPM_CUR",
+"addr": 1145407004,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG24_STATUS0",
+"addr": 1145407008,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG24_STATUS1",
+"addr": 1145407012,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG24_AUTHEN",
+"addr": 1145407024,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG25_DIRECT",
+"addr": 1145407040,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG25_LPM0",
+"addr": 1145407056,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG25_LPM1",
+"addr": 1145407060,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG25_LPM_CUR",
+"addr": 1145407068,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG25_STATUS0",
+"addr": 1145407072,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG25_STATUS1",
+"addr": 1145407076,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG25_AUTHEN",
+"addr": 1145407088,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG26_DIRECT",
+"addr": 1145407104,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG26_LPM0",
+"addr": 1145407120,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG26_LPM1",
+"addr": 1145407124,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG26_LPM_CUR",
+"addr": 1145407132,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG26_STATUS0",
+"addr": 1145407136,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG26_STATUS1",
+"addr": 1145407140,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG26_AUTHEN",
+"addr": 1145407152,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG27_DIRECT",
+"addr": 1145407168,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG27_LPM0",
+"addr": 1145407184,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG27_LPM1",
+"addr": 1145407188,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG27_LPM_CUR",
+"addr": 1145407196,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG27_STATUS0",
+"addr": 1145407200,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG27_STATUS1",
+"addr": 1145407204,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG27_AUTHEN",
+"addr": 1145407216,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG28_DIRECT",
+"addr": 1145407232,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG28_LPM0",
+"addr": 1145407248,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG28_LPM1",
+"addr": 1145407252,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG28_LPM_CUR",
+"addr": 1145407260,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG28_STATUS0",
+"addr": 1145407264,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG28_STATUS1",
+"addr": 1145407268,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG28_AUTHEN",
+"addr": 1145407280,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG29_DIRECT",
+"addr": 1145407296,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG29_LPM0",
+"addr": 1145407312,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG29_LPM1",
+"addr": 1145407316,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG29_LPM_CUR",
+"addr": 1145407324,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG29_STATUS0",
+"addr": 1145407328,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG29_STATUS1",
+"addr": 1145407332,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG29_AUTHEN",
+"addr": 1145407344,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG30_DIRECT",
+"addr": 1145407360,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG30_LPM0",
+"addr": 1145407376,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG30_LPM1",
+"addr": 1145407380,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG30_LPM_CUR",
+"addr": 1145407388,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG30_STATUS0",
+"addr": 1145407392,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG30_STATUS1",
+"addr": 1145407396,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG30_AUTHEN",
+"addr": 1145407408,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG31_DIRECT",
+"addr": 1145407424,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG31_LPM0",
+"addr": 1145407440,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG31_LPM1",
+"addr": 1145407444,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG31_LPM_CUR",
+"addr": 1145407452,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG31_STATUS0",
+"addr": 1145407456,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG31_STATUS1",
+"addr": 1145407460,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG31_AUTHEN",
+"addr": 1145407472,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG32_DIRECT",
+"addr": 1145407488,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG32_LPM0",
+"addr": 1145407504,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG32_LPM1",
+"addr": 1145407508,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG32_LPM_CUR",
+"addr": 1145407516,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG32_STATUS0",
+"addr": 1145407520,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG32_STATUS1",
+"addr": 1145407524,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG32_AUTHEN",
+"addr": 1145407536,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG33_DIRECT",
+"addr": 1145407552,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG33_LPM0",
+"addr": 1145407568,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG33_LPM1",
+"addr": 1145407572,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG33_LPM_CUR",
+"addr": 1145407580,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG33_STATUS0",
+"addr": 1145407584,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG33_STATUS1",
+"addr": 1145407588,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG33_AUTHEN",
+"addr": 1145407600,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG34_DIRECT",
+"addr": 1145407616,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG34_LPM0",
+"addr": 1145407632,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG34_LPM1",
+"addr": 1145407636,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG34_LPM_CUR",
+"addr": 1145407644,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG34_STATUS0",
+"addr": 1145407648,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG34_STATUS1",
+"addr": 1145407652,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG34_AUTHEN",
+"addr": 1145407664,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG35_DIRECT",
+"addr": 1145407680,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG35_LPM0",
+"addr": 1145407696,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG35_LPM1",
+"addr": 1145407700,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG35_LPM_CUR",
+"addr": 1145407708,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG35_STATUS0",
+"addr": 1145407712,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG35_STATUS1",
+"addr": 1145407716,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG35_AUTHEN",
+"addr": 1145407728,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG36_DIRECT",
+"addr": 1145407744,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG36_LPM0",
+"addr": 1145407760,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG36_LPM1",
+"addr": 1145407764,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG36_LPM_CUR",
+"addr": 1145407772,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG36_STATUS0",
+"addr": 1145407776,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG36_STATUS1",
+"addr": 1145407780,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG36_AUTHEN",
+"addr": 1145407792,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG37_DIRECT",
+"addr": 1145407808,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG37_LPM0",
+"addr": 1145407824,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG37_LPM1",
+"addr": 1145407828,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG37_LPM_CUR",
+"addr": 1145407836,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG37_STATUS0",
+"addr": 1145407840,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG37_STATUS1",
+"addr": 1145407844,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG37_AUTHEN",
+"addr": 1145407856,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG38_DIRECT",
+"addr": 1145407872,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG38_LPM0",
+"addr": 1145407888,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG38_LPM1",
+"addr": 1145407892,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG38_LPM_CUR",
+"addr": 1145407900,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG38_STATUS0",
+"addr": 1145407904,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG38_STATUS1",
+"addr": 1145407908,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG38_AUTHEN",
+"addr": 1145407920,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG39_DIRECT",
+"addr": 1145407936,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG39_LPM0",
+"addr": 1145407952,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG39_LPM1",
+"addr": 1145407956,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG39_LPM_CUR",
+"addr": 1145407964,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG39_STATUS0",
+"addr": 1145407968,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG39_STATUS1",
+"addr": 1145407972,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG39_AUTHEN",
+"addr": 1145407984,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG40_DIRECT",
+"addr": 1145408000,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG40_LPM0",
+"addr": 1145408016,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG40_LPM1",
+"addr": 1145408020,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG40_LPM_CUR",
+"addr": 1145408028,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG40_STATUS0",
+"addr": 1145408032,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG40_STATUS1",
+"addr": 1145408036,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG40_AUTHEN",
+"addr": 1145408048,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG41_DIRECT",
+"addr": 1145408064,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG41_LPM0",
+"addr": 1145408080,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG41_LPM1",
+"addr": 1145408084,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG41_LPM_CUR",
+"addr": 1145408092,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG41_STATUS0",
+"addr": 1145408096,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG41_STATUS1",
+"addr": 1145408100,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG41_AUTHEN",
+"addr": 1145408112,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG42_DIRECT",
+"addr": 1145408128,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG42_LPM0",
+"addr": 1145408144,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG42_LPM1",
+"addr": 1145408148,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG42_LPM_CUR",
+"addr": 1145408156,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG42_STATUS0",
+"addr": 1145408160,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG42_STATUS1",
+"addr": 1145408164,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG42_AUTHEN",
+"addr": 1145408176,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG43_DIRECT",
+"addr": 1145408192,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG43_LPM0",
+"addr": 1145408208,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG43_LPM1",
+"addr": 1145408212,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG43_LPM_CUR",
+"addr": 1145408220,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG43_STATUS0",
+"addr": 1145408224,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG43_STATUS1",
+"addr": 1145408228,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG43_AUTHEN",
+"addr": 1145408240,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG44_DIRECT",
+"addr": 1145408256,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG44_LPM0",
+"addr": 1145408272,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG44_LPM1",
+"addr": 1145408276,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG44_LPM_CUR",
+"addr": 1145408284,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG44_STATUS0",
+"addr": 1145408288,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG44_STATUS1",
+"addr": 1145408292,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG44_AUTHEN",
+"addr": 1145408304,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG45_DIRECT",
+"addr": 1145408320,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG45_LPM0",
+"addr": 1145408336,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG45_LPM1",
+"addr": 1145408340,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG45_LPM_CUR",
+"addr": 1145408348,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG45_STATUS0",
+"addr": 1145408352,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG45_STATUS1",
+"addr": 1145408356,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG45_AUTHEN",
+"addr": 1145408368,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG46_DIRECT",
+"addr": 1145408384,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG46_LPM0",
+"addr": 1145408400,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG46_LPM1",
+"addr": 1145408404,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG46_LPM_CUR",
+"addr": 1145408412,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG46_STATUS0",
+"addr": 1145408416,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG46_STATUS1",
+"addr": 1145408420,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG46_AUTHEN",
+"addr": 1145408432,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG47_DIRECT",
+"addr": 1145408448,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG47_LPM0",
+"addr": 1145408464,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG47_LPM1",
+"addr": 1145408468,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG47_LPM_CUR",
+"addr": 1145408476,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG47_STATUS0",
+"addr": 1145408480,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG47_STATUS1",
+"addr": 1145408484,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG47_AUTHEN",
+"addr": 1145408496,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG48_DIRECT",
+"addr": 1145408512,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG48_LPM0",
+"addr": 1145408528,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG48_LPM1",
+"addr": 1145408532,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG48_LPM_CUR",
+"addr": 1145408540,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG48_STATUS0",
+"addr": 1145408544,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG48_STATUS1",
+"addr": 1145408548,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG48_AUTHEN",
+"addr": 1145408560,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG49_DIRECT",
+"addr": 1145408576,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG49_LPM0",
+"addr": 1145408592,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG49_LPM1",
+"addr": 1145408596,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG49_LPM_CUR",
+"addr": 1145408604,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG49_STATUS0",
+"addr": 1145408608,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG49_STATUS1",
+"addr": 1145408612,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG49_AUTHEN",
+"addr": 1145408624,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG50_DIRECT",
+"addr": 1145408640,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG50_LPM0",
+"addr": 1145408656,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG50_LPM1",
+"addr": 1145408660,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG50_LPM_CUR",
+"addr": 1145408668,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG50_STATUS0",
+"addr": 1145408672,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG50_STATUS1",
+"addr": 1145408676,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG50_AUTHEN",
+"addr": 1145408688,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG51_DIRECT",
+"addr": 1145408704,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG51_LPM0",
+"addr": 1145408720,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG51_LPM1",
+"addr": 1145408724,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG51_LPM_CUR",
+"addr": 1145408732,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG51_STATUS0",
+"addr": 1145408736,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG51_STATUS1",
+"addr": 1145408740,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG51_AUTHEN",
+"addr": 1145408752,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG52_DIRECT",
+"addr": 1145408768,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG52_LPM0",
+"addr": 1145408784,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG52_LPM1",
+"addr": 1145408788,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG52_LPM_CUR",
+"addr": 1145408796,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG52_STATUS0",
+"addr": 1145408800,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG52_STATUS1",
+"addr": 1145408804,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG52_AUTHEN",
+"addr": 1145408816,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG53_DIRECT",
+"addr": 1145408832,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG53_LPM0",
+"addr": 1145408848,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG53_LPM1",
+"addr": 1145408852,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG53_LPM_CUR",
+"addr": 1145408860,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG53_STATUS0",
+"addr": 1145408864,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG53_STATUS1",
+"addr": 1145408868,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG53_AUTHEN",
+"addr": 1145408880,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG54_DIRECT",
+"addr": 1145408896,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG54_LPM0",
+"addr": 1145408912,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG54_LPM1",
+"addr": 1145408916,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG54_LPM_CUR",
+"addr": 1145408924,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG54_STATUS0",
+"addr": 1145408928,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG54_STATUS1",
+"addr": 1145408932,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG54_AUTHEN",
+"addr": 1145408944,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG55_DIRECT",
+"addr": 1145408960,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG55_LPM0",
+"addr": 1145408976,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG55_LPM1",
+"addr": 1145408980,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG55_LPM_CUR",
+"addr": 1145408988,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG55_STATUS0",
+"addr": 1145408992,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG55_STATUS1",
+"addr": 1145408996,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG55_AUTHEN",
+"addr": 1145409008,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG56_DIRECT",
+"addr": 1145409024,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG56_LPM0",
+"addr": 1145409040,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG56_LPM1",
+"addr": 1145409044,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG56_LPM_CUR",
+"addr": 1145409052,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG56_STATUS0",
+"addr": 1145409056,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG56_STATUS1",
+"addr": 1145409060,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG56_AUTHEN",
+"addr": 1145409072,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG57_DIRECT",
+"addr": 1145409088,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG57_LPM0",
+"addr": 1145409104,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG57_LPM1",
+"addr": 1145409108,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG57_LPM_CUR",
+"addr": 1145409116,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG57_STATUS0",
+"addr": 1145409120,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG57_STATUS1",
+"addr": 1145409124,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG57_AUTHEN",
+"addr": 1145409136,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG58_DIRECT",
+"addr": 1145409152,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG58_LPM0",
+"addr": 1145409168,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG58_LPM1",
+"addr": 1145409172,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG58_LPM_CUR",
+"addr": 1145409180,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG58_STATUS0",
+"addr": 1145409184,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG58_STATUS1",
+"addr": 1145409188,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG58_AUTHEN",
+"addr": 1145409200,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG59_DIRECT",
+"addr": 1145409216,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG59_LPM0",
+"addr": 1145409232,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG59_LPM1",
+"addr": 1145409236,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG59_LPM_CUR",
+"addr": 1145409244,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG59_STATUS0",
+"addr": 1145409248,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG59_STATUS1",
+"addr": 1145409252,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG59_AUTHEN",
+"addr": 1145409264,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG60_DIRECT",
+"addr": 1145409280,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG60_LPM0",
+"addr": 1145409296,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG60_LPM1",
+"addr": 1145409300,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG60_LPM_CUR",
+"addr": 1145409308,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG60_STATUS0",
+"addr": 1145409312,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG60_STATUS1",
+"addr": 1145409316,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG60_AUTHEN",
+"addr": 1145409328,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG61_DIRECT",
+"addr": 1145409344,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG61_LPM0",
+"addr": 1145409360,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG61_LPM1",
+"addr": 1145409364,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG61_LPM_CUR",
+"addr": 1145409372,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG61_STATUS0",
+"addr": 1145409376,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG61_STATUS1",
+"addr": 1145409380,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG61_AUTHEN",
+"addr": 1145409392,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG62_DIRECT",
+"addr": 1145409408,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG62_LPM0",
+"addr": 1145409424,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG62_LPM1",
+"addr": 1145409428,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG62_LPM_CUR",
+"addr": 1145409436,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG62_STATUS0",
+"addr": 1145409440,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG62_STATUS1",
+"addr": 1145409444,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG62_AUTHEN",
+"addr": 1145409456,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG63_DIRECT",
+"addr": 1145409472,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG63_LPM0",
+"addr": 1145409488,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG63_LPM1",
+"addr": 1145409492,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG63_LPM_CUR",
+"addr": 1145409500,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG63_STATUS0",
+"addr": 1145409504,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG63_STATUS1",
+"addr": 1145409508,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG63_AUTHEN",
+"addr": 1145409520,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG64_DIRECT",
+"addr": 1145409536,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG64_LPM0",
+"addr": 1145409552,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG64_LPM1",
+"addr": 1145409556,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG64_LPM_CUR",
+"addr": 1145409564,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG64_STATUS0",
+"addr": 1145409568,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG64_STATUS1",
+"addr": 1145409572,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG64_AUTHEN",
+"addr": 1145409584,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG65_DIRECT",
+"addr": 1145409600,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG65_LPM0",
+"addr": 1145409616,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG65_LPM1",
+"addr": 1145409620,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG65_LPM_CUR",
+"addr": 1145409628,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG65_STATUS0",
+"addr": 1145409632,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG65_STATUS1",
+"addr": 1145409636,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG65_AUTHEN",
+"addr": 1145409648,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG66_DIRECT",
+"addr": 1145409664,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG66_LPM0",
+"addr": 1145409680,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG66_LPM1",
+"addr": 1145409684,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG66_LPM_CUR",
+"addr": 1145409692,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG66_STATUS0",
+"addr": 1145409696,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG66_STATUS1",
+"addr": 1145409700,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG66_AUTHEN",
+"addr": 1145409712,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG67_DIRECT",
+"addr": 1145409728,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG67_LPM0",
+"addr": 1145409744,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG67_LPM1",
+"addr": 1145409748,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG67_LPM_CUR",
+"addr": 1145409756,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG67_STATUS0",
+"addr": 1145409760,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG67_STATUS1",
+"addr": 1145409764,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG67_AUTHEN",
+"addr": 1145409776,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG68_DIRECT",
+"addr": 1145409792,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG68_LPM0",
+"addr": 1145409808,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG68_LPM1",
+"addr": 1145409812,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG68_LPM_CUR",
+"addr": 1145409820,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG68_STATUS0",
+"addr": 1145409824,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG68_STATUS1",
+"addr": 1145409828,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG68_AUTHEN",
+"addr": 1145409840,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG69_DIRECT",
+"addr": 1145409856,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG69_LPM0",
+"addr": 1145409872,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG69_LPM1",
+"addr": 1145409876,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG69_LPM_CUR",
+"addr": 1145409884,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG69_STATUS0",
+"addr": 1145409888,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG69_STATUS1",
+"addr": 1145409892,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG69_AUTHEN",
+"addr": 1145409904,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG70_DIRECT",
+"addr": 1145409920,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG70_LPM0",
+"addr": 1145409936,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG70_LPM1",
+"addr": 1145409940,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG70_LPM_CUR",
+"addr": 1145409948,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG70_STATUS0",
+"addr": 1145409952,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG70_STATUS1",
+"addr": 1145409956,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG70_AUTHEN",
+"addr": 1145409968,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG71_DIRECT",
+"addr": 1145409984,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG71_LPM0",
+"addr": 1145410000,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG71_LPM1",
+"addr": 1145410004,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG71_LPM_CUR",
+"addr": 1145410012,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG71_STATUS0",
+"addr": 1145410016,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG71_STATUS1",
+"addr": 1145410020,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG71_AUTHEN",
+"addr": 1145410032,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG72_DIRECT",
+"addr": 1145410048,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG72_LPM0",
+"addr": 1145410064,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG72_LPM1",
+"addr": 1145410068,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG72_LPM_CUR",
+"addr": 1145410076,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG72_STATUS0",
+"addr": 1145410080,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG72_STATUS1",
+"addr": 1145410084,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG72_AUTHEN",
+"addr": 1145410096,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG73_DIRECT",
+"addr": 1145410112,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG73_LPM0",
+"addr": 1145410128,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG73_LPM1",
+"addr": 1145410132,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG73_LPM_CUR",
+"addr": 1145410140,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG73_STATUS0",
+"addr": 1145410144,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG73_STATUS1",
+"addr": 1145410148,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG73_AUTHEN",
+"addr": 1145410160,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG74_DIRECT",
+"addr": 1145410176,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG74_LPM0",
+"addr": 1145410192,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG74_LPM1",
+"addr": 1145410196,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG74_LPM_CUR",
+"addr": 1145410204,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG74_STATUS0",
+"addr": 1145410208,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG74_STATUS1",
+"addr": 1145410212,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG74_AUTHEN",
+"addr": 1145410224,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG75_DIRECT",
+"addr": 1145410240,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG75_LPM0",
+"addr": 1145410256,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG75_LPM1",
+"addr": 1145410260,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG75_LPM_CUR",
+"addr": 1145410268,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG75_STATUS0",
+"addr": 1145410272,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG75_STATUS1",
+"addr": 1145410276,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG75_AUTHEN",
+"addr": 1145410288,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG76_DIRECT",
+"addr": 1145410304,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG76_LPM0",
+"addr": 1145410320,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG76_LPM1",
+"addr": 1145410324,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG76_LPM_CUR",
+"addr": 1145410332,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG76_STATUS0",
+"addr": 1145410336,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG76_STATUS1",
+"addr": 1145410340,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG76_AUTHEN",
+"addr": 1145410352,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG77_DIRECT",
+"addr": 1145410368,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG77_LPM0",
+"addr": 1145410384,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG77_LPM1",
+"addr": 1145410388,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG77_LPM_CUR",
+"addr": 1145410396,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG77_STATUS0",
+"addr": 1145410400,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG77_STATUS1",
+"addr": 1145410404,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG77_AUTHEN",
+"addr": 1145410416,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG78_DIRECT",
+"addr": 1145410432,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG78_LPM0",
+"addr": 1145410448,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG78_LPM1",
+"addr": 1145410452,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG78_LPM_CUR",
+"addr": 1145410460,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG78_STATUS0",
+"addr": 1145410464,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG78_STATUS1",
+"addr": 1145410468,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG78_AUTHEN",
+"addr": 1145410480,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG79_DIRECT",
+"addr": 1145410496,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG79_LPM0",
+"addr": 1145410512,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG79_LPM1",
+"addr": 1145410516,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG79_LPM_CUR",
+"addr": 1145410524,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG79_STATUS0",
+"addr": 1145410528,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG79_STATUS1",
+"addr": 1145410532,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG79_AUTHEN",
+"addr": 1145410544,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG80_DIRECT",
+"addr": 1145410560,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG80_LPM0",
+"addr": 1145410576,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG80_LPM1",
+"addr": 1145410580,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG80_LPM_CUR",
+"addr": 1145410588,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG80_STATUS0",
+"addr": 1145410592,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG80_STATUS1",
+"addr": 1145410596,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG80_AUTHEN",
+"addr": 1145410608,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG81_DIRECT",
+"addr": 1145410624,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG81_LPM0",
+"addr": 1145410640,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG81_LPM1",
+"addr": 1145410644,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG81_LPM_CUR",
+"addr": 1145410652,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG81_STATUS0",
+"addr": 1145410656,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG81_STATUS1",
+"addr": 1145410660,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG81_AUTHEN",
+"addr": 1145410672,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG82_DIRECT",
+"addr": 1145410688,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG82_LPM0",
+"addr": 1145410704,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG82_LPM1",
+"addr": 1145410708,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG82_LPM_CUR",
+"addr": 1145410716,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG82_STATUS0",
+"addr": 1145410720,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG82_STATUS1",
+"addr": 1145410724,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG82_AUTHEN",
+"addr": 1145410736,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG83_DIRECT",
+"addr": 1145410752,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG83_LPM0",
+"addr": 1145410768,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG83_LPM1",
+"addr": 1145410772,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG83_LPM_CUR",
+"addr": 1145410780,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG83_STATUS0",
+"addr": 1145410784,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG83_STATUS1",
+"addr": 1145410788,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG83_AUTHEN",
+"addr": 1145410800,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG84_DIRECT",
+"addr": 1145410816,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG84_LPM0",
+"addr": 1145410832,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG84_LPM1",
+"addr": 1145410836,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG84_LPM_CUR",
+"addr": 1145410844,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG84_STATUS0",
+"addr": 1145410848,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG84_STATUS1",
+"addr": 1145410852,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG84_AUTHEN",
+"addr": 1145410864,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG85_DIRECT",
+"addr": 1145410880,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG85_LPM0",
+"addr": 1145410896,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG85_LPM1",
+"addr": 1145410900,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG85_LPM_CUR",
+"addr": 1145410908,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG85_STATUS0",
+"addr": 1145410912,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG85_STATUS1",
+"addr": 1145410916,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG85_AUTHEN",
+"addr": 1145410928,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG86_DIRECT",
+"addr": 1145410944,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG86_LPM0",
+"addr": 1145410960,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG86_LPM1",
+"addr": 1145410964,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG86_LPM_CUR",
+"addr": 1145410972,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG86_STATUS0",
+"addr": 1145410976,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG86_STATUS1",
+"addr": 1145410980,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG86_AUTHEN",
+"addr": 1145410992,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG87_DIRECT",
+"addr": 1145411008,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG87_LPM0",
+"addr": 1145411024,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG87_LPM1",
+"addr": 1145411028,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG87_LPM_CUR",
+"addr": 1145411036,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG87_STATUS0",
+"addr": 1145411040,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG87_STATUS1",
+"addr": 1145411044,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG87_AUTHEN",
+"addr": 1145411056,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG88_DIRECT",
+"addr": 1145411072,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG88_LPM0",
+"addr": 1145411088,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG88_LPM1",
+"addr": 1145411092,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG88_LPM_CUR",
+"addr": 1145411100,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG88_STATUS0",
+"addr": 1145411104,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG88_STATUS1",
+"addr": 1145411108,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG88_AUTHEN",
+"addr": 1145411120,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG89_DIRECT",
+"addr": 1145411136,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG89_LPM0",
+"addr": 1145411152,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG89_LPM1",
+"addr": 1145411156,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG89_LPM_CUR",
+"addr": 1145411164,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG89_STATUS0",
+"addr": 1145411168,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG89_STATUS1",
+"addr": 1145411172,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG89_AUTHEN",
+"addr": 1145411184,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG90_DIRECT",
+"addr": 1145411200,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG90_LPM0",
+"addr": 1145411216,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG90_LPM1",
+"addr": 1145411220,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG90_LPM_CUR",
+"addr": 1145411228,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG90_STATUS0",
+"addr": 1145411232,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG90_STATUS1",
+"addr": 1145411236,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG90_AUTHEN",
+"addr": 1145411248,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG91_DIRECT",
+"addr": 1145411264,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG91_LPM0",
+"addr": 1145411280,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG91_LPM1",
+"addr": 1145411284,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG91_LPM_CUR",
+"addr": 1145411292,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG91_STATUS0",
+"addr": 1145411296,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG91_STATUS1",
+"addr": 1145411300,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG91_AUTHEN",
+"addr": 1145411312,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG92_DIRECT",
+"addr": 1145411328,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG92_LPM0",
+"addr": 1145411344,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG92_LPM1",
+"addr": 1145411348,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG92_LPM_CUR",
+"addr": 1145411356,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG92_STATUS0",
+"addr": 1145411360,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG92_STATUS1",
+"addr": 1145411364,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG92_AUTHEN",
+"addr": 1145411376,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG93_DIRECT",
+"addr": 1145411392,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG93_LPM0",
+"addr": 1145411408,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG93_LPM1",
+"addr": 1145411412,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG93_LPM_CUR",
+"addr": 1145411420,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG93_STATUS0",
+"addr": 1145411424,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG93_STATUS1",
+"addr": 1145411428,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG93_AUTHEN",
+"addr": 1145411440,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG94_DIRECT",
+"addr": 1145411456,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG94_LPM0",
+"addr": 1145411472,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG94_LPM1",
+"addr": 1145411476,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG94_LPM_CUR",
+"addr": 1145411484,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG94_STATUS0",
+"addr": 1145411488,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG94_STATUS1",
+"addr": 1145411492,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG94_AUTHEN",
+"addr": 1145411504,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG95_DIRECT",
+"addr": 1145411520,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG95_LPM0",
+"addr": 1145411536,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG95_LPM1",
+"addr": 1145411540,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG95_LPM_CUR",
+"addr": 1145411548,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG95_STATUS0",
+"addr": 1145411552,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG95_STATUS1",
+"addr": 1145411556,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG95_AUTHEN",
+"addr": 1145411568,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG96_DIRECT",
+"addr": 1145411584,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG96_LPM0",
+"addr": 1145411600,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG96_LPM1",
+"addr": 1145411604,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG96_LPM_CUR",
+"addr": 1145411612,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG96_STATUS0",
+"addr": 1145411616,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG96_STATUS1",
+"addr": 1145411620,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG96_AUTHEN",
+"addr": 1145411632,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG97_DIRECT",
+"addr": 1145411648,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG97_LPM0",
+"addr": 1145411664,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG97_LPM1",
+"addr": 1145411668,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG97_LPM_CUR",
+"addr": 1145411676,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG97_STATUS0",
+"addr": 1145411680,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG97_STATUS1",
+"addr": 1145411684,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG97_AUTHEN",
+"addr": 1145411696,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG98_DIRECT",
+"addr": 1145411712,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG98_LPM0",
+"addr": 1145411728,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG98_LPM1",
+"addr": 1145411732,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG98_LPM_CUR",
+"addr": 1145411740,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG98_STATUS0",
+"addr": 1145411744,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG98_STATUS1",
+"addr": 1145411748,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG98_AUTHEN",
+"addr": 1145411760,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG99_DIRECT",
+"addr": 1145411776,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG99_LPM0",
+"addr": 1145411792,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG99_LPM1",
+"addr": 1145411796,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG99_LPM_CUR",
+"addr": 1145411804,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG99_STATUS0",
+"addr": 1145411808,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG99_STATUS1",
+"addr": 1145411812,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG99_AUTHEN",
+"addr": 1145411824,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG100_DIRECT",
+"addr": 1145411840,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG100_LPM0",
+"addr": 1145411856,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG100_LPM1",
+"addr": 1145411860,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG100_LPM_CUR",
+"addr": 1145411868,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG100_STATUS0",
+"addr": 1145411872,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG100_STATUS1",
+"addr": 1145411876,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG100_AUTHEN",
+"addr": 1145411888,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG101_DIRECT",
+"addr": 1145411904,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG101_LPM0",
+"addr": 1145411920,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG101_LPM1",
+"addr": 1145411924,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG101_LPM_CUR",
+"addr": 1145411932,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG101_STATUS0",
+"addr": 1145411936,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG101_STATUS1",
+"addr": 1145411940,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG101_AUTHEN",
+"addr": 1145411952,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG102_DIRECT",
+"addr": 1145411968,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG102_LPM0",
+"addr": 1145411984,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG102_LPM1",
+"addr": 1145411988,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG102_LPM_CUR",
+"addr": 1145411996,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG102_STATUS0",
+"addr": 1145412000,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG102_STATUS1",
+"addr": 1145412004,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG102_AUTHEN",
+"addr": 1145412016,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG103_DIRECT",
+"addr": 1145412032,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG103_LPM0",
+"addr": 1145412048,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG103_LPM1",
+"addr": 1145412052,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG103_LPM_CUR",
+"addr": 1145412060,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG103_STATUS0",
+"addr": 1145412064,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG103_STATUS1",
+"addr": 1145412068,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG103_AUTHEN",
+"addr": 1145412080,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG104_DIRECT",
+"addr": 1145412096,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG104_LPM0",
+"addr": 1145412112,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG104_LPM1",
+"addr": 1145412116,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG104_LPM_CUR",
+"addr": 1145412124,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG104_STATUS0",
+"addr": 1145412128,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG104_STATUS1",
+"addr": 1145412132,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG104_AUTHEN",
+"addr": 1145412144,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG105_DIRECT",
+"addr": 1145412160,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG105_LPM0",
+"addr": 1145412176,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG105_LPM1",
+"addr": 1145412180,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG105_LPM_CUR",
+"addr": 1145412188,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG105_STATUS0",
+"addr": 1145412192,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG105_STATUS1",
+"addr": 1145412196,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG105_AUTHEN",
+"addr": 1145412208,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG106_DIRECT",
+"addr": 1145412224,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG106_LPM0",
+"addr": 1145412240,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG106_LPM1",
+"addr": 1145412244,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG106_LPM_CUR",
+"addr": 1145412252,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG106_STATUS0",
+"addr": 1145412256,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG106_STATUS1",
+"addr": 1145412260,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG106_AUTHEN",
+"addr": 1145412272,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG107_DIRECT",
+"addr": 1145412288,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG107_LPM0",
+"addr": 1145412304,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG107_LPM1",
+"addr": 1145412308,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG107_LPM_CUR",
+"addr": 1145412316,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG107_STATUS0",
+"addr": 1145412320,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG107_STATUS1",
+"addr": 1145412324,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG107_AUTHEN",
+"addr": 1145412336,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG108_DIRECT",
+"addr": 1145412352,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG108_LPM0",
+"addr": 1145412368,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG108_LPM1",
+"addr": 1145412372,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG108_LPM_CUR",
+"addr": 1145412380,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG108_STATUS0",
+"addr": 1145412384,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG108_STATUS1",
+"addr": 1145412388,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG108_AUTHEN",
+"addr": 1145412400,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG109_DIRECT",
+"addr": 1145412416,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG109_LPM0",
+"addr": 1145412432,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG109_LPM1",
+"addr": 1145412436,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG109_LPM_CUR",
+"addr": 1145412444,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG109_STATUS0",
+"addr": 1145412448,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG109_STATUS1",
+"addr": 1145412452,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG109_AUTHEN",
+"addr": 1145412464,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG110_DIRECT",
+"addr": 1145412480,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG110_LPM0",
+"addr": 1145412496,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG110_LPM1",
+"addr": 1145412500,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG110_LPM_CUR",
+"addr": 1145412508,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG110_STATUS0",
+"addr": 1145412512,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG110_STATUS1",
+"addr": 1145412516,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG110_AUTHEN",
+"addr": 1145412528,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG111_DIRECT",
+"addr": 1145412544,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG111_LPM0",
+"addr": 1145412560,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG111_LPM1",
+"addr": 1145412564,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG111_LPM_CUR",
+"addr": 1145412572,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG111_STATUS0",
+"addr": 1145412576,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG111_STATUS1",
+"addr": 1145412580,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG111_AUTHEN",
+"addr": 1145412592,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG112_DIRECT",
+"addr": 1145412608,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG112_LPM0",
+"addr": 1145412624,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG112_LPM1",
+"addr": 1145412628,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG112_LPM_CUR",
+"addr": 1145412636,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG112_STATUS0",
+"addr": 1145412640,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG112_STATUS1",
+"addr": 1145412644,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG112_AUTHEN",
+"addr": 1145412656,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG113_DIRECT",
+"addr": 1145412672,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG113_LPM0",
+"addr": 1145412688,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG113_LPM1",
+"addr": 1145412692,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG113_LPM_CUR",
+"addr": 1145412700,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG113_STATUS0",
+"addr": 1145412704,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG113_STATUS1",
+"addr": 1145412708,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG113_AUTHEN",
+"addr": 1145412720,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG114_DIRECT",
+"addr": 1145412736,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG114_LPM0",
+"addr": 1145412752,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG114_LPM1",
+"addr": 1145412756,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG114_LPM_CUR",
+"addr": 1145412764,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG114_STATUS0",
+"addr": 1145412768,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG114_STATUS1",
+"addr": 1145412772,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG114_AUTHEN",
+"addr": 1145412784,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG115_DIRECT",
+"addr": 1145412800,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG115_LPM0",
+"addr": 1145412816,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG115_LPM1",
+"addr": 1145412820,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG115_LPM_CUR",
+"addr": 1145412828,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG115_STATUS0",
+"addr": 1145412832,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG115_STATUS1",
+"addr": 1145412836,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG115_AUTHEN",
+"addr": 1145412848,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG116_DIRECT",
+"addr": 1145412864,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG116_LPM0",
+"addr": 1145412880,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG116_LPM1",
+"addr": 1145412884,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG116_LPM_CUR",
+"addr": 1145412892,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG116_STATUS0",
+"addr": 1145412896,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG116_STATUS1",
+"addr": 1145412900,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG116_AUTHEN",
+"addr": 1145412912,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG117_DIRECT",
+"addr": 1145412928,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG117_LPM0",
+"addr": 1145412944,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG117_LPM1",
+"addr": 1145412948,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG117_LPM_CUR",
+"addr": 1145412956,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG117_STATUS0",
+"addr": 1145412960,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG117_STATUS1",
+"addr": 1145412964,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG117_AUTHEN",
+"addr": 1145412976,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG118_DIRECT",
+"addr": 1145412992,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG118_LPM0",
+"addr": 1145413008,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG118_LPM1",
+"addr": 1145413012,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG118_LPM_CUR",
+"addr": 1145413020,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG118_STATUS0",
+"addr": 1145413024,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG118_STATUS1",
+"addr": 1145413028,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG118_AUTHEN",
+"addr": 1145413040,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG119_DIRECT",
+"addr": 1145413056,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG119_LPM0",
+"addr": 1145413072,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG119_LPM1",
+"addr": 1145413076,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG119_LPM_CUR",
+"addr": 1145413084,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG119_STATUS0",
+"addr": 1145413088,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG119_STATUS1",
+"addr": 1145413092,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG119_AUTHEN",
+"addr": 1145413104,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG120_DIRECT",
+"addr": 1145413120,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG120_LPM0",
+"addr": 1145413136,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG120_LPM1",
+"addr": 1145413140,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG120_LPM_CUR",
+"addr": 1145413148,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG120_STATUS0",
+"addr": 1145413152,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG120_STATUS1",
+"addr": 1145413156,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG120_AUTHEN",
+"addr": 1145413168,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG121_DIRECT",
+"addr": 1145413184,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG121_LPM0",
+"addr": 1145413200,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG121_LPM1",
+"addr": 1145413204,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG121_LPM_CUR",
+"addr": 1145413212,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG121_STATUS0",
+"addr": 1145413216,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG121_STATUS1",
+"addr": 1145413220,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG121_AUTHEN",
+"addr": 1145413232,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG122_DIRECT",
+"addr": 1145413248,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG122_LPM0",
+"addr": 1145413264,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG122_LPM1",
+"addr": 1145413268,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG122_LPM_CUR",
+"addr": 1145413276,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG122_STATUS0",
+"addr": 1145413280,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG122_STATUS1",
+"addr": 1145413284,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG122_AUTHEN",
+"addr": 1145413296,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG123_DIRECT",
+"addr": 1145413312,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG123_LPM0",
+"addr": 1145413328,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG123_LPM1",
+"addr": 1145413332,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG123_LPM_CUR",
+"addr": 1145413340,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG123_STATUS0",
+"addr": 1145413344,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG123_STATUS1",
+"addr": 1145413348,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG123_AUTHEN",
+"addr": 1145413360,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG124_DIRECT",
+"addr": 1145413376,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG124_LPM0",
+"addr": 1145413392,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG124_LPM1",
+"addr": 1145413396,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG124_LPM_CUR",
+"addr": 1145413404,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG124_STATUS0",
+"addr": 1145413408,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG124_STATUS1",
+"addr": 1145413412,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG124_AUTHEN",
+"addr": 1145413424,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG125_DIRECT",
+"addr": 1145413440,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG125_LPM0",
+"addr": 1145413456,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG125_LPM1",
+"addr": 1145413460,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG125_LPM_CUR",
+"addr": 1145413468,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG125_STATUS0",
+"addr": 1145413472,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG125_STATUS1",
+"addr": 1145413476,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG125_AUTHEN",
+"addr": 1145413488,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG126_DIRECT",
+"addr": 1145413504,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG126_LPM0",
+"addr": 1145413520,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG126_LPM1",
+"addr": 1145413524,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG126_LPM_CUR",
+"addr": 1145413532,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG126_STATUS0",
+"addr": 1145413536,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG126_STATUS1",
+"addr": 1145413540,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG126_AUTHEN",
+"addr": 1145413552,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG127_DIRECT",
+"addr": 1145413568,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG127_LPM0",
+"addr": 1145413584,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG127_LPM1",
+"addr": 1145413588,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG127_LPM_CUR",
+"addr": 1145413596,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG127_STATUS0",
+"addr": 1145413600,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG127_STATUS1",
+"addr": 1145413604,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG127_AUTHEN",
+"addr": 1145413616,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG128_DIRECT",
+"addr": 1145413632,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG128_LPM0",
+"addr": 1145413648,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG128_LPM1",
+"addr": 1145413652,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG128_LPM_CUR",
+"addr": 1145413660,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG128_STATUS0",
+"addr": 1145413664,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG128_STATUS1",
+"addr": 1145413668,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG128_AUTHEN",
+"addr": 1145413680,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG129_DIRECT",
+"addr": 1145413696,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG129_LPM0",
+"addr": 1145413712,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG129_LPM1",
+"addr": 1145413716,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG129_LPM_CUR",
+"addr": 1145413724,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG129_STATUS0",
+"addr": 1145413728,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG129_STATUS1",
+"addr": 1145413732,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG129_AUTHEN",
+"addr": 1145413744,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG130_DIRECT",
+"addr": 1145413760,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG130_LPM0",
+"addr": 1145413776,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG130_LPM1",
+"addr": 1145413780,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG130_LPM_CUR",
+"addr": 1145413788,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG130_STATUS0",
+"addr": 1145413792,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG130_STATUS1",
+"addr": 1145413796,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG130_AUTHEN",
+"addr": 1145413808,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG131_DIRECT",
+"addr": 1145413824,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG131_LPM0",
+"addr": 1145413840,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG131_LPM1",
+"addr": 1145413844,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG131_LPM_CUR",
+"addr": 1145413852,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG131_STATUS0",
+"addr": 1145413856,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG131_STATUS1",
+"addr": 1145413860,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG131_AUTHEN",
+"addr": 1145413872,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG132_DIRECT",
+"addr": 1145413888,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG132_LPM0",
+"addr": 1145413904,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG132_LPM1",
+"addr": 1145413908,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG132_LPM_CUR",
+"addr": 1145413916,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG132_STATUS0",
+"addr": 1145413920,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG132_STATUS1",
+"addr": 1145413924,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG132_AUTHEN",
+"addr": 1145413936,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG133_DIRECT",
+"addr": 1145413952,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG133_LPM0",
+"addr": 1145413968,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG133_LPM1",
+"addr": 1145413972,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG133_LPM_CUR",
+"addr": 1145413980,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG133_STATUS0",
+"addr": 1145413984,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG133_STATUS1",
+"addr": 1145413988,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG133_AUTHEN",
+"addr": 1145414000,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG134_DIRECT",
+"addr": 1145414016,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG134_LPM0",
+"addr": 1145414032,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG134_LPM1",
+"addr": 1145414036,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG134_LPM_CUR",
+"addr": 1145414044,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG134_STATUS0",
+"addr": 1145414048,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG134_STATUS1",
+"addr": 1145414052,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG134_AUTHEN",
+"addr": 1145414064,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG135_DIRECT",
+"addr": 1145414080,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG135_LPM0",
+"addr": 1145414096,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG135_LPM1",
+"addr": 1145414100,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG135_LPM_CUR",
+"addr": 1145414108,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG135_STATUS0",
+"addr": 1145414112,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG135_STATUS1",
+"addr": 1145414116,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG135_AUTHEN",
+"addr": 1145414128,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG136_DIRECT",
+"addr": 1145414144,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG136_LPM0",
+"addr": 1145414160,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG136_LPM1",
+"addr": 1145414164,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG136_LPM_CUR",
+"addr": 1145414172,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG136_STATUS0",
+"addr": 1145414176,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG136_STATUS1",
+"addr": 1145414180,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG136_AUTHEN",
+"addr": 1145414192,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG137_DIRECT",
+"addr": 1145414208,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG137_LPM0",
+"addr": 1145414224,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG137_LPM1",
+"addr": 1145414228,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG137_LPM_CUR",
+"addr": 1145414236,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG137_STATUS0",
+"addr": 1145414240,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG137_STATUS1",
+"addr": 1145414244,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG137_AUTHEN",
+"addr": 1145414256,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG138_DIRECT",
+"addr": 1145414272,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG138_LPM0",
+"addr": 1145414288,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG138_LPM1",
+"addr": 1145414292,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG138_LPM_CUR",
+"addr": 1145414300,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG138_STATUS0",
+"addr": 1145414304,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG138_STATUS1",
+"addr": 1145414308,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG138_AUTHEN",
+"addr": 1145414320,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG139_DIRECT",
+"addr": 1145414336,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG139_LPM0",
+"addr": 1145414352,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG139_LPM1",
+"addr": 1145414356,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG139_LPM_CUR",
+"addr": 1145414364,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG139_STATUS0",
+"addr": 1145414368,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG139_STATUS1",
+"addr": 1145414372,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG139_AUTHEN",
+"addr": 1145414384,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG140_DIRECT",
+"addr": 1145414400,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG140_LPM0",
+"addr": 1145414416,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG140_LPM1",
+"addr": 1145414420,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG140_LPM_CUR",
+"addr": 1145414428,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG140_STATUS0",
+"addr": 1145414432,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG140_STATUS1",
+"addr": 1145414436,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG140_AUTHEN",
+"addr": 1145414448,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG141_DIRECT",
+"addr": 1145414464,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG141_LPM0",
+"addr": 1145414480,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG141_LPM1",
+"addr": 1145414484,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG141_LPM_CUR",
+"addr": 1145414492,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG141_STATUS0",
+"addr": 1145414496,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG141_STATUS1",
+"addr": 1145414500,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG141_AUTHEN",
+"addr": 1145414512,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG142_DIRECT",
+"addr": 1145414528,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG142_LPM0",
+"addr": 1145414544,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG142_LPM1",
+"addr": 1145414548,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG142_LPM_CUR",
+"addr": 1145414556,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG142_STATUS0",
+"addr": 1145414560,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG142_STATUS1",
+"addr": 1145414564,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG142_AUTHEN",
+"addr": 1145414576,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG143_DIRECT",
+"addr": 1145414592,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG143_LPM0",
+"addr": 1145414608,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG143_LPM1",
+"addr": 1145414612,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG143_LPM_CUR",
+"addr": 1145414620,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG143_STATUS0",
+"addr": 1145414624,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG143_STATUS1",
+"addr": 1145414628,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG143_AUTHEN",
+"addr": 1145414640,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG144_DIRECT",
+"addr": 1145414656,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG144_LPM0",
+"addr": 1145414672,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG144_LPM1",
+"addr": 1145414676,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG144_LPM_CUR",
+"addr": 1145414684,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG144_STATUS0",
+"addr": 1145414688,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG144_STATUS1",
+"addr": 1145414692,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG144_AUTHEN",
+"addr": 1145414704,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG145_DIRECT",
+"addr": 1145414720,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG145_LPM0",
+"addr": 1145414736,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG145_LPM1",
+"addr": 1145414740,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG145_LPM_CUR",
+"addr": 1145414748,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG145_STATUS0",
+"addr": 1145414752,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG145_STATUS1",
+"addr": 1145414756,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG145_AUTHEN",
+"addr": 1145414768,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG146_DIRECT",
+"addr": 1145414784,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG146_LPM0",
+"addr": 1145414800,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG146_LPM1",
+"addr": 1145414804,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG146_LPM_CUR",
+"addr": 1145414812,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG146_STATUS0",
+"addr": 1145414816,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG146_STATUS1",
+"addr": 1145414820,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG146_AUTHEN",
+"addr": 1145414832,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG147_DIRECT",
+"addr": 1145414848,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG147_LPM0",
+"addr": 1145414864,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG147_LPM1",
+"addr": 1145414868,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG147_LPM_CUR",
+"addr": 1145414876,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG147_STATUS0",
+"addr": 1145414880,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG147_STATUS1",
+"addr": 1145414884,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG147_AUTHEN",
+"addr": 1145414896,
+"reset": 4294901760
+},
+{
+"inst": "CCM",
+"reg": "LPCG148_DIRECT",
+"addr": 1145414912,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG148_LPM0",
+"addr": 1145414928,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG148_LPM1",
+"addr": 1145414932,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG148_LPM_CUR",
+"addr": 1145414940,
+"reset": 0
+},
+{
+"inst": "CCM",
+"reg": "LPCG148_STATUS0",
+"addr": 1145414944,
+"reset": 1
+},
+{
+"inst": "CCM",
+"reg": "LPCG148_STATUS1",
+"addr": 1145414948,
+"reset": 65535
+},
+{
+"inst": "CCM",
+"reg": "LPCG148_AUTHEN",
+"addr": 1145414960,
 "reset": 4294901760
 },
 {
@@ -10003,6 +20395,12 @@
 },
 {
 "inst": "NETC_IERB",
+"reg": "SBCR",
+"addr": 1619001728,
+"reset": 10
+},
+{
+"inst": "NETC_IERB",
 "reg": "SBOTCR",
 "addr": 1619001732,
 "reset": 0
@@ -10488,6 +20886,54 @@
 "reset": 64
 },
 {
+"inst": "OTFAD1",
+"reg": "CTX0_RGD_W0",
+"addr": 1113459992,
+"reset": 0
+},
+{
+"inst": "OTFAD1",
+"reg": "CTX0_RGD_W1",
+"addr": 1113459996,
+"reset": 1016
+},
+{
+"inst": "OTFAD1",
+"reg": "CTX1_RGD_W0",
+"addr": 1113460056,
+"reset": 0
+},
+{
+"inst": "OTFAD1",
+"reg": "CTX1_RGD_W1",
+"addr": 1113460060,
+"reset": 1016
+},
+{
+"inst": "OTFAD1",
+"reg": "CTX2_RGD_W0",
+"addr": 1113460120,
+"reset": 0
+},
+{
+"inst": "OTFAD1",
+"reg": "CTX2_RGD_W1",
+"addr": 1113460124,
+"reset": 1016
+},
+{
+"inst": "OTFAD1",
+"reg": "CTX3_RGD_W0",
+"addr": 1113460184,
+"reset": 0
+},
+{
+"inst": "OTFAD1",
+"reg": "CTX3_RGD_W1",
+"addr": 1113460188,
+"reset": 1016
+},
+{
 "inst": "OTFAD2",
 "reg": "CR",
 "addr": 1147014144,
@@ -10498,6 +20944,54 @@
 "reg": "SR",
 "addr": 1147014148,
 "reset": 64
+},
+{
+"inst": "OTFAD2",
+"reg": "CTX0_RGD_W0",
+"addr": 1147014424,
+"reset": 0
+},
+{
+"inst": "OTFAD2",
+"reg": "CTX0_RGD_W1",
+"addr": 1147014428,
+"reset": 1016
+},
+{
+"inst": "OTFAD2",
+"reg": "CTX1_RGD_W0",
+"addr": 1147014488,
+"reset": 0
+},
+{
+"inst": "OTFAD2",
+"reg": "CTX1_RGD_W1",
+"addr": 1147014492,
+"reset": 1016
+},
+{
+"inst": "OTFAD2",
+"reg": "CTX2_RGD_W0",
+"addr": 1147014552,
+"reset": 0
+},
+{
+"inst": "OTFAD2",
+"reg": "CTX2_RGD_W1",
+"addr": 1147014556,
+"reset": 1016
+},
+{
+"inst": "OTFAD2",
+"reg": "CTX3_RGD_W0",
+"addr": 1147014616,
+"reset": 0
+},
+{
+"inst": "OTFAD2",
+"reg": "CTX3_RGD_W1",
+"addr": 1147014620,
+"reset": 1016
 },
 {
 "inst": "PDM",
@@ -15529,6 +26023,12 @@
 },
 {
 "inst": "USBNC_OTG1",
+"reg": "CTRL2",
+"addr": 1120403972,
+"reset": 1593835520
+},
+{
+"inst": "USBNC_OTG1",
 "reg": "HSIC_CTRL",
 "addr": 1120403984,
 "reset": 268451972
@@ -15538,6 +26038,12 @@
 "reg": "CTRL1",
 "addr": 1120469504,
 "reset": 805310464
+},
+{
+"inst": "USBNC_OTG2",
+"reg": "CTRL2",
+"addr": 1120469508,
+"reset": 1593835520
 },
 {
 "inst": "USBNC_OTG2",

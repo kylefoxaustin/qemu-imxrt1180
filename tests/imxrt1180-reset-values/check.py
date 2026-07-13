@@ -149,10 +149,22 @@ mismatched = {(r["inst"], r["reg"]): (r, v)
               for r, v in zip(golden, vals) if v != r["reset"]}
 
 new  = [k for k in mismatched if k not in allow]
+
 # An allowlisted register that now agrees with the RM has been FIXED.  Say so, and
 # FAIL, so the line gets deleted.  This is what stops the list from becoming a
 # permanent certificate for 400 wrong answers.
-stale = [k for k in allow if k not in mismatched]
+#
+# BUT: "it agrees with the RM" and "the gate CANNOT SEE IT ANY MORE" are different
+# facts, and the first version of this line conflated them.  `k not in mismatched`
+# is true both for a register that got FIXED and for one that FELL OUT OF THE GOLDEN
+# -- so a coverage regression announced itself as three free victories.  It did
+# exactly that to me tonight, and I only noticed because I diffed the golden.
+#
+#   AN ENTRY THAT VANISHED FROM THE ORACLE IS INDISTINGUISHABLE FROM ONE THAT PASSED,
+#   UNLESS YOU ASK WHETHER IT WAS EVEN LOOKED AT.
+covered = {(r["inst"], r["reg"]) for r in golden}
+stale   = [k for k in allow if k in covered and k not in mismatched]
+uncov   = [k for k in allow if k not in covered]
 
 print("probed %d registers against the RM (golden = the reference manual)" % len(golden))
 print("  matching        : %d" % (len(golden) - len(mismatched)))
@@ -162,12 +174,13 @@ rc = 0
 if new:
     print("\nFAIL: %d register(s) disagree with the RM and are NOT in the allowlist." % len(new))
     print("      The guest reads a value the silicon would never produce.")
-    for inst, reg in sorted(new)[:25]:
+    cap = len(new) if os.environ.get("DUMP_ALL") else 25
+    for inst, reg in sorted(new)[:cap]:
         r, v = mismatched[(inst, reg)]
         print("        %-12s %-18s @0x%08x  model=0x%08x  RM=0x%08x"
               % (inst, reg, r["addr"], v, r["reset"]))
-    if len(new) > 25:
-        print("        ... and %d more" % (len(new) - 25))
+    if len(new) > cap:
+        print("        ... and %d more   (DUMP_ALL=1 to see them all)" % (len(new) - cap))
     rc = EXIT_LIES
 
 if stale:
@@ -175,6 +188,15 @@ if stale:
     print("      Delete them from known-deviations.txt.  An allowlist that never")
     print("      shrinks stops being a to-do list and becomes a CERTIFICATE.")
     for inst, reg in sorted(stale)[:25]:
+        print("        %-12s %s" % (inst, reg))
+    rc = EXIT_LIES
+
+if uncov:
+    print("\nFAIL: %d allowlisted register(s) are NO LONGER COVERED by the golden." % len(uncov))
+    print("      These did not get FIXED -- THE GATE STOPPED LOOKING AT THEM. That is a")
+    print("      coverage REGRESSION, and it is the one failure that would otherwise")
+    print("      read as good news.")
+    for inst, reg in sorted(uncov)[:25]:
         print("        %-12s %s" % (inst, reg))
     rc = EXIT_LIES
 
