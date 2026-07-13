@@ -53,7 +53,15 @@ COVERAGE IS PARTIAL AND SAID SO OUT LOUD: only registers whose RM table row pars
 cleanly AND that CMSIS attributes to exactly one peripheral are probed.  It is a
 FLOOR on the bugs, not a ceiling.
 """
-import json, os, subprocess, sys
+import json, os, subprocess, sys, threading
+
+TIMEOUT = int(os.environ.get("TIMEOUT", "120"))   # hard kill; a wedged QEMU must not park us
+
+# THREE VERDICTS, NOT TWO.  "It failed" and "I could not run" are different facts and
+# must not share an exit code -- that is the whole of ollama_95_neutron's retraction.
+EXIT_PASS        = 0
+EXIT_LIES        = 1     # the model disagrees with the manual: a real finding
+EXIT_CANNOT_TELL = 2     # the gate did not complete: a hang/crash, NOT a verdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 QEMU = os.environ.get("QEMU", os.path.join(HERE, "..", "..", "build", "qemu-system-arm"))
@@ -89,28 +97,53 @@ def probe(regs):
          "-qtest", "stdio", "-monitor", "none", "-serial", "none"],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL, text=True)
+
+    # A HARD DEADLINE, BECAUSE THE SUBJECT CAN WEDGE THE GATE.
+    #
+    # ollama_95_neutron, 2026-07-12: "fail-safe assumes the gate RETURNS. NO VERDICT
+    # AND STILL WORKING ARE THE SAME OBSERVATION." Their conformance probe called the
+    # NPU; a hang-inducing shape did not reach the gate and get REJECTED -- IT WEDGED
+    # THE GATE, which then never got to say no.
+    #
+    # This gate drives QEMU. A model bug that hangs the machine would park this loop
+    # in readline() forever, and the harness would look BUSY, not BROKEN -- indefinite
+    # silence read as "still working". So: a deadline, and a timeout is a DISTINCT
+    # VERDICT, never silence.
+    deadline = threading.Timer(TIMEOUT, p.kill)
+    deadline.start()
+    vals = []
     try:
         p.stdin.write("".join("readl 0x%x\n" % r["addr"] for r in regs))
         p.stdin.flush()
-        vals = []
         while len(vals) < len(regs):
             line = p.stdout.readline()
             if not line:
-                break
+                break                    # killed, or died: the caller counts answers
             if line.startswith("OK 0x"):
                 vals.append(int(line.split()[1], 16))
-        return vals
+    except (BrokenPipeError, OSError):
+        # THE KILL LANDED MID-CONVERSATION. Swallow it and RETURN WHAT WE HAVE, so
+        # the caller can say "I could not tell". The first version of this guard let
+        # the BrokenPipeError escape as a TRACEBACK and exit(1) -- THE SAME EXIT CODE
+        # AS A LEGITIMATE FAIL. Built the wedge guard, gave it the disease it exists
+        # to prevent. (ollama_95_neutron: "an exit-1 CRASH and an exit-1 REFUSAL are
+        # INDISTINGUISHABLE BY EXIT CODE ALONE. Assert the code you MEANT.")
+        pass
     finally:
+        deadline.cancel()
         p.kill()
         p.wait()
+    return vals
 
 
 vals = probe(golden)
 if len(vals) != len(golden):
-    print("FAIL: asked %d questions, got %d answers.  A truncated conversation and a "
-          "correct one differ only in the answers you never notice are missing."
-          % (len(golden), len(vals)))
-    sys.exit(1)
+    print("CANNOT TELL: asked %d questions, got %d answers." % (len(golden), len(vals)))
+    print("      QEMU hung, died, or was killed at the %ds deadline. This is NOT a" % TIMEOUT)
+    print("      pass and it is NOT a reset-value failure -- it is the gate reporting")
+    print("      that IT COULD NOT RUN. A truncated conversation and a correct one")
+    print("      differ only in the answers you never notice are missing.")
+    sys.exit(EXIT_CANNOT_TELL)
 
 mismatched = {(r["inst"], r["reg"]): (r, v)
               for r, v in zip(golden, vals) if v != r["reset"]}
@@ -135,7 +168,7 @@ if new:
               % (inst, reg, r["addr"], v, r["reset"]))
     if len(new) > 25:
         print("        ... and %d more" % (len(new) - 25))
-    rc = 1
+    rc = EXIT_LIES
 
 if stale:
     print("\nFAIL: %d allowlisted register(s) now MATCH the RM -- they are FIXED." % len(stale))
@@ -143,7 +176,7 @@ if stale:
     print("      shrinks stops being a to-do list and becomes a CERTIFICATE.")
     for inst, reg in sorted(stale)[:25]:
         print("        %-12s %s" % (inst, reg))
-    rc = 1
+    rc = EXIT_LIES
 
 if rc == 0:
     print("\nPASS: no new reset-value lies; %d known deviations, all still known."
