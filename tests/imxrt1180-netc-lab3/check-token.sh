@@ -200,6 +200,7 @@ fi
 echo "PASS: the contract and the artifact agree, in BOTH directions."
 echo "      declared + emitted : $PASS_TOKEN"
 echo "                           $CORRUPT_TOKEN"
+echo "                           $BANNER_TOKEN"
 echo "      no undeclared ENET-LAB3 token exists, so no detection reports into the void."
 echo "      the ELF on disk IS the ELF in HEAD -- md5 $have_a"
 echo "      and it WAS BUILT FROM the beacon in this tree -- source md5 $have_s"
