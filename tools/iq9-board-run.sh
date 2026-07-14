@@ -47,7 +47,31 @@ check edma     'PASS|FAIL'     -kernel $T/imxrt1180-edma/dma.elf
 check flexcan  'PASS|FAIL'     -kernel $T/imxrt1180-flexcan/can.elf
 check mu       'PASS|FAIL'     -kernel $T/imxrt1180-mu/m33.elf      -device loader,file=$T/imxrt1180-mu/m7.elf
 check dualcore 'PASS|alive'    -kernel $T/imxrt1180-dualcore/m33.elf -device loader,file=$T/imxrt1180-dualcore/m7.elf
-check sai      'PASS|FAIL'     -kernel $T/imxrt1180-sai/sai.elf
+# SAI IS NO LONGER A CONSOLE-TOKEN TEST, AND IT MUST NOT PRETEND TO BE ONE.
+#
+# The firmware used to print "SAI: PASS - TX init handshake settles" -- a REGISTER
+# HANDSHAKE, while the model discarded every sample. The verdict now lives OUTSIDE the
+# guest: check.py renders the SAI to a wav and compares the samples to the waveform the
+# firmware intended. There is no PASS token to grep, BY DESIGN.
+#
+#   ⭐ THE ORACLE'S WORD IS NOT THE ORACLE. (91emulator)
+#
+# If this file had kept greping 'PASS|FAIL' it would have reported "<no marker>" on the
+# board and blamed the model -- which is precisely how iq9-board-run.sh shipped a stale
+# `-device tmp105` with no bus= this morning. A RUNNER IS PART OF THE ARTIFACT.
+if command -v python3 >/dev/null; then
+    if QEMU="$PWD/$Q" ELF="$T/imxrt1180-sai/sai.elf" python3 "$T/imxrt1180-sai/check.py" >/tmp/sai.$$ 2>&1; then
+        echo "  pass  sai — $(grep -m1 'byte-exact' /tmp/sai.$$ | sed 's/^ *ok *//')"
+        pass=$((pass+1))
+    else
+        echo "  FAIL  sai — $(grep -m1 'FAIL:' /tmp/sai.$$)"
+        fail=$((fail+1))
+    fi
+    rm -f /tmp/sai.$$
+else
+    echo "  FAIL  sai — python3 absent; the SAI verdict CANNOT be rendered (not a skip: nothing was tested)"
+    fail=$((fail+1))
+fi
 check pwm      'PASS|FAIL'     -kernel $T/imxrt1180-pwm/pwm.elf
 check eqdc     'PASS|FAIL'     -kernel $T/imxrt1180-eqdc/eqdc.elf
 check adc      'PASS|FAIL'     -kernel $T/imxrt1180-adc/adc.elf

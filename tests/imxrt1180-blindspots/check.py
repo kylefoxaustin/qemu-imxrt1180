@@ -47,6 +47,38 @@ CASES = [
     ("USBPHY1 CTRL_SET reads base", USBPHY1 + 0x34, 0xC0000000, "an alias reads its BASE"),
     ("USBPHY1 CTRL_CLR reads base", USBPHY1 + 0x38, 0xC0000000, "an alias reads its BASE"),
     ("USBPHY1 CTRL_TOG reads base", USBPHY1 + 0x3C, 0xC0000000, "an alias reads its BASE"),
+
+    # ── SAI PARAM: FOUR INSTANCES, FOUR DIFFERENT VALUES, AND THE GATE CANNOT SEE ANY
+    #
+    # The RM's SAI register table gives PARAM's reset as literally "See section" -- so
+    # extract-rm-golden.py refuses it, CORRECTLY, and the reset-value gate has been
+    # green about this register by NEVER LOOKING AT IT.
+    #
+    #   ⭐ A REFUSAL IS NOT A CHECK.
+    #
+    # The actual values are printed two pages later, per instance. Under that refusal,
+    # the model advertised ONE hand-written constant to all four instances:
+    #
+    #       0x00050302   /* FIFO=32, channels=2 (best-effort) */
+    #
+    # PARAM[11:8] is log2 of the FIFO depth. 0x3 is EIGHT. The comment said 32. SAI1's
+    # silicon has SIXTEEN. Three numbers and no two of them equal -- the same drifted
+    # copy-paste mcxn947qemu found in imx93's SAI. A driver sizing a burst from PARAM
+    # would have overrun a FIFO half the size it was promised.
+    ("SAI1 PARAM", 0x443B0004, 0x00050402,
+     "RM SAI chapter, 'Register reset values': SAI1 0005_0402h. FIFO=2^4=16 words, "
+     "2 datalines. Confirmed by FSL_FEATURE_SAI_FIFO_COUNTn(SAI1)==16 and "
+     "_CHANNEL_COUNTn(SAI1)==2, which the SDK driver is compiled against."),
+    ("SAI2 PARAM", 0x42BB0004, 0x00050501,
+     "RM: SAI2,SAI3 0005_0501h. FIFO=2^5=32, 1 dataline. THE INSTANCES ARE NOT THE "
+     "SAME BLOCK, and PARAM is where they say so."),
+    ("SAI3 PARAM", 0x42BC0004, 0x00050501, "RM: SAI2,SAI3 0005_0501h"),
+    ("SAI4 PARAM", 0x42BD0004, 0x00050504,
+     "RM: SAI4 0005_0504h. FIFO=2^5=32, FOUR datalines -- the model claimed 2."),
+
+    ("SAI1 VERID", 0x443B0000, 0x03010000,
+     "RM SAI register table: VERID reset 0301_0000h. (The model's old value was right, "
+     "but it was labelled 'best-effort' -- so nobody knew it was.)"),
 ]
 
 # And the RELEASE SEQUENCE the driver actually performs must actually work.

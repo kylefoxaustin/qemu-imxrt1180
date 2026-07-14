@@ -224,6 +224,7 @@ static void imxrt1180_add_rdy(IMXRT1180State *s, const char *name, hwaddr base,
 #define CLKROOT_LPTIMER1   12
 #define CLKROOT_TPM2       15
 #define CLKROOT_GPT1       19
+#define CLKROOT_SAI1       65   /* kCLOCK_Root_Sai1 (fsl_clock.h) */
 
 /* LPIT1 (AONMIX 0x442F), LPIT2 (WAKEUPMIX 0x424C), LPIT3 (own root). */
 static const uint32_t lpit_root[IMXRT1180_NUM_LPIT] = {
@@ -778,7 +779,31 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         { 0x42BC0000, 199 },  /* SAI3 */
         { 0x42BD0000, 154 },  /* SAI4 */
     };
+    /*
+     * THE FOUR SAI INSTANCES ARE NOT THE SAME BLOCK, AND PARAM IS WHERE THEY SAY SO.
+     * From the RM (SAI chapter, "Register reset values"), cross-checked against
+     * FSL_FEATURE_SAI_FIFO_COUNTn() / _CHANNEL_COUNTn():
+     *
+     *     SAI1       0005_0402h   FIFO 2^4 = 16 words, 2 datalines
+     *     SAI2,SAI3  0005_0501h   FIFO 2^5 = 32 words, 1 dataline
+     *     SAI4       0005_0504h   FIFO 2^5 = 32 words, 4 datalines
+     *
+     * The model advertised ONE hand-written value -- 0x00050302, an EIGHT-word FIFO --
+     * to all four, under a comment claiming 32.  Every instance was wrong.
+     */
+    static const uint32_t sai_param[IMXRT1180_NUM_SAI] = {
+        0x00050402u, 0x00050501u, 0x00050501u, 0x00050504u,
+    };
     for (int i = 0; i < IMXRT1180_NUM_SAI; i++) {
+        object_property_set_uint(OBJECT(&s->sai[i]), "param",
+                                 sai_param[i], &error_abort);
+        /* A REAL MCLK. The SAI derives its sample rate from this; a hardcoded
+         * 48 kHz would be the fabricated-clock bug this tree has already paid for
+         * six times over. CLOCK_ROOT_SAI1 == 65 (fsl_clock.h). */
+        object_property_set_link(OBJECT(&s->sai[i]), "ccm",
+                                 OBJECT(&s->ccm), &error_abort);
+        object_property_set_uint(OBJECT(&s->sai[i]), "clk-root",
+                                 CLKROOT_SAI1 + i, &error_abort);
         if (!sysbus_realize(SYS_BUS_DEVICE(&s->sai[i]), errp)) {
             return;
         }
