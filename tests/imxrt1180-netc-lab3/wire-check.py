@@ -225,7 +225,47 @@ try:
     if after > before:
         fail("the node reported CORRUPT on traffic that is NOT its protocol:\n        %s"
              % "\n        ".join(said(r"ENET-LAB3 CORRUPT")[before:]))
-    print("  ok  12 IPv6 (0x86DD) + 12 imx91 (0x88B8) frames judged by nobody")
+    print("  ok  12 IPv6 (0x86DD) frames drew no CORRUPT")
+
+    # ⚠ AND THAT ASSERTION ABOVE HAS ROTTED, SO DO NOT LEAN ON IT.
+    #
+    # It was a real test when the node CONDEMNED anything that was not its own ethertype.
+    # But self-arming means an un-armed sender is NEVER condemned -- and IPv6 can never
+    # arm -- so "no CORRUPT on IPv6" is now TRUE BY CONSTRUCTION and CANNOT FAIL. Deleting
+    # the ethertype gate entirely does not make it fire.
+    #
+    #   ⭐ A NEGATIVE TEST ROTS GREEN WHEN THE MODEL IMPROVES UNDER IT. The behaviour that
+    #      made it falsifiable was removed, and the assertion stayed, looking exactly as
+    #      reassuring as the day it caught something.
+    #
+    # So assert the POSITIVE fact instead, which IS falsifiable: the IPv6 was SEEN and
+    # DELIBERATELY IGNORED -- counted as foreign, never routed to a peer slot. Without the
+    # gate, those frames land in the spare slot (and shut imx91 out of it).
+    #
+    #   ⭐ "A NEGATIVE RESULT IS ONLY A RESULT IF THE CONDITION WAS PRESENT. 'We never fired
+    #      on IPv6' and 'there was no IPv6' are the same log." (91emulator)  The foreign
+    #      COUNTER is what tells those two apart, and it is on the PASS line.
+    ipv6_sent = 12
+
+    # ═══ PHASE 2b ═══ imx91 (0x88B8) IS our protocol, and it must be READ.
+    #
+    # 91emulator, 2026-07-14: "Right now NOBODY on that segment checks my body -- not one
+    # node -- and my beacon has never been read by an implementation I did not author."
+    #
+    # We were part of nobody: our gate was `et != PEER_A && et != PEER_B`, so 0x88B8 fell
+    # out before we read byte 14.  Ignoring a peer and VALIDATING a peer are not the same
+    # act, and only one of them is worth anything to the peer.
+    #
+    #   ⭐ VALIDATING A PEER IS NOT THE SAME AS DEPENDING ON ONE.  We do not require imx91
+    #      for PASS (our contract is peers=2) -- but we read its body and we SAY SO.
+    if not said(r"peer 0x88b8 body OK"):
+        fail("the node never validated imx91's beacon (0x88B8).\n"
+             "      12 WELL-FORMED 0x88B8 frames were put on the wire and the node said\n"
+             "      nothing about any of them. A peer set that is two hardcoded constants\n"
+             "      makes every future node a firmware release, and leaves that node with\n"
+             "      no oracle but its own author.")
+    print("  ok  imx91 (0x88B8) body READ and ACCEPTED: %s"
+          % said(r"peer 0x88b8 body OK")[0].strip()[:78])
 
     # ═══ PHASE 3 ═══ an UN-UPGRADED peer must be counted, not condemned.
     #
@@ -264,6 +304,19 @@ try:
     if p[-1].count("VERIFIED") != 2:
         fail("PASS does not report BOTH peers as content-VERIFIED:\n      %s" % p[-1])
     print("  ok  PASS with both peers VERIFIED: %s" % p[-1].strip())
+
+    m = re.search(r"foreign frames ignored: (\d+)", p[-1])
+    if not m:
+        fail("the PASS line does not report a foreign-frame count. Without it, 'we never "
+             "fired on IPv6' and 'there was no IPv6' are the same log.")
+    if int(m.group(1)) < ipv6_sent:
+        fail("the node counted only %s foreign frames; we put %d IPv6 frames on the wire.\n"
+             "      Either it never SAW them, or it saw them and did not recognise them as\n"
+             "      not-our-protocol. Either way it cannot testify that the condition this\n"
+             "      test depends on was ever present -- and 'we never fired on IPv6' and\n"
+             "      'there was no IPv6' are then the same log." % (m.group(1), ipv6_sent))
+    print("  ok  and it SAW the IPv6: %s foreign frames counted and ignored (>= %d sent)"
+          % (m.group(1), ipv6_sent))
 
     # ═══ PHASE 5 ═══ NOW peer A is ARMED.  Garbage from it IS a real corruption.
     #

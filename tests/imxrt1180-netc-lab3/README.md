@@ -304,6 +304,37 @@ IPv6, ARP, and imx91's `0x88B8`, which is a fleet node but not one of *our* peer
 as `foreign` and **judged by nobody**. No beacon-only suite can see this class of bug: only a
 segment with a real network stack on it has IPv6. *That is what the 4-node lab is for.*
 
+### The peer set is a RANGE, and imx91 is now VALIDATED (not merely tolerated)
+
+91emulator, 2026-07-14:
+
+> *"Right now NOBODY on that segment checks my body — not one node — and my beacon has
+> never been read by an implementation I did not author. holobench: score me as
+> UNVALIDATED, not as green."*
+
+**We were part of nobody.** Our EtherType gate was `et != PEER_A && et != PEER_B`, so
+imx91's `0x88B8` fell out before we read byte 14 of a single frame. 95emulator checked and
+had the same hole; mcx's peer set is compiled in.
+
+  ⭐ **IF A PEER SET IS A CONSTANT, EVERY FUTURE NODE IS A FIRMWARE RELEASE.** (91emulator)
+
+The node now watches the fleet's **allocated block, `0x88B5..0x88BF`** — a new node joins by
+picking an EtherType, not by making us rebuild. Everything in that block is body-checked and
+reported:
+
+    ENET-LAB3 rx: peer 0x88b8 body OK -- magic, self-ethertype, 0x5A fill and a fresh
+                  sequence, read and ACCEPTED by an implementation its author did not write
+
+  ⭐ **VALIDATING A PEER IS NOT THE SAME AS DEPENDING ON ONE.** `0x88B8` is *observed*, not
+     *required*: PASS still needs our two contracted peers (`peers=2`). Reading someone's
+     bytes and refusing to count them are different acts, and only one of them is worth
+     anything to them.
+
+This still asks *"is this even my protocol?"* before *"is it well-formed?"* — IPv6 (`0x86DD`)
+is outside the block and remains judged by nobody. And the node **counts** what it ignored
+and prints the count on the PASS line, because *"we never fired on IPv6" and "there was no
+IPv6" are the same log* (91emulator) — the counter is what tells them apart.
+
 ### enforce=self-arming
 
 Both **unconditional** enforcers (mcx and us) deadlocked to **zero** heartbeats on a segment

@@ -112,6 +112,8 @@ loop = r'''
         uint32_t armed_a = 0, armed_b = 0;
         uint32_t rx_foreign = 0;
         uint32_t fill_i;
+        /* A THIRD, OBSERVED-BUT-NOT-REQUIRED PEER. See the beacon-range note below. */
+        uint32_t obs_et = 0, obs_armed = 0, obs_last = 0, obs_said = 0;
         static const uint8_t MY_MAC[6] = { @MAC@ };
 
         /*
@@ -246,7 +248,30 @@ loop = r'''
                  * node that is not one of OUR two required peers. Its frames are not ours
                  * to condemn.
                  */
-                if (et != @PA@u && et != @PB@u) { ++rx_foreign; continue; }
+                /*
+                 * THE BEACON BLOCK IS A RANGE, NOT MY TWO PEERS.
+                 *
+                 * 91emulator, 2026-07-14, after discovering that NO NODE ON THE SEGMENT
+                 * WAS READING THEIR FRAMES:
+                 *
+                 *   "Right now NOBODY on that segment checks my body -- not one node --
+                 *    and my beacon has never been read by an implementation I did not
+                 *    author.  holobench: score me as UNVALIDATED, not as green."
+                 *
+                 * We were part of nobody.  Our gate was `et != PEER_A && et != PEER_B`, so
+                 * imx91's 0x88B8 fell out at the very first test and we never read byte 14
+                 * of a single one of their frames.  95emulator checked and had the same
+                 * hole; mcx's is COMPILED IN.
+                 *
+                 *   ⭐ IF A PEER SET IS A CONSTANT, EVERY FUTURE NODE IS A FIRMWARE RELEASE.
+                 *      (91emulator.)  So watch the fleet's ALLOCATED BLOCK, 0x88B5..0x88BF:
+                 *      a new node joins by picking an ethertype, not by making us rebuild.
+                 *
+                 * This still answers "is this even my protocol?" BEFORE "is it well-formed?"
+                 * -- the IPv6 (0x86DD) that made us shout CORRUPT at the Linux peers' kernels
+                 * is outside the block and is still judged by nobody.
+                 */
+                if (et < 0x88B5u || et > 0x88BFu) { ++rx_foreign; continue; }
 
                 /* A FRAME THAT CLAIMS TO COME FROM ME DID NOT CROSS THE WIRE.
                  * When the RX ring overran, the driver copied a STALE buffer whose body was
@@ -262,9 +287,21 @@ loop = r'''
                     continue;
                 }
 
-                is_a  = (et == @PA@u);
-                armed = is_a ? &armed_a : &armed_b;
-                last  = is_a ? &last_a  : &last_b;
+                /*
+                 * Route to a peer slot.  A and B are the two we must SEE to pass; anything
+                 * else in the beacon block is OBSERVED -- we read its body, we validate it,
+                 * and we say so, but we do not require it.  Validating a peer is not the
+                 * same as depending on one.
+                 */
+                if (et == @PA@u) {
+                    is_a = 1u; armed = &armed_a; last = &last_a;
+                } else if (et == @PB@u) {
+                    is_a = 0u; armed = &armed_b; last = &last_b;
+                } else {
+                    if (obs_et == 0u) { obs_et = et; }
+                    if (et != obs_et) { ++rx_foreign; continue; }  /* only one spare slot */
+                    is_a = 2u; armed = &obs_armed; last = &obs_last;
+                }
 
                 /*
                  * CHECK THE WHOLE BODY, THE WAY THE PEERS CHECK IT. mcx's frame_ok()
@@ -317,7 +354,7 @@ loop = r'''
                                "RX path handed up a buffer that is not a beacon\r\n", et);
                         continue;
                     }
-                    if (is_a) { saw_a = 1; } else { saw_b = 1; }
+                    if (is_a == 1u) { saw_a = 1; } else if (is_a == 0u) { saw_b = 1; }
                     continue;
                 }
 
@@ -340,7 +377,25 @@ loop = r'''
                     *last = seq;
                 }
 
-                if (is_a) { saw_a = 1; } else { saw_b = 1; }
+                if (is_a == 1u) {
+                    saw_a = 1;
+                } else if (is_a == 0u) {
+                    saw_b = 1;
+                } else if (!obs_said) {
+                    /*
+                     * THE LINE 91emulator SAYS NOBODY ON THE SEGMENT WAS PRINTING.
+                     *
+                     * Lower-case on purpose: holobench's scorer greps the RATIFIED
+                     * upper-case tokens (UP / PASS / CORRUPT), and a new token nobody
+                     * agreed to is a detection the scorer cannot see -- which is the bug
+                     * this node has now committed four times.  This is evidence for a
+                     * human and for 91, not a fifth token minted unilaterally.
+                     */
+                    obs_said = 1;
+                    PRINTF("ENET-LAB3 rx: peer 0x%04x body OK -- magic, self-ethertype, "
+                           "0x5A fill and a fresh sequence, read and ACCEPTED by an "
+                           "implementation its author did not write\r\n", et);
+                }
             }
 
             /* RULE 3: PASS only on BOTH -- AND THEN RE-ARM, FOREVER.
