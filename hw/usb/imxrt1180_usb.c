@@ -60,6 +60,32 @@
 #define USB_CAPLENGTH            0x40u
 #define USB_HCIVERSION           0x0100u
 
+/*
+ * ============ TWO REGISTERS DESCRIBING ONE RESOURCE MUST NOT DISAGREE ============
+ *
+ * The endpoint count is reported TWICE by this controller:
+ *   DCCPARAMS[DEN]        (bits 4:0)   -- what USB_DeviceInit sizes its QH list from
+ *   HWDEVICE[DEVEP]       (bits 5:1)   -- the hardware-parameter register
+ *
+ * They were written independently: DCCPARAMS as a hand-typed DEN(8), HWDEVICE as a
+ * value copied from the RM's reset column.  THEY AGREE TODAY, BY LUCK -- nothing made
+ * them.  mcxn947qemu found a FABRICATED USB chip ID in their tree advertising 2
+ * endpoints where the silicon has 8, "WHILE DISAGREEING WITH ITS OWN OTHER REGISTER
+ * ABOUT IT" -- and that disagreement was the tell.
+ *
+ *   ⭐ 91emulator: "TWO REGISTERS DESCRIBING ONE RESOURCE MUST NOT DISAGREE -- EVEN
+ *      WHEN THE GATE BEGS YOU TO FIX ONE."  Fixing one alone ships a chip whose two
+ *      endpoint-count registers contradict each other: greener gate, WORSE MODEL.
+ *
+ * So both are derived from ONE number, and a disagreement is a COMPILE ERROR.
+ */
+#define USB_NUM_ENDPOINTS        8u
+
+#define HWDEVICE_DC              0x00000001u          /* device capable          */
+#define HWDEVICE_DEVEP_SHIFT     1                    /* endpoint count, bits 5:1 */
+#define USB_HWDEVICE_VALUE                                                    \
+    (HWDEVICE_DC | (USB_NUM_ENDPOINTS << HWDEVICE_DEVEP_SHIFT))
+
 static uint64_t imxrt1180_usb_read(void *opaque, hwaddr offset, unsigned size)
 {
     IMXRT1180USBState *s = IMXRT1180_USB(opaque);
@@ -76,8 +102,9 @@ static uint64_t imxrt1180_usb_read(void *opaque, hwaddr offset, unsigned size)
     case USB_DCIVERSION:
         return 0x00000001;
     case USB_DCCPARAMS:
-        /* Device + host capable, 8 device endpoints (i.MX USB-HS). */
-        return DCCPARAMS_HC | DCCPARAMS_DC | DCCPARAMS_DEN(8);
+        /* Device + host capable.  The endpoint count comes from the SAME constant
+         * HWDEVICE reports, so the two cannot drift apart. */
+        return DCCPARAMS_HC | DCCPARAMS_DC | DCCPARAMS_DEN(USB_NUM_ENDPOINTS);
     case USB_USBCMD:
         /* RST is self-clearing: report the reset already complete. */
         return s->regs[offset / 4] & ~USBCMD_RST;
@@ -154,14 +181,47 @@ static const MemoryRegionOps imxrt1180_usb_ops = {
  *   where the silicon has 8 -- "while disagreeing with its own other register about
  *   it."  A capability register that contradicts its sibling is the tell.
  *
- * (This model still does not enumerate -- that is flagged in PERIPHERALS.md and is
- * unchanged.  But what it DOES report about itself is now what the chip reports.)
+ * ============ WHY THIS IS NOT AN OVER-PROMISE -- THE REASON, NOT JUST THE VALUE ============
+ *
+ * 95emulator, 2026-07-14, after reverting exactly this move on their MICFIL:
+ *
+ *   "ON A CAPABILITY REGISTER, MATCHING THE REFERENCE MANUAL IS THE BUG -- UNLESS YOU
+ *    ALSO IMPLEMENT THE CHIP BEHIND IT."
+ *
+ * They set MICFIL PARAM's NUM_HWVAD=1 from the RM while having NO voice-activity
+ * detector at all: a guest that enabled it would wait forever for a detection that
+ * CANNOT COME.  Their previous author had honestly UNDER-reported it, and they
+ * overwrote that correct decision -- because the code recorded the VALUE AND NOT THE
+ * REASON.
+ *
+ *   ⭐ AN UNDER-REPORT AND A FABRICATION LOOK IDENTICAL IN A REGISTER FILE.
+ *      ONLY THE REASON TELLS THEM APART.
+ *
+ * SO HERE IS THE REASON, CHECKED RATHER THAN ASSUMED.  The direction is the SAFE one:
+ *
+ *   * PORTSC1's CCS bit is CLEAR.  The port reports HONESTLY that nothing is plugged
+ *     in -- which is TRUE of this headless target.  A driver polling for a connect is
+ *     not waiting for an event that cannot come; it is correctly observing an empty
+ *     port.  That is the difference from the HWVAD case, and it is the whole difference.
+ *   * The capabilities describe what the SILICON has.  The MODEL under-delivers (no
+ *     transfer engine, so no endpoint completion is ever raised) -- and that gap is
+ *     DECLARED, both here and in PERIPHERALS.md, not smuggled.
+ *
+ *   ⭐ STRICT IN EMULATION, CORRECT ON SILICON.  A guest sized against these numbers
+ *      gets no data path HERE (loudly), and a REAL controller on hardware.  The unsafe
+ *      direction is the other one: promising a capability the CHIP does not have, which
+ *      works here and fails on the board.  (91emulator / mcxn947qemu)
+ *
+ * IF YOU ARE ABOUT TO "FIX" THESE BACK TO ZERO: zero is not neutral either.  It says
+ * "no ports, no endpoints, no buffers" from a controller whose registers plainly exist,
+ * and it is a lie about the chip.  Change them only if you can name a guest that WAITS
+ * FOREVER because of them -- and if you find one, record THAT reason here.
  */
 static const struct { hwaddr off; uint32_t val; } usb_por[] = {
     { 0x000, 0xE4A1FA05 },   /* ID          -- the controller's own identity      */
     { 0x004, 0x00000015 },   /* HWGENERAL                                          */
     { 0x008, 0x10020001 },   /* HWHOST                                             */
-    { 0x00C, 0x00000011 },   /* HWDEVICE    -- endpoint count lives here           */
+    { 0x00C, USB_HWDEVICE_VALUE },  /* HWDEVICE -- SAME endpoint count as DCCPARAMS */
     { 0x010, 0x80080B08 },   /* HWTXBUF                                            */
     { 0x014, 0x00000808 },   /* HWRXBUF                                            */
     { 0x090, 0x00000002 },   /* SBUSCFG                                            */
@@ -180,6 +240,12 @@ static const struct { hwaddr off; uint32_t val; } usb_por[] = {
 static void imxrt1180_usb_reset(DeviceState *dev)
 {
     IMXRT1180USBState *s = IMXRT1180_USB(dev);
+
+    /* The RM's HWDEVICE reset value IS 0x11 -- DC | 8 endpoints.  If USB_NUM_ENDPOINTS
+     * is ever changed, this fails the build rather than silently disagreeing with the
+     * manual (and with DCCPARAMS). */
+    QEMU_BUILD_BUG_ON(USB_HWDEVICE_VALUE != 0x00000011u);
+    QEMU_BUILD_BUG_ON(DCCPARAMS_DEN(USB_NUM_ENDPOINTS) != USB_NUM_ENDPOINTS);
 
     memset(s->regs, 0, sizeof(s->regs));
     for (size_t i = 0; i < ARRAY_SIZE(usb_por); i++) {
