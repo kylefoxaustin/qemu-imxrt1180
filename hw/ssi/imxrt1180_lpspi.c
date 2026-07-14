@@ -66,16 +66,17 @@
     ((d) == 1 ? 0 : (d) == 2 ? 1 : (d) == 4 ? 2 : (d) == 8 ? 3 :              \
      (d) == 16 ? 4 : (d) == 32 ? 5 : (d) == 64 ? 6 : -1)
 
-/*
- * PARAM: PCSNUM in bits 23:16, RXFIFO in 15:8, TXFIFO in 7:0 (FIFOs as exponents).
- * RX is a real IMXRT1180_LPSPI_FIFO-deep FIFO; TX is synchronous (a write shifts the
- * word out immediately via ssi_transfer), so the TX figure is an under-promise.
- */
+/* FSL_FEATURE_LPSPI_FIFO_SIZEn(x) == 16 on the MIMXRT1189 -- the SILICON's depth, which
+ * is what a guest sizes itself against.  See the note in imxrt1180_lpi2c.c: the model's
+ * own depth may be LARGER, and the invariant is model >= advertised. */
+#define LPSPI_SILICON_FIFO  16
+
+/* PARAM: PCSNUM in bits 23:16, RXFIFO in 15:8, TXFIFO in 7:0 (FIFOs as exponents). */
 #define LPSPI_PCSNUM        4u
 #define LPSPI_PARAM_VALUE                                                     \
     ((LPSPI_PCSNUM << 16) |                                                   \
-     ((uint32_t)FIFO_EXP(IMXRT1180_LPSPI_FIFO) << 8) |                        \
-      (uint32_t)FIFO_EXP(IMXRT1180_LPSPI_FIFO))
+     ((uint32_t)FIFO_EXP(LPSPI_SILICON_FIFO) << 8) |                          \
+      (uint32_t)FIFO_EXP(LPSPI_SILICON_FIFO))
 
 #define SR_TDF 0x1
 #define SR_RDF 0x2
@@ -325,7 +326,10 @@ static void imxrt1180_lpspi_realize(DeviceState *dev, Error **errp)
     {
         g_autofree char *bname = g_strdup_printf(
             "%s-bus", object_get_canonical_path_component(OBJECT(dev)));
-        s->bus = ssi_create_bus(dev, bname);
+            QEMU_BUILD_BUG_ON(FIFO_EXP(LPSPI_SILICON_FIFO) < 0);
+        /* deliver at least what we advertise -- over-delivering is safe. */
+        QEMU_BUILD_BUG_ON(IMXRT1180_LPSPI_FIFO < LPSPI_SILICON_FIFO);
+    s->bus = ssi_create_bus(dev, bname);
     }
     s->cs_active = -1;
 }

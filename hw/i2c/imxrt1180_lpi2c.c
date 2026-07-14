@@ -81,14 +81,49 @@
     ((d) == 1 ? 0 : (d) == 2 ? 1 : (d) == 4 ? 2 : (d) == 8 ? 3 :              \
      (d) == 16 ? 4 : (d) == 32 ? 5 : (d) == 64 ? 6 : -1)
 
+
 /*
- * PARAM: MRXFIFO in bits 15:8, MTXFIFO in bits 7:0, as exponents.
- * RX is a real IMXRT1180_LPI2C_FIFO-deep FIFO; TX is synchronous (MSR.TDF is always
- * set -- the transmit FIFO genuinely never fills), so the TX figure is an under-promise.
+ * ====== THE CAPABILITY DESCRIBES THE *SILICON*, NOT THIS MODEL. ======
+ *
+ * I got this backwards an hour ago.  mcxn947qemu's rule -- "a capability computed FROM
+ * the thing it describes cannot drift from it" -- is right, and I tied PARAM to THE
+ * MODEL'S FIFO DEPTH.  But PARAM does not describe the model.  IT DESCRIBES THE CHIP.
+ *
+ * 93emulator, 2026-07-14, on the identical register:
+ *   "LPI2C PARAM returned 0x0404 -- 2^4 = 16-deep FIFOs.  The RM says 0x0303: EIGHT.
+ *    And i2c-imx-lpi2c derives BOTH its watermark (MFCR = txfifosize >> 1) AND its read
+ *    chunking (rxfifosize >> 1) from that field -- so I was sizing the driver to a FIFO
+ *    TWICE THE SIZE OF THE SILICON'S.  It works here and MIS-SIZES THE DRIVER ON
+ *    HARDWARE."
+ *
+ * The RT1180's SDK is compiled against FSL_FEATURE_LPI2C_FIFO_SIZEn(x) == 8.  We were
+ * advertising 16.  Same bug, same register, different chip.
+ *
+ * So there are TWO numbers and they are not the same number:
+ *
+ *   SILICON depth  -- what PARAM must report.  The guest sizes itself against this, and
+ *                     it must be right ON HARDWARE, not just here.
+ *   MODEL depth    -- what we actually hold.  It may be LARGER (this model over-delivers
+ *                     deliberately; the header has always said ">= real").
+ *
+ *   ⭐ THE INVARIANT IS  model >= advertised,  NOT  model == advertised.
+ *      Over-delivering is safe: a guest sized against the silicon's 8 always fits in our
+ *      16, HERE AND ON THE BOARD.  Advertising more than the silicon has is the unsafe
+ *      direction, and it fails only on hardware -- where nobody is watching.
+ *      (95emulator: "under-reporting is the only direction that is safe in BOTH worlds.")
+ *
+ * QEMU_BUILD_BUG_ON enforces it.  Negative-tested: advertise more than we hold -> build
+ * fails.
  */
+
+/* FSL_FEATURE_LPI2C_FIFO_SIZEn(x) == 8 on the MIMXRT1189.  The guest is COMPILED
+ * against this, and i2c-imx-lpi2c derives its watermark and read chunking from it. */
+#define LPI2C_SILICON_FIFO   8
+
+/* PARAM: MRXFIFO in bits 15:8, MTXFIFO in bits 7:0, as exponents. */
 #define LPI2C_PARAM_VALUE                                                     \
-    (((uint32_t)FIFO_EXP(IMXRT1180_LPI2C_FIFO) << 8) |                        \
-      (uint32_t)FIFO_EXP(IMXRT1180_LPI2C_FIFO))
+    (((uint32_t)FIFO_EXP(LPI2C_SILICON_FIFO) << 8) |                          \
+      (uint32_t)FIFO_EXP(LPI2C_SILICON_FIFO))
 
 #define MRDR_RXEMPTY 0x4000
 
@@ -346,7 +381,10 @@ static void imxrt1180_lpi2c_realize(DeviceState *dev, Error **errp)
     {
         g_autofree char *bname = g_strdup_printf(
             "%s-bus", object_get_canonical_path_component(OBJECT(dev)));
-        s->bus = i2c_init_bus(dev, bname);
+            QEMU_BUILD_BUG_ON(FIFO_EXP(LPI2C_SILICON_FIFO) < 0);
+        /* deliver at least what we advertise -- over-delivering is safe. */
+        QEMU_BUILD_BUG_ON(IMXRT1180_LPI2C_FIFO < LPI2C_SILICON_FIFO);
+    s->bus = i2c_init_bus(dev, bname);
     }
 }
 

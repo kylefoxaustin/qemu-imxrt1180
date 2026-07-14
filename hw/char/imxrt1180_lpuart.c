@@ -102,9 +102,14 @@
  * capability register; over-reporting is a promise the emulator makes on the chip's
  * behalf.  (91emulator)
  */
+/* FSL_FEATURE_LPUART_FIFO_SIZEn(x) == 16 -- the SILICON's depth.  See the note in
+ * imxrt1180_lpi2c.c: PARAM describes the CHIP, not this model, and the invariant is
+ * model >= advertised. */
+#define LPUART_SILICON_FIFO  16
+
 #define LPUART_PARAM_VALUE                                                    \
-    (((uint32_t)FIFO_EXP(IMXRT1180_LPUART_RXFIFO) << 8) |                     \
-      (uint32_t)FIFO_EXP(IMXRT1180_LPUART_RXFIFO))
+    (((uint32_t)FIFO_EXP(LPUART_SILICON_FIFO) << 8) |                         \
+      (uint32_t)FIFO_EXP(LPUART_SILICON_FIFO))
 
 /* BAUD DMA-enable bits — PERI_LPUART.h (RT1180): TDMAE=23, RDMAE=21. */
 #define BAUD_RDMAE  0x00200000u
@@ -453,7 +458,10 @@ static void imxrt1180_lpuart_realize(DeviceState *dev, Error **errp)
     IMXRT1180LPUARTState *s = IMXRT1180_LPUART(dev);
     SysBusDevice *sbd = SYS_BUS_DEVICE(dev);
 
-    QEMU_BUILD_BUG_ON(FIFO_EXP(IMXRT1180_LPUART_RXFIFO) < 0);
+    /* We must DELIVER at least what we ADVERTISE.  Over-delivering is safe; advertising
+     * more than the silicon has fails only on hardware, where nobody is watching. */
+    QEMU_BUILD_BUG_ON(FIFO_EXP(LPUART_SILICON_FIFO) < 0);
+    QEMU_BUILD_BUG_ON(IMXRT1180_LPUART_RXFIFO < LPUART_SILICON_FIFO);
 
     memory_region_init_io(&s->iomem, OBJECT(s), &imxrt1180_lpuart_ops, s,
                           TYPE_IMXRT1180_LPUART, 0x1000);
