@@ -111,6 +111,7 @@ loop = r'''
         uint32_t tx_seq = 0, last_a = 0, last_b = 0;
         uint32_t armed_a = 0, armed_b = 0;
         uint32_t rx_foreign = 0;
+        uint32_t fill_i;
         static const uint8_t MY_MAC[6] = { @MAC@ };
 
         /*
@@ -159,6 +160,33 @@ loop = r'''
             g_txFrame[16] = 0xB7U;  g_txFrame[17] = 0xC0U;
 
             /*
+             * ⭐ AND THE MAGIC IS ONLY ONE FIELD OF FOUR. I FIXED THE MAGIC AND INVENTED
+             *    THE REST, AND MY OWN "INDEPENDENT" TEST AGREED WITH ME BECAUSE I WROTE IT.
+             *
+             * The body is not "a magic and then whatever". Read out of the implementation
+             * that demonstrably interoperates -- mcxn947qemu/tests/mcxn-enet-lab3/main.c,
+             * frame_ok() -- it is:
+             *
+             *     [14..17]  magic 0xB5B6B7C0, big-endian
+             *     [18..19]  SELF-ETHERTYPE -- must equal [12..13], or the frame
+             *               CONTRADICTS ITSELF and is rejected (BAD_SELF_ET)
+             *     [20..23]  monotonic seq, big-endian
+             *     [24..63]  fill 0x5A, every byte      (BAD_PATTERN)
+             *     FRAME_LEN 64 exactly
+             *
+             * We had seq at [18..21] -- so our seq's high bytes landed in mcx's
+             * SELF-ETHERTYPE field and never matched; and we shipped a 1000-byte frame of
+             * SDK junk where [24..63] had to be 0x5A. THREE of the four fields were wrong.
+             * mcx would have rejected every frame we sent even with the magic corrected.
+             *
+             * ⭐ I READ "MAGIC = 0xB5B6B7C0 AT [14..17]" OUT OF A BUS MESSAGE AND CALLED IT
+             *    THE SPEC. A PROSE SUMMARY OF A CONTRACT IS NOT THE CONTRACT. The peers'
+             *    SOURCE is; it is on this disk; and it costs one grep.
+             */
+            g_txFrame[18] = (uint8_t)(@ME@u >> 8);      /* self-ethertype: [18..19] == [12..13] */
+            g_txFrame[19] = (uint8_t)(@ME@u & 0xFFu);
+
+            /*
              * A MONOTONIC SEQUENCE. A checksum cannot see a REPLAY: when the RX path drops
              * a frame it leaves the descriptor pointing at a STALE BUFFER -- a previously
              * VALID frame, with a perfectly valid checksum. The corruption is not a mangled
@@ -166,10 +194,14 @@ loop = r'''
              * frames jump FORWARD, which is honest. Assert it strictly increases, per peer.
              */
             ++tx_seq;
-            g_txFrame[18] = (uint8_t)(tx_seq >> 24);
-            g_txFrame[19] = (uint8_t)(tx_seq >> 16);
-            g_txFrame[20] = (uint8_t)(tx_seq >> 8);
-            g_txFrame[21] = (uint8_t)(tx_seq);
+            g_txFrame[20] = (uint8_t)(tx_seq >> 24);
+            g_txFrame[21] = (uint8_t)(tx_seq >> 16);
+            g_txFrame[22] = (uint8_t)(tx_seq >> 8);
+            g_txFrame[23] = (uint8_t)(tx_seq);
+
+            /* [24..63] = 0x5A, every byte. The SDK example fills its 1000-byte frame with
+             * `count % 0xFF` -- which is a perfectly valid stream of the WRONG BYTES. */
+            for (fill_i = 24U; fill_i < 64U; fill_i++) { g_txFrame[fill_i] = 0x5AU; }
 
             txOver = false;
             if (EP_SendFrame(&g_ep_handle, 0, &txFrame, NULL, NULL) == kStatus_Success)
@@ -234,8 +266,30 @@ loop = r'''
                 armed = is_a ? &armed_a : &armed_b;
                 last  = is_a ? &last_a  : &last_b;
 
-                good = (g_rxFrame[14] == 0xB5U && g_rxFrame[15] == 0xB6U &&
+                /*
+                 * CHECK THE WHOLE BODY, THE WAY THE PEERS CHECK IT. mcx's frame_ok()
+                 * rejects BAD_MAGIC, BAD_SELF_ET, BAD_PATTERN and BAD_REPLAY -- and a
+                 * receiver that only checks the magic will happily count a frame that
+                 * every other node on the segment is throwing away.
+                 */
+                good = (length >= 64u &&
+                        g_rxFrame[14] == 0xB5U && g_rxFrame[15] == 0xB6U &&
                         g_rxFrame[16] == 0xB7U && g_rxFrame[17] == 0xC0U);
+
+                /* THE FRAME MUST NOT CONTRADICT ITSELF: [18..19] declares its own
+                 * ethertype, and it must agree with [12..13]. */
+                if (good && ((((uint16_t)g_rxFrame[18] << 8) | g_rxFrame[19]) != et))
+                {
+                    good = 0u;
+                }
+
+                if (good)
+                {
+                    for (fill_i = 24U; fill_i < 64U; fill_i++)
+                    {
+                        if (g_rxFrame[fill_i] != 0x5AU) { good = 0u; break; }
+                    }
+                }
 
                 if (!good)
                 {
@@ -270,10 +324,10 @@ loop = r'''
                 *armed = 1;
 
                 {
-                    uint32_t seq = ((uint32_t)g_rxFrame[18] << 24) |
-                                   ((uint32_t)g_rxFrame[19] << 16) |
-                                   ((uint32_t)g_rxFrame[20] << 8)  |
-                                    (uint32_t)g_rxFrame[21];
+                    uint32_t seq = ((uint32_t)g_rxFrame[20] << 24) |
+                                   ((uint32_t)g_rxFrame[21] << 16) |
+                                   ((uint32_t)g_rxFrame[22] << 8)  |
+                                    (uint32_t)g_rxFrame[23];
 
                     if (*last != 0u && seq <= *last)
                     {
@@ -324,6 +378,12 @@ loop = (loop.replace("@MAC@", ", ".join("0x%02X" % b for b in mac))
             .replace("@PA@",  "0x%04X" % pa)
             .replace("@PB@",  "0x%04X" % pb))
 t = t[:start] + loop + t[end:]
+
+# FRAME_LEN 64. The SDK example ships a 1000-byte frame; the fleet's beacon is 64 bytes
+# EXACTLY, and mcx validates [24..63] and nothing beyond. A 1000-byte frame carrying a
+# correct 64-byte prefix is still not the frame the contract describes.
+t = t.replace("netc_buffer_struct_t txBuff      = {.buffer = &g_txFrame, .length = sizeof(g_txFrame)};",
+              "netc_buffer_struct_t txBuff      = {.buffer = &g_txFrame, .length = 64U}; /* lab3: FRAME_LEN */")
 open(src, "w").write(t)
 
 # frames must go to the WIRE, not U-turn in the PHY

@@ -189,9 +189,35 @@ with a *perfectly valid* checksum. The corruption is not a mangled frame. **It i
 OLD one, delivered again.** (This is why our first attempt — checking the source MAC —
 was wrong, and had to be retracted.)
 
-⇒ **A MONOTONIC SEQUENCE NUMBER.** Every beacon carries the fleet's agreed magic
-**`0xB5B6B7C0` at `frame[14..17]`, big-endian** + a per-sender counter at `[18..21]` that
-increments on every TX. The receiver asserts it **strictly increases, per peer**:
+## The agreed body — ALL FOUR FIELDS
+
+Read from **`mcxn947qemu/tests/mcxn-enet-lab3/main.c :: frame_ok()`** — the implementation
+that demonstrably interoperates — **not from a description of it**:
+
+| bytes | field | rejected as |
+|---|---|---|
+| `[14..17]` | magic `0xB5B6B7C0`, big-endian | `BAD_MAGIC` |
+| `[18..19]` | **self-ethertype** — must equal `[12..13]`, or the frame **contradicts itself** | `BAD_SELF_ET` |
+| `[20..23]` | monotonic sequence, big-endian | `BAD_REPLAY` |
+| `[24..63]` | fill `0x5A`, **every byte** | `BAD_PATTERN` |
+| | **`FRAME_LEN` = 64 exactly** | |
+
+⚠ **We fixed the MAGIC and invented the other three**, then announced the node as fixed.
+Seq sat at `[18..21]` — so its high bytes landed in mcx's **self-ethertype** field and never
+matched — and we shipped the SDK example's **1000-byte frame of `count % 0xFF` junk** where
+`[24..63]` had to be `0x5A`. **Three of four fields wrong. mcx would have rejected every
+frame we sent, even with the magic corrected.**
+
+And the test we had just written to prove interoperability *passed*, because we had taken
+`"magic = 0xB5B6B7C0 at [14..17]"` out of a bus message, called it the spec, and derived the
+rest of the layout **from our own firmware**.
+
+  ⭐ **A PROSE SUMMARY OF A CONTRACT IS NOT THE CONTRACT.** The peers' **source** is — it was
+     on the same disk the whole time, one `grep` away. *Writing an "independent" checker is
+     worth nothing if you derive its beliefs from the thing under test.*
+
+⇒ **A MONOTONIC SEQUENCE NUMBER**, at `[20..23]`, incremented on every TX. The receiver
+asserts it **strictly increases, per peer**:
 
 - a **stale buffer REPLAYS** an old seq → it goes **backwards** → caught.
 - a **dropped** frame makes it jump **forwards** → fine, and honest.

@@ -42,8 +42,32 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 QEMU = os.environ.get("QEMU", os.path.join(HERE, "../../build/qemu-system-arm"))
 ELF = os.environ.get("ELF", os.path.join(HERE, "netc-lab3-0x88B6.elf"))
 
-# ── THE CONTRACT.  Written from the fleet agreement, not from our source. ──────
+# ── THE CONTRACT — TRANSCRIBED FROM A PEER'S SOURCE, NOT FROM A DESCRIPTION OF IT ──
+#
+#   mcxn947qemu/tests/mcxn-enet-lab3/main.c :: frame_ok()      (it interoperates; we did not)
+#
+#     [14..17]  magic 0xB5B6B7C0, big-endian                       -> BAD_MAGIC
+#     [18..19]  SELF-ETHERTYPE — must equal [12..13], or the
+#               frame CONTRADICTS ITSELF                           -> BAD_SELF_ET
+#     [20..23]  monotonic sequence, big-endian                     -> BAD_REPLAY
+#     [24..63]  fill 0x5A, EVERY byte                              -> BAD_PATTERN
+#     FRAME_LEN 64 exactly
+#
+# ⚠ THE FIRST VERSION OF THIS FILE ENCODED ONLY THE MAGIC, AND PUT SEQ AT [18..21].
+#   I took "magic = 0xB5B6B7C0 at [14..17]" out of a bus message, called it the spec, and
+#   invented the other three fields to match our firmware.  The test passed.  It could not
+#   have done anything else: I WROTE BOTH SIDES OF THE DISAGREEMENT.
+#
+#     ⭐ A PROSE SUMMARY OF A CONTRACT IS NOT THE CONTRACT.  The peers' SOURCE is — and it
+#        was on this disk the whole time, one grep away.
+#
+#   Three of four fields were wrong.  mcx would have rejected every frame we sent EVEN WITH
+#   THE MAGIC CORRECTED — our seq's high bytes landed in its SELF-ETHERTYPE field, and we
+#   shipped 1000 bytes of SDK junk where [24..63] had to be 0x5A.  "Writing an independent
+#   checker" is worth nothing if you derive its beliefs from the thing under test.
+FRAME_LEN = 64
 MAGIC = bytes([0xB5, 0xB6, 0xB7, 0xC0])  # at frame[14..17], big-endian
+FILL = 0x5A                              # at frame[24..63], every byte
 ET_ME = 0x88B6  # rt1180  (the node under test)
 ET_A = 0x88B5  # mcxn947 (peer A)
 ET_B = 0x88B7  # imx95   (peer B)
@@ -60,13 +84,34 @@ GROUP = "230.0.0.%d" % random.randint(20, 219)
 PORT = random.randint(20000, 39000)
 
 
-def frame(src, et, body=b"", pad_to=60):
+def frame(src, et, body=b"", fill=0x00):
+    """A raw frame: [0..5] dst, [6..11] src, [12..13] et, then <body>, padded to 64."""
     f = BCAST + src + struct.pack(">H", et) + body
-    return f + b"\x00" * max(0, pad_to - len(f))
+    return f + bytes([fill]) * max(0, FRAME_LEN - len(f))
 
 
-def beacon(src, et, seq, magic=MAGIC):
-    return frame(src, et, magic + struct.pack(">I", seq))
+def beacon(src, et, seq, magic=MAGIC, self_et=None):
+    """A WELL-FORMED beacon, built to mcx's frame_ok() -- all four fields."""
+    body = magic + struct.pack(">H", et if self_et is None else self_et) \
+                 + struct.pack(">I", seq)
+    return frame(src, et, body, fill=FILL)
+
+
+def check_beacon(f, et):
+    """mcx's frame_ok(), transcribed. Returns None if good, else the reason it rejects."""
+    if len(f) != FRAME_LEN:
+        return "FRAME_LEN is %d, the contract says %d" % (len(f), FRAME_LEN)
+    if f[14:18] != MAGIC:
+        return "BAD_MAGIC: [14..17] = %s, want %s" % (f[14:18].hex(), MAGIC.hex())
+    self_et = struct.unpack(">H", f[18:20])[0]
+    if self_et != et:
+        return ("BAD_SELF_ET: [18..19] declares 0x%04x but [12..13] says 0x%04x "
+                "-- the frame contradicts itself" % (self_et, et))
+    bad = [i for i in range(24, FRAME_LEN) if f[i] != FILL]
+    if bad:
+        return ("BAD_PATTERN: [24..63] must be 0x5A fill; byte %d is 0x%02x"
+                % (bad[0], f[bad[0]]))
+    return None
 
 
 def fail(msg):
@@ -136,29 +181,30 @@ try:
         if d[6:12] != MY_MAC:
             continue
         seen.append(d)
-        seqs.append(struct.unpack(">I", d[18:22])[0])
+        seqs.append(struct.unpack(">I", d[20:24])[0])
     pump_console()
 
     if not seen:
         fail("the node never transmitted a 0x88B6 frame at all "
              "(is the beacon running? is the wire up?)")
 
-    bad = [f for f in seen if f[14:18] != MAGIC]
-    if bad:
-        got = bad[0][14:18]
-        fail("THE MAGIC ON THE WIRE IS NOT THE AGREED MAGIC.\n"
-             "      frame[14..17] = %s (%r)\n"
-             "      expected      = %s  (0xB5B6B7C0)\n\n"
-             "      This is the bug holobench's interop matrix found: a magic the fleet\n"
-             "      did not agree on is a peer the node cannot hear. mcx and imx91 both\n"
-             "      emit 0xB5B6B7C0 and interoperate; a node that does not is alone on a\n"
+    # EVERY field, judged by mcx's own checker. Not "does it look like ours" --
+    # "WOULD THE NODE THAT REJECTED US 327,704 TIMES ACCEPT THIS FRAME?"
+    why = check_beacon(seen[0], ET_ME)
+    if why:
+        fail("mcx's frame_ok() WOULD REJECT THE FRAMES WE PUT ON THE WIRE.\n"
+             "      %s\n\n"
+             "      frame (%d B): %s\n\n"
+             "      This is the assertion holobench's interop matrix was making from the\n"
+             "      outside. A node that emits a body its peers throw away is alone on a\n"
              "      wire it appears to be sharing."
-             % (got.hex(), bytes(got), MAGIC.hex()))
+             % (why, len(seen[0]), seen[0].hex(" ")))
 
     if seqs != sorted(seqs) or len(set(seqs)) != len(seqs):
         fail("the node's own sequence numbers are not strictly increasing: %s" % seqs)
-    print("  ok  wire: %d frames, magic=0xB5B6B7C0, seq strictly increases %s"
-          % (len(seen), seqs[:4]))
+    print("  ok  wire: %d frames ACCEPTED by mcx's frame_ok() -- magic, self-et, "
+          "0x5A fill, len=64" % len(seen))
+    print("      seq at [20..23] strictly increases %s" % seqs[:4])
 
     # ═══ PHASE 2 ═══ IPv6 on the segment MUST NOT be judged.
     #
@@ -171,7 +217,7 @@ try:
     before = len(said(r"ENET-LAB3 CORRUPT"))
     for i in range(12):
         send(frame(MAC_B, ET_IP6, bytes([0x60, 0, 0, 0]) + os.urandom(40)))
-        send(frame(MAC_91, ET_91, MAGIC + struct.pack(">I", i + 1)))  # a fleet node, not our peer
+        send(beacon(MAC_91, ET_91, i + 1))   # a WELL-FORMED fleet node, but not one of our peers
         time.sleep(0.02)
     time.sleep(1.5)
     pump_console()
@@ -188,7 +234,7 @@ try:
     #   ⭐ A RED YOU CANNOT TRUST IS WORSE THAN NO RED.  (holobench)
     before = len(said(r"ENET-LAB3 CORRUPT"))
     for i in range(10):
-        send(frame(MAC_A, ET_A, b"IMX9" + struct.pack(">I", i + 1)))   # 95's ASCII body
+        send(frame(MAC_A, ET_A, b"IMX9" + struct.pack(">I", i + 1)))   # 95's old ASCII body
         time.sleep(0.02)
     time.sleep(1.0)
     pump_console()
@@ -235,6 +281,31 @@ try:
         fail("an ARMED peer sent a body-less frame and the node said NOTHING.\n"
              "      The corruption detector is decoration: it cannot fire.")
     print("  ok  ARMED peer sending garbage -> CORRUPT fires: %s" % hits[0].strip())
+
+    # ═══ PHASE 5b ═══ the RX side must enforce the WHOLE body, not just the magic.
+    #
+    # A receiver that checks only the magic will happily COUNT a frame that every other
+    # node on the segment is THROWING AWAY -- and then report a peer sighting nobody else
+    # agrees happened.  mcx rejects BAD_SELF_ET and BAD_PATTERN; so must we.
+    # (Peer A is ARMED by now, so a malformed frame from it is a real corruption.)
+    for label, f in [
+        ("self-et contradicts the header",
+         beacon(MAC_A, ET_A, seq + 50, self_et=0x9999)),
+        ("0x5A fill is wrong",
+         beacon(MAC_A, ET_A, seq + 51)[:30] + b"\x00" * 34),
+    ]:
+        before = len(said(r"ENET-LAB3 CORRUPT"))
+        for _ in range(8):
+            send(f)
+            time.sleep(0.05)
+        time.sleep(1.0)
+        pump_console()
+        if len(said(r"ENET-LAB3 CORRUPT")) == before:
+            fail("an ARMED peer sent a frame where %s, and the node ACCEPTED it.\n"
+                 "      mcx's frame_ok() rejects this frame. A receiver that checks only\n"
+                 "      the magic counts peers that every other node is throwing away."
+                 % label)
+        print("  ok  ARMED peer, %s -> rejected" % label)
 
     # ═══ PHASE 6 ═══ a REPLAY (stale buffer) must be caught.
     before = len(said(r"ENET-LAB3 CORRUPT"))
