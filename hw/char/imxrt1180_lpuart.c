@@ -2,8 +2,10 @@
  * NXP i.MX RT1180 LPUART (console model)
  *
  * Standard NXP LPUART register block: TX is synchronous (always ready), RX is a
- * single-entry holding register fed by the chardev backend.  Offsets and bit
- * positions VERIFIED against the MIMXRT1189 CMSIS PERI_LPUART.h.
+ * REAL 16-DEEP FIFO with a watermark -- because PARAM and FIFO both advertise 16 and
+ * FSL_FEATURE_LPUART_FIFO_SIZEn(x) == 16, and a capability register is a CONTRACT.
+ * (It was a one-byte holding register until 2026-07-13.  See lpuart_rdrf().)
+ * Offsets and bit positions VERIFIED against the MIMXRT1189 CMSIS PERI_LPUART.h.
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -46,6 +48,11 @@
 #define STAT_TC     0x00400000u
 #define STAT_TDRE   0x00800000u
 
+#define WATER_RXWATER_SHIFT 16
+#define WATER_RXWATER_MASK  0x000F0000u
+#define WATER_RXCOUNT_SHIFT 24
+#define WATER_RXCOUNT_MASK  0x1F000000u
+
 #define CTRL_RE     0x00040000u
 #define CTRL_TE     0x00080000u
 #define CTRL_RIE    0x00200000u
@@ -53,6 +60,9 @@
 #define CTRL_TIE    0x00800000u
 
 #define DATA_RXEMPT 0x00001000u  /* PERI_LPUART.h DATA_RXEMPT_MASK */
+#define FIFO_RXFE   0x00000008u   /* RX FIFO enable                         */
+#define FIFO_RXFLUSH 0x00004000u  /* W1 self-clearing: flush the RX FIFO     */
+#define FIFO_TXFLUSH 0x00008000u  /* W1 self-clearing: flush the TX FIFO     */
 #define FIFO_RXEMPT 0x00400000u
 #define FIFO_TXEMPT 0x00800000u
 
@@ -76,10 +86,38 @@
  * on the wire -- if the line were hardwired asserted, the channel would happily
  * copy the same stale byte CITER times and the test would still "pass".
  */
+/*
+ * RDRF is NOT "a byte arrived".  The RM defines it as
+ *
+ *     "datawords in the receive buffer GREATER THAN WATER[RXWATER]"
+ *
+ * and RXWATER RESETS TO ZERO -- which is the only reason a one-byte holding register
+ * ever passed for a 16-deep FIFO here.  With no watermark set the two are identical.
+ * Set one, and they are not: a driver that asks to be woken at 4 bytes and is woken at
+ * 1 then reads 4, and THREE OF THEM ARE STALE.  Silent corruption, on the console.
+ *
+ *   ⭐ A CAPABILITY NOBODY EXERCISES AND A FRAME NOBODY INSPECTS ARE THE SAME BUG.
+ *      THE SYSTEM IS NOT CORRECT -- IT IS UNTESTED IN THE ONE DIMENSION IT CLAIMS.
+ *      (mcxn947qemu, who hit this on their own console the same evening.)
+ *
+ * When RXFE is clear the FIFO is bypassed and the receiver is one deep -- so RDRF is
+ * simply "a byte is here", which is what the pre-FIFO model always did.
+ */
+static bool lpuart_rdrf(IMXRT1180LPUARTState *s)
+{
+    unsigned water;
+
+    if (!(s->fifo & FIFO_RXFE)) {
+        return s->rx_count > 0;          /* FIFO bypassed: 1-deep receiver */
+    }
+    water = (s->water & WATER_RXWATER_MASK) >> WATER_RXWATER_SHIFT;
+    return s->rx_count > water;
+}
+
 static void imxrt1180_lpuart_update_dma(IMXRT1180LPUARTState *s)
 {
     qemu_set_irq(s->dma_tx_req, !!(s->baud & BAUD_TDMAE));
-    qemu_set_irq(s->dma_rx_req, (s->baud & BAUD_RDMAE) && s->rx_full);
+    qemu_set_irq(s->dma_rx_req, (s->baud & BAUD_RDMAE) && lpuart_rdrf(s));
 }
 
 /*
@@ -90,7 +128,7 @@ static void imxrt1180_lpuart_update_dma(IMXRT1180LPUARTState *s)
 static void imxrt1180_lpuart_update_irq(IMXRT1180LPUARTState *s)
 {
     bool tx = s->ctrl & (CTRL_TIE | CTRL_TCIE);
-    bool rx = (s->ctrl & CTRL_RIE) && s->rx_full;
+    bool rx = (s->ctrl & CTRL_RIE) && lpuart_rdrf(s);
 
     qemu_set_irq(s->irq, tx || rx);
 }
@@ -119,7 +157,7 @@ static uint64_t imxrt1180_lpuart_read(void *opaque, hwaddr offset, unsigned size
     case LPUART_STAT:
         /* TX always ready; RDRF reflects the 1-byte rx holding register. */
         r = STAT_TDRE | STAT_TC;
-        if (s->rx_full) {
+        if (lpuart_rdrf(s)) {
             r |= STAT_RDRF;
         }
         break;
@@ -141,13 +179,18 @@ static uint64_t imxrt1180_lpuart_read(void *opaque, hwaddr offset, unsigned size
          *   MRDR alias the same day: "I was telling the guest the receive FIFO HAS
          *   DATA when nothing had been received.")
          */
-        r = s->rx_byte | (s->rx_full ? 0 : DATA_RXEMPT);
-        if (offset == LPUART_DATA && s->rx_full) {
-            s->rx_full = false;
+        if (s->rx_count == 0) {
+            r = DATA_RXEMPT;            /* honestly empty -- NOT a phantom NUL */
+            break;
+        }
+        r = s->rx_fifo[s->rx_head];
+        if (offset == LPUART_DATA) {    /* DATARO is a non-destructive peek */
+            s->rx_head = (s->rx_head + 1) % IMXRT1180_LPUART_RXFIFO;
+            s->rx_count--;
             imxrt1180_lpuart_update_irq(s);
             imxrt1180_lpuart_update_dma(s);
-            /* Holding register free again — tell the chardev to resume input,
-             * or a continuous RX stream stalls after one byte. */
+            /* Room again -- tell the chardev to resume input, or a continuous
+             * stream stalls once the FIFO fills. */
             qemu_chr_fe_accept_input(&s->chr);
         }
         break;
@@ -159,12 +202,16 @@ static uint64_t imxrt1180_lpuart_read(void *opaque, hwaddr offset, unsigned size
         break;
     case LPUART_FIFO:
         r = s->fifo | FIFO_TXEMPT;
-        if (!s->rx_full) {
+        if (s->rx_count == 0) {
             r |= FIFO_RXEMPT;
         }
         break;
     case LPUART_WATER:
-        r = s->water;
+        /* RXCOUNT is LIVE -- it is how a driver sizes its next burst read.  It used
+         * to read 0 forever, so a guest asking "how many bytes are waiting?" was told
+         * NONE while a byte sat in the holding register. */
+        r = (s->water & ~WATER_RXCOUNT_MASK) |
+            ((uint32_t)s->rx_count << WATER_RXCOUNT_SHIFT);
         break;
     case LPUART_REIR:
         r = s->reir;
@@ -206,7 +253,7 @@ static void imxrt1180_lpuart_write(void *opaque, hwaddr offset,
             s->ctrl = s->water = 0;
             s->baud = 0x0F000004;
             s->fifo = 0x00C00033;
-            s->rx_full = false;
+            s->rx_head = s->rx_count = 0;
             imxrt1180_lpuart_update_irq(s);
             imxrt1180_lpuart_update_dma(s);   /* BAUD cleared => requests drop */
         }
@@ -239,10 +286,19 @@ static void imxrt1180_lpuart_write(void *opaque, hwaddr offset,
         s->modir = value;
         break;
     case LPUART_FIFO:
-        s->fifo = value;
+        if (value & FIFO_RXFLUSH) {          /* W1, self-clearing: empty the FIFO */
+            s->rx_head = s->rx_count = 0;
+            qemu_chr_fe_accept_input(&s->chr);
+        }
+        s->fifo = value & ~(FIFO_RXFLUSH | FIFO_TXFLUSH);
+        imxrt1180_lpuart_update_irq(s);
+        imxrt1180_lpuart_update_dma(s);
         break;
     case LPUART_WATER:
-        s->water = value;
+        /* RXCOUNT/TXCOUNT are read-only status; the guest only owns the watermarks. */
+        s->water = value & ~(WATER_RXCOUNT_MASK | 0x1F00u);
+        imxrt1180_lpuart_update_irq(s);      /* a new watermark re-evaluates RDRF */
+        imxrt1180_lpuart_update_dma(s);
         break;
     case LPUART_REIR:
         s->reir = value;
@@ -313,19 +369,22 @@ static const MemoryRegionOps imxrt1180_lpuart_ops = {
 static int imxrt1180_lpuart_can_rx(void *opaque)
 {
     IMXRT1180LPUARTState *s = IMXRT1180_LPUART(opaque);
-    return (s->ctrl & CTRL_RE) && !s->rx_full;
+    return (s->ctrl & CTRL_RE) && s->rx_count < IMXRT1180_LPUART_RXFIFO;
 }
 
 static void imxrt1180_lpuart_rx(void *opaque, const uint8_t *buf, int size)
 {
     IMXRT1180LPUARTState *s = IMXRT1180_LPUART(opaque);
 
-    if (size > 0) {
-        s->rx_byte = buf[0];
-        s->rx_full = true;
-        imxrt1180_lpuart_update_irq(s);
-        imxrt1180_lpuart_update_dma(s);
+    for (int i = 0; i < size; i++) {
+        if (s->rx_count >= IMXRT1180_LPUART_RXFIFO) {
+            break;                       /* full: can_rx() should have stopped us */
+        }
+        s->rx_fifo[(s->rx_head + s->rx_count) % IMXRT1180_LPUART_RXFIFO] = buf[i];
+        s->rx_count++;
     }
+    imxrt1180_lpuart_update_irq(s);
+    imxrt1180_lpuart_update_dma(s);
 }
 
 static void imxrt1180_lpuart_reset(DeviceState *dev)
@@ -350,8 +409,7 @@ static void imxrt1180_lpuart_reset(DeviceState *dev)
     s->fifo = 0x00C00033;
     s->tosr = 0x0000000F;
     s->timeout[0] = s->timeout[1] = s->timeout[2] = s->timeout[3] = 0;
-    s->rx_byte = 0;
-    s->rx_full = false;
+    s->rx_head = s->rx_count = 0;
 }
 
 static void imxrt1180_lpuart_realize(DeviceState *dev, Error **errp)
@@ -389,8 +447,11 @@ static const VMStateDescription vmstate_imxrt1180_lpuart = {
         VMSTATE_UINT32(tocr, IMXRT1180LPUARTState),
         VMSTATE_UINT32(tosr, IMXRT1180LPUARTState),
         VMSTATE_UINT32_ARRAY(timeout, IMXRT1180LPUARTState, 4),
-        VMSTATE_UINT8(rx_byte, IMXRT1180LPUARTState),
-        VMSTATE_BOOL(rx_full, IMXRT1180LPUARTState),
+        VMSTATE_UINT8_ARRAY(rx_fifo, IMXRT1180LPUARTState, IMXRT1180_LPUART_RXFIFO),
+
+        VMSTATE_UINT8(rx_head, IMXRT1180LPUARTState),
+
+        VMSTATE_UINT8(rx_count, IMXRT1180LPUARTState),
         VMSTATE_END_OF_LIST()
     },
 };

@@ -16,6 +16,9 @@
 #include "chardev/char-fe.h"
 #include "qom/object.h"
 
+/* PARAM/FIFO advertise 16, and FSL_FEATURE_LPUART_FIFO_SIZEn(x) == 16. */
+#define IMXRT1180_LPUART_RXFIFO 16
+
 #define TYPE_IMXRT1180_LPUART "imxrt1180-lpuart"
 OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180LPUARTState, IMXRT1180_LPUART)
 
@@ -54,8 +57,23 @@ struct IMXRT1180LPUARTState {
     uint32_t tosr;       /* Timeout Status            @0x5C */
     uint32_t timeout[4]; /* Timeout 0..3              @0x60..0x6C */
 
-    uint8_t  rx_byte;
-    bool     rx_full;
+    /*
+     * A REAL 16-DEEP RX FIFO.
+     *
+     * This used to be a ONE-BYTE HOLDING REGISTER (`uint8_t rx_byte; bool rx_full;`)
+     * while PARAM and FIFO BOTH ADVERTISED SIXTEEN, and the SDK is compiled against
+     * FSL_FEATURE_LPUART_FIFO_SIZEn(x) == 16.  A CAPABILITY REGISTER IS A CONTRACT:
+     * we promised sixteen and delivered one.
+     *
+     * It was invisible because RDRF is defined against RXWATER, and RXWATER RESETS TO
+     * ZERO -- so a 1-deep receiver and a 16-deep one are BEHAVIOURALLY IDENTICAL until
+     * somebody sets a watermark.  Nothing in this tree ever did.  THE PROMISE WAS
+     * NEVER CALLED IN.  (mcxn947qemu found the identical bug in their console LPUART
+     * the same evening.)
+     */
+    uint8_t  rx_fifo[IMXRT1180_LPUART_RXFIFO];
+    uint8_t  rx_head;      /* next byte to hand the guest */
+    uint8_t  rx_count;     /* bytes currently in the FIFO */
 };
 
 #endif /* HW_CHAR_IMXRT1180_LPUART_H */
