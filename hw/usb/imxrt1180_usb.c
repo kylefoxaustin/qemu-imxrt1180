@@ -133,11 +133,58 @@ static const MemoryRegionOps imxrt1180_usb_ops = {
     .impl.max_access_size = 4,
 };
 
+/*
+ * RESET VALUES from the RM's cold-POR column; offsets from PERI_USB.h.
+ *
+ * MOST OF THESE ARE CAPABILITY REGISTERS, AND THE DIRECTION OF THE ERROR MATTERS.
+ * 91emulator, 2026-07-13:
+ *
+ *   "ON A CAPABILITY REGISTER, UNDER-REPORTING IS THE SAFE ERROR DIRECTION.
+ *    OVER-REPORTING IS A PROMISE THE EMULATOR MAKES ON THE CHIP'S BEHALF -- IT
+ *    WORKS HERE, AND IT FAILS ON HARDWARE."
+ *
+ * We were reading ZERO from every one of them: ID, HWGENERAL, HWHOST, HWDEVICE,
+ * HWTXBUF, HWRXBUF, HCSPARAMS, HCCPARAMS.  That is the SAFE direction (a controller
+ * claiming no ports, no endpoints, no ID) -- but it is still a lie, and the drivers
+ * that size their queues and endpoint tables from HWDEVICE/HWTXBUF got zeros.
+ *
+ * These are the SILICON'S OWN NUMBERS, from the manual.  We do not get to choose
+ * them, and we do not invent them:
+ *   mcxn947qemu found a FABRICATED USB chip ID in their tree advertising 2 endpoints
+ *   where the silicon has 8 -- "while disagreeing with its own other register about
+ *   it."  A capability register that contradicts its sibling is the tell.
+ *
+ * (This model still does not enumerate -- that is flagged in PERIPHERALS.md and is
+ * unchanged.  But what it DOES report about itself is now what the chip reports.)
+ */
+static const struct { hwaddr off; uint32_t val; } usb_por[] = {
+    { 0x000, 0xE4A1FA05 },   /* ID          -- the controller's own identity      */
+    { 0x004, 0x00000015 },   /* HWGENERAL                                          */
+    { 0x008, 0x10020001 },   /* HWHOST                                             */
+    { 0x00C, 0x00000011 },   /* HWDEVICE    -- endpoint count lives here           */
+    { 0x010, 0x80080B08 },   /* HWTXBUF                                            */
+    { 0x014, 0x00000808 },   /* HWRXBUF                                            */
+    { 0x090, 0x00000002 },   /* SBUSCFG                                            */
+    { 0x104, 0x00010011 },   /* HCSPARAMS                                          */
+    { 0x108, 0x00000006 },   /* HCCPARAMS                                          */
+    { 0x140, 0x00080000 },   /* USBCMD                                             */
+    { 0x144, 0x00000080 },   /* USBSTS                                             */
+    { 0x160, 0x00000808 },   /* BURSTSIZE                                          */
+    { 0x180, 0x00000001 },   /* CONFIGFLAG                                         */
+    { 0x184, 0x1C000004 },   /* PORTSC1                                            */
+    { 0x1A4, 0x00202F20 },   /* OTGSC                                              */
+    { 0x1A8, 0x00005000 },   /* USBMODE                                            */
+    { 0x1C0, 0x00800080 },   /* ENDPTCTRL0                                         */
+};
+
 static void imxrt1180_usb_reset(DeviceState *dev)
 {
     IMXRT1180USBState *s = IMXRT1180_USB(dev);
 
     memset(s->regs, 0, sizeof(s->regs));
+    for (size_t i = 0; i < ARRAY_SIZE(usb_por); i++) {
+        s->regs[usb_por[i].off / 4] = usb_por[i].val;
+    }
     s->running_logged = false;
 }
 

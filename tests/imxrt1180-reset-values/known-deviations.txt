@@ -230,15 +230,11 @@ ENETC1_SI1                 SICAPR1                # block not modelled; the catc
 ENETC1_SI1                 SICCAR                 # block not modelled; the catch-all answers 0
 ENETC1_SI1                 SIMCAR                 # block not modelled; the catch-all answers 0
 ENETC1_SI1                 SISR                   # block not modelled; the catch-all answers 0
-FLEXSPI1                   INTR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI1                   STS0                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI2                   INTR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI2                   STS0                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI_SLV                MODULE_CONTROL         # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI_SLV                MODULE_STATUS          # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI_SLV                READ_REGISTER_COMMAND0 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI_SLV                RW_COMMAND_BASE        # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI_SLV                WRITE_COMMAND_CONTROL  # MODELLED BLOCK, reset value not set -- a real lie, fix me
+FLEXSPI_SLV                MODULE_CONTROL         # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+FLEXSPI_SLV                MODULE_STATUS          # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+FLEXSPI_SLV                READ_REGISTER_COMMAND0 # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+FLEXSPI_SLV                RW_COMMAND_BASE        # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+FLEXSPI_SLV                WRITE_COMMAND_CONTROL  # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
 GPC_SYS_SLEEP_CTRL         PMIC_CTRL              # block not modelled; the catch-all answers 0
 GPC_SYS_SLEEP_CTRL         SS_DCDC_IN_CTRL        # block not modelled; the catch-all answers 0
 GPC_SYS_SLEEP_CTRL         SS_DCDC_OUT_CTRL       # block not modelled; the catch-all answers 0
@@ -297,58 +293,20 @@ MEGA_MIX_SLICE             MLPL_STAT              # block not modelled; the catc
 MEGA_MIX_SLICE             PSW_CNT_CFG_HF         # block not modelled; the catch-all answers 0
 MEGA_MIX_SLICE             PSW_CNT_CFG_LF         # block not modelled; the catch-all answers 0
 MEGA_MIX_SLICE             PSW_CTRL               # block not modelled; the catch-all answers 0
-NETC_F0_PCI_HDR_TYPE0      PCIE_CFC_SRIOV_CAP_HDR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_F1_PCI_HDR_TYPE0      PCIE_CFC_SRIOV_CAP_HDR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_F2_PCI_HDR_TYPE0      PCIE_CFC_SRIOV_CAP_HDR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_F3_PCI_HDR_TYPE0      PCIE_CFC_SRIOV_CAP_HDR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_F4_PCI_HDR_TYPE0      PCIE_CFC_SRIOV_CAP_HDR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  CAPR0                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  CAPR1                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  CAPR2                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  CAPR3                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  CMCAPR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  EMDIOBCR               # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  EMDIO_CFG              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  HBTCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  HBTMAR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  IPFTMCAPR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L0CAPR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L0TXBCCTR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L1BCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L1CAPR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L1TXBCCTR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L2BCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L2CAPR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L2TXBCCTR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L3BCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L3CAPR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L3TXBCCTR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L4BCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L4CAPR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L4TXBCCTR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L5BCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L5CAPR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  L5TXBCCTR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  NETCCLKCR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  NETCCLKFR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  NETCFLRCR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  SGLTTR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  SMDTR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_IERB                  TGSMCAPR               # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_IG            # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_PD_B          # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_WLPD          # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_MIX_SLICE             EDGELOCK_HDSK_CTRL     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_MIX_SLICE             EDGELOCK_HDSK_STAT     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_MIX_SLICE             FUNC_STAT              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_MIX_SLICE             LPM_SETTING_0          # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_MIX_SLICE             LPM_SETTING_1          # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_MIX_SLICE             LPM_SETTING_2          # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_MIX_SLICE             MLPL_CFG               # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_MIX_SLICE             MLPL_STAT              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_MIX_SLICE             PSW_CNT_CFG_HF         # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_MIX_SLICE             PSW_CNT_CFG_LF         # MODELLED BLOCK, reset value not set -- a real lie, fix me
-NETC_MIX_SLICE             PSW_CTRL               # MODELLED BLOCK, reset value not set -- a real lie, fix me
+NETC_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_IG            # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+NETC_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_PD_B          # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+NETC_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_WLPD          # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+NETC_MIX_SLICE             EDGELOCK_HDSK_CTRL     # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+NETC_MIX_SLICE             EDGELOCK_HDSK_STAT     # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+NETC_MIX_SLICE             FUNC_STAT              # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+NETC_MIX_SLICE             LPM_SETTING_0          # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+NETC_MIX_SLICE             LPM_SETTING_1          # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+NETC_MIX_SLICE             LPM_SETTING_2          # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+NETC_MIX_SLICE             MLPL_CFG               # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+NETC_MIX_SLICE             MLPL_STAT              # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+NETC_MIX_SLICE             PSW_CNT_CFG_HF         # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+NETC_MIX_SLICE             PSW_CNT_CFG_LF         # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
+NETC_MIX_SLICE             PSW_CTRL               # block not modelled (no device serves this window; the catch-all answers 0) -- RETRIAGED: it was mislabelled MODELLED. An absent model is not a lying one, and conflating the two buries the real bugs (91emulator)
 OTFAD1                     SR                     # block not modelled; the catch-all answers 0
 OTFAD2                     SR                     # block not modelled; the catch-all answers 0
 PDM                        FIFO_CTRL              # block not modelled; the catch-all answers 0
@@ -356,11 +314,6 @@ PDM                        VAD0_CTRL_2            # block not modelled; the catc
 PDM                        VAD0_NCONFIG           # block not modelled; the catch-all answers 0
 PDM                        VAD0_STAT              # block not modelled; the catch-all answers 0
 PDM                        VAD0_ZCD               # block not modelled; the catch-all answers 0
-RTWDOG1                    CS                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-RTWDOG2                    CS                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-RTWDOG3                    CS                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-RTWDOG4                    CS                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-RTWDOG5                    CS                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
 SEMC                       BR10                   # block not modelled; the catch-all answers 0
 SEMC                       BR11                   # block not modelled; the catch-all answers 0
 SEMC                       BR9                    # block not modelled; the catch-all answers 0
@@ -558,122 +511,6 @@ USBNC_OTG1                 CTRL1                  # block not modelled; the catc
 USBNC_OTG1                 HSIC_CTRL              # block not modelled; the catch-all answers 0
 USBNC_OTG2                 CTRL1                  # block not modelled; the catch-all answers 0
 USBNC_OTG2                 HSIC_CTRL              # block not modelled; the catch-all answers 0
-USBPHY1                    ANACTRL                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    ANACTRL_CLR            # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    ANACTRL_SET            # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    ANACTRL_TOG            # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    DEBUG1                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    DEBUG1_CLR             # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    DEBUG1_SET             # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    DEBUG1_TOG             # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    DEBUG_CLR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    DEBUG_SET              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    DEBUG_TOG              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    PLL_SIC                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    PLL_SIC_CLR            # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    PLL_SIC_SET            # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    PLL_SIC_TOG            # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    PWD                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    PWD_CLR                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    PWD_SET                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    PWD_TOG                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    TRIM_OVERRIDE_EN       # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    TRIM_OVERRIDE_EN_CLR   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    TRIM_OVERRIDE_EN_SET   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    TRIM_OVERRIDE_EN_TOG   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    TX                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    TX_CLR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    TX_SET                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    TX_TOG                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    USB1_CHRG_DETECT       # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    USB1_CHRG_DETECT_CLR   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    USB1_CHRG_DETECT_SET   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    USB1_CHRG_DETECT_TOG   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    USB1_LOOPBACK          # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    USB1_LOOPBACK_CLR      # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    USB1_LOOPBACK_SET      # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    USB1_LOOPBACK_TOG      # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    USB1_VBUS_DETECT       # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    USB1_VBUS_DETECT_CLR   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    USB1_VBUS_DETECT_SET   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    USB1_VBUS_DETECT_TOG   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    USB1_VBUS_DET_STAT     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY1                    VERSION                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    ANACTRL                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    ANACTRL_CLR            # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    ANACTRL_SET            # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    ANACTRL_TOG            # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    DEBUG1                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    DEBUG1_CLR             # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    DEBUG1_SET             # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    DEBUG1_TOG             # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    DEBUG_CLR              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    DEBUG_SET              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    DEBUG_TOG              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    PLL_SIC                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    PLL_SIC_CLR            # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    PLL_SIC_SET            # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    PLL_SIC_TOG            # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    PWD                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    PWD_CLR                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    PWD_SET                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    PWD_TOG                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    TRIM_OVERRIDE_EN       # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    TRIM_OVERRIDE_EN_CLR   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    TRIM_OVERRIDE_EN_SET   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    TRIM_OVERRIDE_EN_TOG   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    TX                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    TX_CLR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    TX_SET                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    TX_TOG                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    USB1_CHRG_DETECT       # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    USB1_CHRG_DETECT_CLR   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    USB1_CHRG_DETECT_SET   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    USB1_CHRG_DETECT_TOG   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    USB1_LOOPBACK          # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    USB1_LOOPBACK_CLR      # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    USB1_LOOPBACK_SET      # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    USB1_LOOPBACK_TOG      # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    USB1_VBUS_DETECT       # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    USB1_VBUS_DETECT_CLR   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    USB1_VBUS_DETECT_SET   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    USB1_VBUS_DETECT_TOG   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    USB1_VBUS_DET_STAT     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USBPHY2                    VERSION                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   BURSTSIZE              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   CONFIGFLAG             # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   ENDPTCTRL0             # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   HCCPARAMS              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   HCSPARAMS              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   HWDEVICE               # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   HWGENERAL              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   HWHOST                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   HWRXBUF                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   HWTXBUF                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   ID                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   OTGSC                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   PORTSC1                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   SBUSCFG                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   USBCMD                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   USBMODE                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG1                   USBSTS                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   BURSTSIZE              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   CONFIGFLAG             # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   ENDPTCTRL0             # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   HCCPARAMS              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   HCSPARAMS              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   HWDEVICE               # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   HWGENERAL              # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   HWHOST                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   HWRXBUF                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   HWTXBUF                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   ID                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   OTGSC                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   PORTSC1                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   SBUSCFG                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   USBCMD                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   USBMODE                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-USB_OTG2                   USBSTS                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
 USDHC1                     BLK_ATT                # block not modelled; the catch-all answers 0
 USDHC1                     CQCAP                  # block not modelled; the catch-all answers 0
 USDHC1                     CQRMEM                 # block not modelled; the catch-all answers 0
@@ -718,7 +555,6 @@ WAKEUP_MIX_SLICE           MLPL_STAT              # block not modelled; the catc
 WAKEUP_MIX_SLICE           PSW_CNT_CFG_HF         # block not modelled; the catch-all answers 0
 WAKEUP_MIX_SLICE           PSW_CNT_CFG_LF         # block not modelled; the catch-all answers 0
 WAKEUP_MIX_SLICE           PSW_CTRL               # block not modelled; the catch-all answers 0
-NETC_IERB                  SBCR                   # MODELLED BLOCK, reset value not set -- NEWLY VISIBLE (struct-array blind spot)
 OTFAD1                     CTX0_RGD_W1            # block not modelled (catch-all answers 0) -- NEWLY VISIBLE (struct-array blind spot)
 OTFAD1                     CTX1_RGD_W1            # block not modelled (catch-all answers 0) -- NEWLY VISIBLE (struct-array blind spot)
 OTFAD1                     CTX2_RGD_W1            # block not modelled (catch-all answers 0) -- NEWLY VISIBLE (struct-array blind spot)
@@ -745,11 +581,11 @@ ECAT                       SYNCMANAGERS_SUPPORTED # block not modelled (EtherCAT
 ECAT                       TYPE                   # block not modelled (EtherCAT) -- NEWLY VISIBLE (8/16-bit: the gate kept only 32-bit registers)
 ECAT                       WATCHDOG_DIVIDER       # block not modelled (EtherCAT) -- NEWLY VISIBLE (8/16-bit: the gate kept only 32-bit registers)
 ECAT                       WATCHDOG_TIME_PDI      # block not modelled (EtherCAT) -- NEWLY VISIBLE (8/16-bit: the gate kept only 32-bit registers)
-EWM                        CMPH                   # NEWLY VISIBLE (8/16-bit: the gate kept only 32-bit registers) -- triage me
+EWM                        CMPH                   # block not modelled (no device serves this window; the catch-all answers 0) -- an absent model is not a lying one
 IERC_F0_PCI_HDR_TYPE0      PCI_CFC_PCIPM_CAP      # PCI config-space header, not modelled behaviourally -- NEWLY VISIBLE (8/16-bit)
 IERC_F0_PCI_HDR_TYPE0      PCI_CFC_PCIPM_CAP_LIST # PCI config-space header, not modelled behaviourally -- NEWLY VISIBLE (8/16-bit)
 IERC_F0_PCI_HDR_TYPE0      PCI_CFH_INT_PIN        # PCI config-space header, not modelled behaviourally -- NEWLY VISIBLE (8/16-bit)
-KPP                        KPSR                   # NEWLY VISIBLE (8/16-bit: the gate kept only 32-bit registers) -- triage me
+KPP                        KPSR                   # block not modelled (no device serves this window; the catch-all answers 0) -- an absent model is not a lying one
 NETC_F0_PCI_HDR_TYPE0      PCIE_CFC_SRIOV_INIT_VFS # PCI config-space header, not modelled behaviourally -- NEWLY VISIBLE (8/16-bit)
 NETC_F0_PCI_HDR_TYPE0      PCIE_CFC_SRIOV_NUM_VFS # PCI config-space header, not modelled behaviourally -- NEWLY VISIBLE (8/16-bit)
 NETC_F0_PCI_HDR_TYPE0      PCIE_CFC_SRIOV_TOTAL_VFS # PCI config-space header, not modelled behaviourally -- NEWLY VISIBLE (8/16-bit)

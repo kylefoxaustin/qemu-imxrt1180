@@ -367,10 +367,76 @@ static const MemoryRegionOps netc_ops = {
     .impl.max_access_size = 4,
 };
 
+/*
+ * RESET VALUES from the RM's cold-POR column.  Offsets are ABSOLUTE within the NETC
+ * window (base 0x6000_0000), matching the flat `backing` array.
+ *
+ * MOST OF THE IERB SET ARE **CAPABILITY** REGISTERS -- CAPR0..3, CMCAPR, IPFTMCAPR,
+ * TGSMCAPR, and one L*CAPR per link.  They tell the driver how many SIs, how many
+ * BD rings, how deep the tables are.  WE WERE RETURNING ZERO FROM ALL OF THEM.
+ *
+ * 91emulator's rule, and this is the safe side of it:
+ *   "ON A CAPABILITY REGISTER, UNDER-REPORTING IS THE SAFE ERROR DIRECTION.
+ *    OVER-REPORTING IS A PROMISE THE EMULATOR MAKES ON THE CHIP'S BEHALF."
+ * Zero is under-reporting -- a NIC claiming no rings and no station interfaces --
+ * so it fails loudly rather than shipping.  But it is still a lie, and the manual
+ * hands us the truth, so there is no reason to keep telling it.
+ *
+ * The L*BCR link-bandwidth registers matter for a different reason: the driver
+ * READ-MODIFY-WRITES them, so our zero would be laundered into its own config.
+ */
+static const struct { hwaddr off; uint32_t val; } netc_por[] = {
+    /* NETC_IERB -- capability + config */
+    { 0x800000, 0x01110651 },  /* CAPR0      */
+    { 0x800004, 0x000E000E },  /* CAPR1      */
+    { 0x800008, 0x00000034 },  /* CAPR2      */
+    { 0x80000C, 0x00080008 },  /* CAPR3      */
+    { 0x800020, 0x00002800 },  /* CMCAPR     */
+    { 0x800030, 0x000000C4 },  /* IPFTMCAPR  */
+    { 0x800044, 0x00000700 },  /* TGSMCAPR   */
+    { 0x800080, 0x00000040 },  /* SMDTR      */
+    { 0x800100, 0x06400200 },  /* HBTMAR     */
+    { 0x800104, 0x00000032 },  /* HBTCR      */
+    { 0x800170, 0x00000634 },  /* NETCFLRCR  */
+    { 0x800178, 0x2AAAAAAA },  /* NETCCLKFR  */
+    { 0x80017C, 0x000400F0 },  /* NETCCLKCR  */
+    { 0x800180, 0x0000000A },  /* SBCR       */
+    { 0x800190, 0x00000014 },  /* SGLTTR     */
+    { 0x800300, 0x80000100 },  /* EMDIOBCR   */
+    { 0x800350, 0x00000010 },  /* EMDIO_CFG  */
+    /* per-link capability / bandwidth (L0..L5) */
+    { 0x801000, 0x37077000 },  /* L0CAPR     */
+    { 0x801014, 0x00000200 },  /* L0TXBCCTR  */
+    { 0x801040, 0x37077000 },  /* L1CAPR     */
+    { 0x801050, 0x00000001 },  /* L1BCR      */
+    { 0x801054, 0x00000200 },  /* L1TXBCCTR  */
+    { 0x801080, 0x37077000 },  /* L2CAPR     */
+    { 0x801090, 0x00000002 },  /* L2BCR      */
+    { 0x801094, 0x00000200 },  /* L2TXBCCTR  */
+    { 0x8010C0, 0x37077000 },  /* L3CAPR     */
+    { 0x8010D0, 0x00000003 },  /* L3BCR      */
+    { 0x8010D4, 0x00000200 },  /* L3TXBCCTR  */
+    { 0x801100, 0x37077000 },  /* L4CAPR     */
+    { 0x801110, 0x00000040 },  /* L4BCR      */
+    { 0x801114, 0x00000200 },  /* L4TXBCCTR  */
+    { 0x801140, 0x37077010 },  /* L5CAPR     */
+    { 0x801150, 0x00040041 },  /* L5BCR      */
+    { 0x801154, 0x00000200 },  /* L5TXBCCTR  */
+    /* PCI SR-IOV capability header, one per function F0..F4 (stride 0x1000) */
+    { 0x000150, 0x00010010 },  /* NETC_F0 PCIE_CFC_SRIOV_CAP_HDR */
+    { 0x001150, 0x00010010 },  /* NETC_F1 */
+    { 0x002150, 0x00010010 },  /* NETC_F2 */
+    { 0x003150, 0x00010010 },  /* NETC_F3 */
+    { 0x004150, 0x00010010 },  /* NETC_F4 */
+};
+
 static void netc_reset(DeviceState *dev)
 {
     IMXRT1180NETCState *s = IMXRT1180_NETC(dev);
     memset(s->backing, 0, IMXRT1180_NETC_SIZE);
+    for (size_t i = 0; i < ARRAY_SIZE(netc_por); i++) {
+        netc_backing_write(s, netc_por[i].off, netc_por[i].val, 4);
+    }
     memset(s->phy_regs, 0, sizeof(s->phy_regs));
     s->mdio_reg = 0;
 }

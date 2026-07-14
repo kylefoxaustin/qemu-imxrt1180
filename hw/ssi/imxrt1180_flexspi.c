@@ -127,6 +127,7 @@
 #define LUT_MODE8_SDR   0x07
 #define LUT_WRITE_SDR   0x08
 #define LUT_READ_SDR    0x09
+#define MCR0_MDIS       0x00000002u  /* FLEXSPI_MCR0_MDIS_MASK: module disabled */
 #define LUT_DUMMY_SDR   0x0c
 #define LUT_JUMP_ON_CS  0x1f
 
@@ -471,8 +472,17 @@ static uint64_t flexspi_read(void *opaque, hwaddr offset, unsigned size)
 
     switch (offset) {
     case FSPI_STS0:
-        /* Commands complete inline, so the controller is always idle. */
-        return STS0_SEQIDLE | STS0_ARBIDLE;
+        /*
+         * Commands complete inline, so the arbiter is always idle (ARBIDLE).  But
+         * SEQIDLE reports the SEQUENCE ENGINE, and while the module is DISABLED
+         * (MCR0.MDIS, which is SET at reset -- MCR0 resets to 0xFFFF80C2) the engine
+         * is not clocked and does not report itself idle.  The RM resets STS0 to
+         * 0x2: ARBIDLE alone.
+         *
+         *   WE REPORTED AN IDLE SEQUENCE ENGINE FROM A MODULE THAT WAS SWITCHED OFF.
+         */
+        return STS0_ARBIDLE |
+               ((s->regs[FSPI_MCR0 >> 2] & MCR0_MDIS) ? 0 : STS0_SEQIDLE);
 
     case FSPI_IPRXFSTS:
         return flexspi_fill_entries(&s->rx);
@@ -490,8 +500,14 @@ static uint64_t flexspi_read(void *opaque, hwaddr offset, unsigned size)
         uint32_t rxwmrk =
             ((s->regs[FSPI_IPRXFCR >> 2] & IPRXFCR_RXWMRK_MASK)
              >> IPRXFCR_RXWMRK_SHIFT) + 1;
-        uint32_t intr = s->regs[FSPI_INTR >> 2] | INTR_IPTXWE;
+        uint32_t intr = s->regs[FSPI_INTR >> 2];
 
+        /* A DISABLED module raises no flags.  MCR0.MDIS is SET at reset, and the RM
+         * resets INTR to 0 -- we were asserting IPTXWE from a switched-off block. */
+        if (s->regs[FSPI_MCR0 >> 2] & MCR0_MDIS) {
+            return intr;
+        }
+        intr |= INTR_IPTXWE;
         if (fifo8_num_used(&s->rx) >= rxwmrk * 8) {
             intr |= INTR_IPRXWA;
         }

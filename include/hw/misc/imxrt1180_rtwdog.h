@@ -24,6 +24,7 @@ struct IMXRT1180RTWDOGState {
     uint32_t win;
     uint8_t  unlock_step;   /* progress through the 0xC520,0xD928 unlock */
     bool     unlocked;
+    bool     reconfigured;   /* a reconfiguration has actually completed (CS.RCS) */
 };
 
 #endif /* HW_MISC_IMXRT1180_RTWDOG_H */

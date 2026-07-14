@@ -92,11 +92,43 @@ static const MemoryRegionOps imxrt1180_usbphy_ops = {
     .impl.max_access_size = 4,
 };
 
+/*
+ * RESET VALUES from the RM's cold-POR column; offsets from PERI_USBPHY.h.
+ *
+ * A memset to zero here is 41 false statements per instance, and the PHY is a block
+ * firmware READ-MODIFY-WRITES constantly (USB_EhciPhyInit does `PHY->PWD = 0`, then
+ * ORs bits into CTRL/PLL_SIC/ANACTRL and writes them back).  With a zeroed PWD the
+ * guest reads "every analog block is already powered UP" -- the inverse of the
+ * silicon, where PWD resets to 0x001E1C00 with the transmitters, receivers and the
+ * bandgap all POWERED DOWN.  It then writes that back as its own configuration.
+ *
+ * The SET/CLR/TOG aliases are handled in the read/write paths (they are aliases, not
+ * storage), which is why the RM prints the same reset value for all four -- and why
+ * only the BASE needs seeding here.
+ */
+static const struct { hwaddr off; uint32_t val; } usbphy_por[] = {
+    { 0x000, 0x001E1C00 },   /* PWD                -- analog blocks POWERED DOWN   */
+    { 0x010, 0x10080807 },   /* TX                                                  */
+    { 0x050, 0x7F180000 },   /* DEBUG  (CMSIS: DEBUGr)                              */
+    { 0x070, 0x00001000 },   /* DEBUG1                                              */
+    { 0x080, 0x05000000 },   /* VERSION                                             */
+    { 0x0A0, 0x00D12000 },   /* PLL_SIC                                             */
+    { 0x0C0, 0x00700004 },   /* USB1_VBUS_DETECT                                    */
+    { 0x0D0, 0x00000001 },   /* USB1_VBUS_DET_STAT                                  */
+    { 0x0E0, 0x80180000 },   /* USB1_CHRG_DETECT                                    */
+    { 0x100, 0x82000402 },   /* ANACTRL                                             */
+    { 0x110, 0x00550000 },   /* USB1_LOOPBACK                                       */
+    { 0x130, 0x0000007F },   /* TRIM_OVERRIDE_EN                                    */
+};
+
 static void imxrt1180_usbphy_reset(DeviceState *dev)
 {
     IMXRT1180USBPHYState *s = IMXRT1180_USBPHY(dev);
 
     memset(s->regs, 0, sizeof(s->regs));
+    for (size_t i = 0; i < ARRAY_SIZE(usbphy_por); i++) {
+        s->regs[usbphy_por[i].off / 4] = usbphy_por[i].val;
+    }
 }
 
 static void imxrt1180_usbphy_realize(DeviceState *dev, Error **errp)

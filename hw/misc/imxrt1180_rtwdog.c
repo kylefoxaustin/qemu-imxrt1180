@@ -34,8 +34,17 @@ static uint64_t imxrt1180_rtwdog_read(void *opaque, hwaddr offset, unsigned size
 
     switch (offset) {
     case RTWDOG_CS:
-        /* Report reconfig-success always, and unlocked while the window open. */
-        return s->cs | CS_RCS | (s->unlocked ? CS_ULK : 0);
+        /*
+         * RCS means "the last RECONFIGURATION SUCCEEDED".  At reset NONE HAS BEEN
+         * ATTEMPTED, and the RM resets CS to 0x900 with RCS clear.  We ORed it in
+         * unconditionally: a watchdog reporting a successful reconfiguration it was
+         * never asked to perform.
+         *
+         * (And 0x900 is CLK=1 | ULK -- EN (0x80) is CLEAR.  The RTWDOG on this part
+         * comes up DISABLED and UNLOCKED.)
+         */
+        return s->cs | (s->reconfigured ? CS_RCS : 0) |
+               (s->unlocked ? CS_ULK : 0);
     case RTWDOG_CNT:
         return s->cnt;
     case RTWDOG_TOVAL:
@@ -57,6 +66,7 @@ static void imxrt1180_rtwdog_write(void *opaque, hwaddr offset,
     switch (offset) {
     case RTWDOG_CS:
         s->cs = value & ~(CS_RCS | CS_ULK);  /* status bits are RO */
+        s->reconfigured = true;              /* THIS is the reconfiguration RCS reports */
         break;
     case RTWDOG_CNT:
         /* Unlock sequence: 0xC520 then 0xD928 written to CNT. */
@@ -107,7 +117,8 @@ static void imxrt1180_rtwdog_reset(DeviceState *dev)
      * (because the RM says it is already running and must be serviced) sails through
      * here and is reset on hardware.
      */
-    s->cs = 0x00000900;
+    s->cs = 0x00000900;      /* CLK = 1, ULK set; EN and RCS CLEAR */
+    s->reconfigured = false;
     s->cnt = 0;
     s->toval = 0x00000400;
     s->win = 0;
