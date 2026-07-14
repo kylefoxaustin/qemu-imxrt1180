@@ -29,8 +29,20 @@ check() {  # <name> <marker-regex> <qemu-args...>
 T=tests
 check hello    'hello|alive'   -kernel $T/imxrt1180-hello/hello.elf
 check lpit     'PASS|FAIL'     -kernel $T/imxrt1180-lpit/timer.elf
-check lpi2c    'PASS|FAIL'     -kernel $T/imxrt1180-lpi2c/i2c.elf   -device tmp105,address=0x48
-check lpspi    'PASS|FAIL'     -kernel $T/imxrt1180-lpspi/spi.elf   -device at25df321a
+# bus= IS LOAD-BEARING.  Every LPI2C/LPSPI instance used to name its bus "i2c"/"spi",
+# so a bare `-device tmp105` landed on WHICHEVER ONE QEMU SAW LAST.  When LPI2C5/6 and
+# LPSPI5/6 were added, "last" stopped being the one the firmware drives -- the sensor
+# silently moved to a bus nobody talks to, and the test reported FAIL.
+#
+# The per-test Makefiles were fixed.  THIS FILE WAS NOT, and this file is the one that
+# ships to the board -- so the bundle carried a runner that mis-attached both devices and
+# blamed the model for it.  Two FAILs on aarch64, green on x86, and the difference was
+# never the architecture: IT WAS THIS SCRIPT.
+#
+#   ⭐ A RUNNER IS PART OF THE ARTIFACT.  We tested the model on two machines and the
+#      HARNESS on one, so the harness is where the untested code went to live.
+check lpi2c    'PASS|FAIL'     -kernel $T/imxrt1180-lpi2c/i2c.elf   -device tmp105,bus=lpi2c4-bus,address=0x48
+check lpspi    'PASS|FAIL'     -kernel $T/imxrt1180-lpspi/spi.elf   -device at25df321a,bus=lpspi4-bus
 check edma     'PASS|FAIL'     -kernel $T/imxrt1180-edma/dma.elf
 check flexcan  'PASS|FAIL'     -kernel $T/imxrt1180-flexcan/can.elf
 check mu       'PASS|FAIL'     -kernel $T/imxrt1180-mu/m33.elf      -device loader,file=$T/imxrt1180-mu/m7.elf

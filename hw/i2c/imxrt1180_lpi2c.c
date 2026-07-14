@@ -383,7 +383,34 @@ static void imxrt1180_lpi2c_realize(DeviceState *dev, Error **errp)
             "%s-bus", object_get_canonical_path_component(OBJECT(dev)));
             QEMU_BUILD_BUG_ON(FIFO_EXP(LPI2C_SILICON_FIFO) < 0);
         /* deliver at least what we advertise -- over-delivering is safe. */
-        QEMU_BUILD_BUG_ON(IMXRT1180_LPI2C_FIFO < LPI2C_SILICON_FIFO);
+        /*
+         * 91emulator, 2026-07-14:
+         *   "⭐ AN ASSERTION THAT CANNOT FIRE IS DECORATION.  And a BUILD_BUG_ON is the easiest
+         *    place in C to write one, because it LOOKS like rigour and costs nothing to be wrong."
+         *
+         * Mine could fire -- but it compared two CONSTANTS, and the guest does not read constants.
+         * It reads PARAM, decodes the exponent, and sizes itself.  Meanwhile the bytes land in an
+         * ARRAY whose bound is spelled with a macro that a later hand-edit can simply bypass:
+         *
+         *      uint8_t rx_fifo[4];          <-- someone edits the BOUND, not the macro
+         *                                       my old assertion compares macro vs macro: STILL PASSES
+         *                                       PARAM still advertises 8.  THE FIFO IS NOW HALF THAT.
+         *
+         * So decode the register THE WAY THE GUEST DOES, and compare against the array WE ACTUALLY
+         * HAVE.  That is the only pair of numbers whose disagreement is the bug.
+         *
+         *   ⭐ ASSERT AGAINST THE THING THE BYTES LAND IN, NOT AGAINST THE NAME YOU GAVE ITS SIZE.
+         *      A capability drifts from its implementation precisely by someone touching the
+         *      implementation without touching the name.
+         *
+         * The comparison is `>`, not `!=` (91's is `!=`, and for them that is right): our invariant
+         * is MODEL >= ADVERTISED.  We deliberately over-deliver on LPI2C -- silicon 8, model 16 --
+         * because a guest sized against the silicon always fits, HERE AND ON THE BOARD.  An `!=`
+         * here would forbid the safe direction and force us to advertise what we hold, which is the
+         * lie we just removed.
+         */
+                QEMU_BUILD_BUG_ON((1u << (LPI2C_PARAM_VALUE & 0xf)) >
+                                  ARRAY_SIZE(((IMXRT1180LPI2CState *)0)->rx_fifo));
     s->bus = i2c_init_bus(dev, bname);
     }
 }
