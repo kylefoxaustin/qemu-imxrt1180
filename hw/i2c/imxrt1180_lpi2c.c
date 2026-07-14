@@ -57,6 +57,39 @@
 #define MTDR_DATA 0xFF
 #define MTDR_CMD_SHIFT 8
 #define MTDR_CMD_MASK  0x7
+
+/*
+ * ============ THE CAPABILITY IS COMPUTED FROM THE THING IT DESCRIBES ============
+ *
+ * PARAM's FIFO fields are EXPONENTS.  The SDK reads them as `1U << (PARAM & MASK)` and
+ * pushes that many words BEFORE it checks the ready flag -- so an OVER-report is not a
+ * cosmetic lie.  A guest told "16 words" over a 1-word register pushes sixteen and
+ * SILENTLY DROPS FIFTEEN.  (mcxn947qemu found exactly that in their LPSPI and LPI2C.)
+ *
+ *   ⭐ A CAPABILITY REGISTER THAT IS A *CONSTANT* CAN DRIFT FROM THE THING IT
+ *      DESCRIBES.  ONE *COMPUTED FROM* IT CANNOT.
+ *
+ * Ours were right -- BY LUCK.  A hand-written 0x0404 next to a `#define ..._FIFO 16`
+ * agrees today and silently stops agreeing the moment somebody changes the depth.
+ * (mcxn's SAI value was correct while its own comment said "FIFO=32" and the value
+ * encoded 8: THE COMMENT HAD ALREADY DRIFTED FROM THE VALUE IT DESCRIBED.)
+ *
+ * So: derive the exponent FROM the depth, and make a disagreement a COMPILE ERROR.
+ * Negative-tested -- change a depth to a non-power-of-two and the build fails.
+ */
+#define FIFO_EXP(d)                                                           \
+    ((d) == 1 ? 0 : (d) == 2 ? 1 : (d) == 4 ? 2 : (d) == 8 ? 3 :              \
+     (d) == 16 ? 4 : (d) == 32 ? 5 : (d) == 64 ? 6 : -1)
+
+/*
+ * PARAM: MRXFIFO in bits 15:8, MTXFIFO in bits 7:0, as exponents.
+ * RX is a real IMXRT1180_LPI2C_FIFO-deep FIFO; TX is synchronous (MSR.TDF is always
+ * set -- the transmit FIFO genuinely never fills), so the TX figure is an under-promise.
+ */
+#define LPI2C_PARAM_VALUE                                                     \
+    (((uint32_t)FIFO_EXP(IMXRT1180_LPI2C_FIFO) << 8) |                        \
+      (uint32_t)FIFO_EXP(IMXRT1180_LPI2C_FIFO))
+
 #define MRDR_RXEMPTY 0x4000
 
 /*
@@ -165,7 +198,7 @@ static uint64_t imxrt1180_lpi2c_read(void *opaque, hwaddr offset, unsigned size)
     case LPI2C_VERID:
         return 0x02000004;                 /* v2.0 */
     case LPI2C_PARAM:
-        return 0x00000404;                 /* MTXFIFO=MRXFIFO=2^4 = 16 */
+        return LPI2C_PARAM_VALUE;
     case LPI2C_MCR:
         return s->mcr;
     case LPI2C_MSR:
