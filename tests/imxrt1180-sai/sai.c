@@ -62,6 +62,30 @@
 #define TFR0 (*(volatile uint32_t *)(SAI1 + 0x40))
 #define PARAM (*(volatile uint32_t *)(SAI1 + 0x04))
 
+#define TCR2_BCD (1u << 24)  /* bit-clock direction: 1 = MASTER  */
+
+/*
+ * THE RATE IS AN ARGUMENT, NOT A CONSTANT -- AND THE HARNESS MUST ARM IT.
+ *
+ * 93emulator: "A FORMULA THAT IS CORRECT AT THE POINT YOU TESTED IT IS NOT A FORMULA YOU
+ * HAVE TESTED. Only a SECOND operating point exposed mine." Their SAI ignored the divider
+ * entirely and every audio test in the fleet asked for 48 kHz -- the ONE rate that cannot
+ * see it. This test asked for 25 kHz, once, and had exactly the same blind spot.
+ *
+ * check.py pokes {MAGIC, DIV} here with `-device loader,addr=...,data=...` and runs the
+ * firmware TWICE at two different dividers. A model that ignores TCR2[DIV] transposes the
+ * second run and is caught.
+ *
+ * NO DEFAULT. If the slot is not armed we FAIL loudly rather than fall back to a divider
+ * nobody chose -- a test that silently supplies its own input is testing itself.
+ * (95emulator's harness "armed" an impostor that never reached the guest, and then accused
+ * their own correct model. A NEGATIVE TEST THAT DID NOT PRODUCE THE CONDITION IT NAMES
+ * MANUFACTURES A BUG.)
+ */
+#define SEL_MAGIC_ADDR (*(volatile uint32_t *)0x20001000u)
+#define SEL_DIV_ADDR   (*(volatile uint32_t *)0x20001004u)
+#define SEL_MAGIC      0x53414931u   /* "SAI1" */
+
 #define CSR_FRF (1u << 16)   /* FIFO has room                    */
 #define CSR_FWF (1u << 17)   /* FIFO at/below watermark          */
 #define CSR_FEF (1u << 18)   /* FIFO error: over/underrun        */
@@ -92,6 +116,7 @@ void (* const vt[])(void) = { (void (*)(void))STACK_TOP, reset_handler };
 void reset_handler(void)
 {
     uint32_t n;
+    uint32_t div;
 
     /* A REAL MCLK: root 65, MUX 0 (OSC_RC_24M), DIV field = divisor-1 = 0. */
     CCM_ROOT_CTRL(CCM_ROOT_SAI1) = (0u << 8) | 0u;
@@ -101,7 +126,24 @@ void reset_handler(void)
     TCSR = CSR_FR;                 /* FIFO reset (momentary)     */
     uint32_t after_fr = TCSR;
 
-    TCR2 = 14u;                    /* DIV=14  -> BCLK = 24MHz/(2*15) = 800 kHz  */
+    if (SEL_MAGIC_ADDR != SEL_MAGIC) {
+        puts_("SAI: FAIL - the rate selector was never armed by the harness\r\n");
+        sh(SYS_EXIT, (void *)0x20026u);
+    }
+    div = SEL_DIV_ADDR;
+
+    /*
+     * ⭐ BCD = 1: THIS SAI IS THE BIT-CLOCK MASTER, AND IT HAS TO SAY SO.
+     *
+     * We used to write TCR2 = 14 -- leaving BCD at 0, i.e. bit-clock SLAVE -- while the
+     * model happily computed a MASTER-mode rate from the divider. 93emulator's trap,
+     * exactly: on a slave the codec drives BCLK, the divider does nothing, and a formula
+     * that reads it is a fabrication with an RM citation attached.
+     *
+     * A bare-metal test with no codec on the board has no external bit clock, so MASTER is
+     * not a convenience here -- it is the only configuration that is physically coherent.
+     */
+    TCR2 = TCR2_BCD | (div & 0xFFu);
     TCR3 = (1u << 16);             /* enable TX data channel 0                   */
     TCR4 = (1u << 16);             /* FRSZ=1  -> 2 words per frame (stereo)      */
     TCR5 = (15u << 16) | (15u << 24);  /* W0W=WNW=15 -> 16-bit words             */
@@ -166,7 +208,7 @@ void reset_handler(void)
         puts_("SAI: FIFO ERROR (FEF) during playback\r\n");
     }
 
-    puts_("SAI: PLAYED 4096 samples @ 25000 Hz (the WAV is the assertion)\r\n");
+    puts_("SAI: PLAYED 4096 samples (the WAV is the assertion)\r\n");
     sh(SYS_EXIT, (void *)0x20026u);
     for (;;) {
     }

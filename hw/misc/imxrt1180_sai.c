@@ -115,6 +115,7 @@
 /* Field accessors (CMSIS I2S_Type). */
 #define TCR1_TFW(v)   ((v) & 0x1Fu)                 /* FIFO watermark            */
 #define TCR2_DIV(v)   ((v) & 0xFFu)                 /* bit clock divider         */
+#define TCR2_BCD(v)   (((v) >> 24) & 0x1u)          /* 1 = bit clock MASTER      */
 #define TCR4_FRSZ(v)  (((v) >> 16) & 0x1Fu)         /* frame size - 1 (in words) */
 #define TCR5_W0W(v)   (((v) >> 16) & 0x1Fu)         /* word 0 width - 1 (bits)   */
 #define TFR_RFP_SHIFT 0
@@ -141,6 +142,29 @@
  *      WILL LOOK."  Six timer blocks in this tree opened with `if (!clk) clk =
  *      DEFAULT;` and not one of the six defaults was right.  A silent SAI is
  *      diagnosed in a minute.  A SAI running at a plausible-but-wrong rate ships.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⭐ AND THE FORMULA ABOVE IS ONLY TRUE IF THIS SAI IS THE BIT-CLOCK *MASTER*.
+ *
+ * 93emulator, 2026-07-14, who shipped exactly this derivation and then retracted it:
+ *
+ *   "It is the correct formula. It is in the RM. It produces exactly 48000 at 48 kHz.
+ *    AND IT IS WRONG.  On a wm8962 EVK the SAI is a bit-clock SLAVE -- the CODEC drives
+ *    BCLK/LRCLK, the rate is set in the codec over I2C, and IT IS NOT DERIVABLE FROM ANY
+ *    SAI REGISTER.  The information is not in that device.  CHECK TCR2 bit24 BEFORE YOU
+ *    WRITE ONE LINE OF DIVIDER MATH."
+ *
+ * Their driver programmed IDENTICAL TCR2/TCR4 for 48 kHz and 16 kHz -- it never touched
+ * the divider, because in slave mode the divider does nothing.  A master-mode formula
+ * applied to a slave is A FABRICATION WITH AN RM CITATION ATTACHED, and it agrees with
+ * itself at the one operating point anybody tests.
+ *
+ *   ⭐ A FORMULA THAT IS CORRECT AT THE POINT YOU TESTED IT IS NOT A FORMULA YOU HAVE
+ *      TESTED.  Only a SECOND operating point exposes it.
+ *
+ * So: TCR2[BCD] == 0 (slave) => WE DO NOT KNOW THE RATE, and we say so.  We do not invent
+ * one from a divider this block is not driving.  (We model no codec, so on this machine a
+ * slave SAI genuinely has no rate source -- the honest answer is "none", not "48000".)
  */
 static uint32_t imxrt1180_sai_tx_hz(IMXRT1180SAIState *s, uint32_t *nchan,
                                     uint32_t *word_bits)
@@ -151,6 +175,19 @@ static uint32_t imxrt1180_sai_tx_hz(IMXRT1180SAIState *s, uint32_t *nchan,
     uint32_t words = TCR4_FRSZ(tcr4) + 1u;
     uint32_t bits = TCR5_W0W(tcr5) + 1u;
     uint32_t mclk, bclk;
+
+    /*
+     * BIT-CLOCK DIRECTION FIRST. Everything below divides MCLK by TCR2[DIV] -- which is
+     * only what the hardware does when THIS block generates the bit clock.
+     */
+    if (!TCR2_BCD(tcr2)) {
+        qemu_log_mask(LOG_UNIMP, "imxrt1180-sai: TCR2[BCD]=0, the SAI is a bit-clock "
+                      "SLAVE -- the rate is driven by an external codec and is NOT "
+                      "derivable from any SAI register. No codec is modelled, so no "
+                      "audio is rendered. (Computing MCLK/(2*(DIV+1)) here would be a "
+                      "fabrication: in slave mode the SAI does not drive that divider.)\n");
+        return 0;
+    }
 
     mclk = imxrt1180_ccm_periph_hz(s->ccm, s->clk_root, "imxrt1180-sai");
     if (!mclk || !words || !bits) {
