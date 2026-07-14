@@ -24,6 +24,20 @@
 # Usage: tools/mutation-audit.sh          (runs all)
 #        tools/mutation-audit.sh pwm      (one)
 # SPDX-License-Identifier: GPL-2.0-or-later
+# `timeout N make run` DOES NOT BOUND THE QEMU UNDERNEATH IT. Measured, this box, today:
+#
+#     timeout 2      <wrapper spawning a TERM-ignoring grandchild>  -> exit 124, 3 ORPHANS
+#     timeout -k 5 2 <same>                                          -> exit 124, 1 ORPHAN
+#     bounded 2      <same>                                          -> exit 124, 0 orphans
+#
+# ⭐ ALL THREE REPORT EXIT 124. THE EXIT CODE CANNOT TELL A BOUND FROM A LEAK.
+#    `timeout` signals its CHILD (make); the QEMU under it reparents to init and runs
+#    forever. A census of this box found a 15-hour orphan of mine and two 6-hour orphans
+#    on a LIVE multicast group -- one of them an IMPOSTOR beacon still on the wire.
+#
+# ⭐ A KILL THAT REACHES THE WRAPPER AND NOT THE PROCESS IS NOT A KILL. (mcxn947qemu)
+source "$(dirname "${BASH_SOURCE[0]}")/bounded.sh"
+
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -162,7 +176,7 @@ run_test() {   # $1 = test dir; echoes PASS or FAIL
     # and it feels identical from the inside.")
     #
     local o
-    o=$( (cd "tests/$1" && timeout 60 make run 2>&1) )
+    o=$( (cd "tests/$1" && bounded 60 make run 2>&1) )
     if echo "$o" | grep -q ": FAIL"; then echo FAIL
     elif echo "$o" | grep -q ": PASS"; then echo PASS
     else echo FAIL; fi

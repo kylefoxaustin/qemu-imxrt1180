@@ -565,7 +565,7 @@ build_node 0x88B7 0x88B5 0x88B6 /tmp/n-imx95.elf  02:49:4d:58:95:01 || exit 1
 O1=$(mktemp); O2=$(mktemp); O3=$(mktemp)
 trap 'rm -f "$O1" "$O2" "$O3"' EXIT
 
-launch() { timeout 25 "$QEMU" $QARGS -kernel "$1" \
+launch() { timeout -k 5 25 "$QEMU" $QARGS -kernel "$1" \
              -nic socket,mcast=$MCAST,mac=$2 -serial stdio >"$3" 2>/dev/null & }
 
 launch /tmp/n-rt1180.elf 54:27:8d:00:00:00 "$O1"   # us

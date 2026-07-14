@@ -18,7 +18,7 @@ echo ">> $($Q -M help | grep -i mimxrt1180 || echo 'MACHINE NOT FOUND')"
 pass=0; fail=0
 check() {  # <name> <marker-regex> <qemu-args...>
     local name=$1 want=$2; shift 2
-    local out; out=$(timeout 120 $Q $COMMON "$@" 2>&1 | grep -iE "$want" | head -1)
+    local out; out=$(timeout -k 5 120 $Q $COMMON "$@" 2>&1 | grep -iE "$want" | head -1)
     case "$out" in
         *FAIL*) echo "  FAIL  $name — $out"; fail=$((fail+1)) ;;
         "")     echo "  FAIL  $name — <no marker>"; fail=$((fail+1)) ;;
@@ -82,7 +82,7 @@ check motor    'PASS|FAIL'     -kernel $T/imxrt1180-motor/motor.elf
 # UART b2b link (needs python3 peer; board has it)
 if [ -f $T/imxrt1180-uartlink/uartlink.elf ] && command -v python3 >/dev/null; then
     PORT=15780
-    timeout 60 $Q $COMMON -kernel $T/imxrt1180-uartlink/uartlink.elf \
+    timeout -k 5 60 $Q $COMMON -kernel $T/imxrt1180-uartlink/uartlink.elf \
         -chardev socket,id=ul,host=127.0.0.1,port=$PORT,server=on,wait=off \
         -serial null -serial chardev:ul >/tmp/ul.$$ 2>&1 &
     qp=$!; sleep 1

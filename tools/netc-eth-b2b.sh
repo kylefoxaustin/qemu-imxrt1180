@@ -36,10 +36,10 @@ ELF="$(ls "$BUILD"/*.elf | head -1)"
 
 echo ">> launching two instances on a socket L2 segment (port $PORT)"
 C="-M mimxrt1180-evk -audio none -display none -monitor none -kernel $ELF -semihosting-config enable=on,target=native"
-timeout 14 $QEMU $C -nic socket,listen=127.0.0.1:$PORT -serial file:/tmp/ethA.con >/dev/null 2>&1 &
+timeout -k 5 14 $QEMU $C -nic socket,listen=127.0.0.1:$PORT -serial file:/tmp/ethA.con >/dev/null 2>&1 &
 A=$!
 sleep 0.6
-timeout 14 $QEMU $C -nic socket,connect=127.0.0.1:$PORT -serial file:/tmp/ethB.con >/dev/null 2>&1 &
+timeout -k 5 14 $QEMU $C -nic socket,connect=127.0.0.1:$PORT -serial file:/tmp/ethB.con >/dev/null 2>&1 &
 B=$!
 wait $A 2>/dev/null; wait $B 2>/dev/null
 

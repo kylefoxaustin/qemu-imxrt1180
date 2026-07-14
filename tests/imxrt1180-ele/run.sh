@@ -33,7 +33,7 @@ rc=0
 make -s -C "$HERE" >/dev/null 2>&1 || { echo "BUILD FAILED"; exit 1; }
 
 run() {   # $1 = extra qemu args
-    timeout 25 "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none $1 \
+    timeout -k 5 25 "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none $1 \
         -kernel "$HERE/ele.elf" -serial null \
         -semihosting-config enable=on,target=native 2>&1 </dev/null | tr -d '\0'
 }

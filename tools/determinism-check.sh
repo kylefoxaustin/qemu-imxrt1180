@@ -49,6 +49,20 @@
 # Usage: tools/determinism-check.sh [runs] [--load]     (default 5 runs)
 #        --load saturates every core first. USE IT.
 # SPDX-License-Identifier: GPL-2.0-or-later
+# `timeout N make run` DOES NOT BOUND THE QEMU UNDERNEATH IT. Measured, this box, today:
+#
+#     timeout 2      <wrapper spawning a TERM-ignoring grandchild>  -> exit 124, 3 ORPHANS
+#     timeout -k 5 2 <same>                                          -> exit 124, 1 ORPHAN
+#     bounded 2      <same>                                          -> exit 124, 0 orphans
+#
+# ⭐ ALL THREE REPORT EXIT 124. THE EXIT CODE CANNOT TELL A BOUND FROM A LEAK.
+#    `timeout` signals its CHILD (make); the QEMU under it reparents to init and runs
+#    forever. A census of this box found a 15-hour orphan of mine and two 6-hour orphans
+#    on a LIVE multicast group -- one of them an IMPOSTOR beacon still on the wire.
+#
+# ⭐ A KILL THAT REACHES THE WRAPPER AND NOT THE PROCESS IS NOT A KILL. (mcxn947qemu)
+source "$(dirname "${BASH_SOURCE[0]}")/bounded.sh"
+
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 #
@@ -99,7 +113,7 @@ for d in "$ROOT"/tests/imxrt1180-*/; do
     t=$(basename "$d")
     pass=0; fail=0
     for _ in $(seq 1 "$N"); do
-        o=$( (cd "$d" && timeout 180 make run 2>&1) )
+        o=$( (cd "$d" && bounded 180 make run 2>&1) )
         if echo "$o" | grep -q ": FAIL"; then fail=$((fail+1)); else pass=$((pass+1)); fi
     done
     #

@@ -13,6 +13,20 @@
 #   ./tools/iq9-run.sh --run      # run tests only (assumes build/ exists)
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
+# `timeout N make run` DOES NOT BOUND THE QEMU UNDERNEATH IT. Measured, this box, today:
+#
+#     timeout 2      <wrapper spawning a TERM-ignoring grandchild>  -> exit 124, 3 ORPHANS
+#     timeout -k 5 2 <same>                                          -> exit 124, 1 ORPHAN
+#     bounded 2      <same>                                          -> exit 124, 0 orphans
+#
+# ⭐ ALL THREE REPORT EXIT 124. THE EXIT CODE CANNOT TELL A BOUND FROM A LEAK.
+#    `timeout` signals its CHILD (make); the QEMU under it reparents to init and runs
+#    forever. A census of this box found a 15-hour orphan of mine and two 6-hour orphans
+#    on a LIVE multicast group -- one of them an IMPOSTOR beacon still on the wire.
+#
+# ⭐ A KILL THAT REACHES THE WRAPPER AND NOT THE PROCESS IS NOT A KILL. (mcxn947qemu)
+source "$(dirname "${BASH_SOURCE[0]}")/bounded.sh"
+
 set -u
 cd "$(dirname "$0")/.."
 ROOT=$(pwd)
@@ -48,7 +62,7 @@ do_run() {
         name=${dir#tests/imxrt1180-}; name=${name%/}
         [ -f "$dir/Makefile" ] || continue
         case "$name" in corpus|zephyr) continue ;; esac   # need SDK bins, not bundled
-        out=$(QEMU="$QEMU" timeout 120 make -C "$dir" run 2>&1 \
+        out=$(QEMU="$QEMU" bounded 120 make -C "$dir" run 2>&1 \
               | grep -iE 'PASS|FAIL|alive|hello (world|from)' | head -1)
         case "$out" in
             *FAIL*)                          echo "  FAIL  $name — $out"; fail=$((fail+1)) ;;

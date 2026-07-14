@@ -78,7 +78,7 @@ C="-M mimxrt1180-evk -audio none -display none -monitor none -kernel $ELF -semih
 
 if [ -n "${PEER:-}" ]; then
     echo ">> joining external segment at $PEER (cross-model)"
-    timeout 12 $QEMU $C -nic socket,connect=$PEER,mac=02:52:8d:11:11:aa -serial file:/tmp/labX.con >/dev/null 2>&1
+    timeout -k 5 12 $QEMU $C -nic socket,connect=$PEER,mac=02:52:8d:11:11:aa -serial file:/tmp/labX.con >/dev/null 2>&1
     echo "0x88B5 rx=$(grep -ac 'ENET-LAB rx: ethertype 0x88b5' /tmp/labX.con || echo 0)"
     grep -m3 'ENET-LAB rx' /tmp/labX.con
     exit 0
@@ -86,9 +86,9 @@ fi
 
 echo ">> RT1180<->RT1180 self-check on port $PORT"
 pkill -9 -f qemu-system-arm 2>/dev/null; sleep 1
-timeout 9 $QEMU $C -nic socket,listen=127.0.0.1:$PORT,mac=02:52:8d:11:11:01 -serial file:/tmp/labA.con >/dev/null 2>&1 &
+timeout -k 5 9 $QEMU $C -nic socket,listen=127.0.0.1:$PORT,mac=02:52:8d:11:11:01 -serial file:/tmp/labA.con >/dev/null 2>&1 &
 sleep 1
-timeout 9 $QEMU $C -nic socket,connect=127.0.0.1:$PORT,mac=02:52:8d:11:11:02 -serial file:/tmp/labB.con >/dev/null 2>&1 &
+timeout -k 5 9 $QEMU $C -nic socket,connect=127.0.0.1:$PORT,mac=02:52:8d:11:11:02 -serial file:/tmp/labB.con >/dev/null 2>&1 &
 wait
 A=$(grep -ac 'ENET-LAB rx: ethertype 0x88b5' /tmp/labA.con 2>/dev/null); A=${A:-0}
 B=$(grep -ac 'ENET-LAB rx: ethertype 0x88b5' /tmp/labB.con 2>/dev/null); B=${B:-0}

@@ -84,7 +84,7 @@ $CC -mthumb -mcpu=cortex-m33 -O2 -ffreestanding -nostdlib -nostartfiles \
     -T "$BUILD/xip.ld" "$BUILD/xip.c" -o "$BUILD/xip.elf" || { echo "BUILD FAILED"; exit 1; }
 
 start=$(date +%s.%N)
-timeout 120 "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none \
+timeout -k 5 120 "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none \
     -kernel "$BUILD/xip.elf" -serial null \
     -semihosting-config enable=on,target=native > "$BUILD/con" 2>&1 </dev/null
 end=$(date +%s.%N)
