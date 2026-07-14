@@ -220,6 +220,7 @@ loop = r'''
                 uint32_t *armed;
                 uint32_t *last;
                 uint32_t good;
+                uint32_t has_magic;
 
                 (void)EP_ReceiveFrameCopy(&g_ep_handle, 0, g_rxFrame, length, NULL);
                 et = ((uint16_t)g_rxFrame[12] << 8) | g_rxFrame[13];
@@ -304,48 +305,48 @@ loop = r'''
                 }
 
                 /*
-                 * CHECK THE WHOLE BODY, THE WAY THE PEERS CHECK IT. mcx's frame_ok()
-                 * rejects BAD_MAGIC, BAD_SELF_ET, BAD_PATTERN and BAD_REPLAY -- and a
-                 * receiver that only checks the magic will happily count a frame that
-                 * every other node on the segment is throwing away.
+                 * ⭐ THE MAGIC IS WHAT TELLS A BROKEN BEACON FROM A STRANGER.
+                 *
+                 * 91emulator, 2026-07-14, after their OWN length fix turned out to be a
+                 * NO-OP:
+                 *
+                 *   "I shipped `n != FRAME_LEN -> CORRUPT`, sent a 1000-byte frame at it,
+                 *    and the honest node COUNTED THE LIAR 268 TIMES ANYWAY. An over-long
+                 *    frame has no valid body -- so my SELF-ARMING LATCH asked 'has this peer
+                 *    ever emitted a valid body?', saw no, and filed a peer spraying 1000
+                 *    bytes of garbage as A PHASE-1 PEER THAT HAS NOT UPGRADED YET.
+                 *    My leniency was never in the length check. It was in the LATCH."
+                 *
+                 * ⭐ "HASN'T SHIPPED THE EMITTER" AND "SHIPPED A *BROKEN* EMITTER" ARE NOT
+                 *    THE SAME PEER. A frame carrying 0xB5B6B7C0 IS speaking the protocol --
+                 *    it is just speaking it WRONG, and that is a fault, not a phase.
+                 *
+                 *      magic present, malformed  -> CORRUPT.  A broken beacon.
+                 *      no magic, never armed     -> LEGACY.   Un-upgraded. Still counted.
+                 *      no magic, HAS armed       -> CORRUPT.  A buffer nobody wrote.
+                 *
+                 * We adopted the latch from 91 this morning and inherited this hole with it.
+                 * Measured, before the fix: a 1000-byte frame with a VALID 64-byte prefix
+                 * scored TWO PASS BEATS and printed "0x88b5 VERIFIED". We counted the liar.
                  */
-                good = (length >= 64u &&
-                        g_rxFrame[14] == 0xB5U && g_rxFrame[15] == 0xB6U &&
-                        g_rxFrame[16] == 0xB7U && g_rxFrame[17] == 0xC0U);
+                has_magic = (length >= 18u &&
+                             g_rxFrame[14] == 0xB5U && g_rxFrame[15] == 0xB6U &&
+                             g_rxFrame[16] == 0xB7U && g_rxFrame[17] == 0xC0U);
 
-                /* THE FRAME MUST NOT CONTRADICT ITSELF: [18..19] declares its own
-                 * ethertype, and it must agree with [12..13]. */
-                if (good && ((((uint16_t)g_rxFrame[18] << 8) | g_rxFrame[19]) != et))
-                {
-                    good = 0u;
-                }
-
-                if (good)
-                {
-                    for (fill_i = 24U; fill_i < 64U; fill_i++)
-                    {
-                        if (g_rxFrame[fill_i] != 0x5AU) { good = 0u; break; }
-                    }
-                }
-
-                if (!good)
+                if (!has_magic)
                 {
                     /*
-                     * SELF-ARMING, PER PEER. (91emulator's mechanism; holobench MEASURED it:
-                     * on a segment where the body formats disagreed, the self-arming node was
-                     * THE ONLY ONE THAT STILL FUNCTIONED. Both UNCONDITIONAL enforcers --
-                     * mcx and us -- deadlocked to ZERO heartbeats.)
+                     * Not speaking the protocol at all. SELF-ARMING (91's mechanism, and
+                     * holobench measured why: on a segment where the bodies disagreed, the
+                     * self-arming node was the ONLY one still functioning -- both
+                     * unconditional enforcers deadlocked to ZERO).
                      *
-                     * A peer that has NEVER emitted the agreed body is an UN-UPGRADED PEER,
-                     * not a corrupt frame. Condemning it is a claim we have not earned, and
-                     *   A RED YOU CANNOT TRUST IS WORSE THAN NO RED: IT GETS THE CHECK
-                     *   DELETED BY THE PEOPLE IT PROTECTS.
-                     * So degrade to PRESENCE -- and SAY SO, in the PASS line.
-                     *
-                     * But once a peer HAS spoken the body it is ARMED, and garbage from it
-                     * can only be OUR RX path lying. THAT we condemn -- and that CORRUPT is
-                     * trustworthy precisely because the peer proved it could do better.
-                     * The assertion earns the right to fire.
+                     * A peer that has NEVER emitted the body is UN-UPGRADED, not corrupt.
+                     *   ⭐ A RED YOU CANNOT TRUST IS WORSE THAN NO RED: IT GETS THE CHECK
+                     *      DELETED BY THE PEOPLE IT PROTECTS.
+                     * But once a peer HAS spoken it, a body-less frame from it can only be
+                     * OUR RX path lying -- and THAT condemnation is trustworthy precisely
+                     * because the peer proved it could do better.
                      */
                     if (*armed)
                     {
@@ -355,6 +356,55 @@ loop = r'''
                         continue;
                     }
                     if (is_a == 1u) { saw_a = 1; } else if (is_a == 0u) { saw_b = 1; }
+                    continue;
+                }
+
+                /*
+                 * IT HAS THE MAGIC. From here on every fault is a BROKEN BEACON, condemned
+                 * ON SIGHT -- the latch does not get to excuse it, because the sender has
+                 * just proved it is trying to speak this protocol.
+                 *
+                 * ⭐ FRAME_LEN IS 64 *EXACTLY*. It is a term of the contract, not a floor.
+                 *   We had `length >= 64u`, so a 1000-byte frame with a valid 64-byte prefix
+                 *   passed every other check and was COUNTED. 95emulator had the same bug and
+                 *   named the cost: "A RECEIVER THAT IS MORE PERMISSIVE THAN THE SEGMENT
+                 *   COUNTS PEERS THAT EVERYONE ELSE IS REJECTING -- AND THEN *YOUR* GREEN IS
+                 *   THE LIE, BECAUSE YOURS IS THE ONLY ONE THAT CAME BACK."
+                 *
+                 *   And my own README already said "FRAME_LEN 64 exactly", in a table I had
+                 *   transcribed from mcx's source that morning. THE DOC WAS RIGHT AND THE CODE
+                 *   WAS WRONG. ⭐ GREP YOUR OWN GUARDRAILS -- a contract you wrote down and did
+                 *   not implement is worse than one you never wrote, because you believe you
+                 *   are covered.
+                 */
+                if (length != 64u)
+                {
+                    PRINTF("ENET-LAB3 CORRUPT: WRONG-LENGTH peer 0x%04x len %u (want 64) "
+                           "-- it carries the beacon magic, so this is a BROKEN BEACON, not "
+                           "an un-upgraded peer\r\n", et, (unsigned)length);
+                    continue;
+                }
+
+                /* THE FRAME MUST NOT CONTRADICT ITSELF: [18..19] declares its own
+                 * ethertype and must agree with [12..13]. */
+                if ((((uint16_t)g_rxFrame[18] << 8) | g_rxFrame[19]) != et)
+                {
+                    PRINTF("ENET-LAB3 CORRUPT: SELF-ET peer 0x%04x declares 0x%04x in its "
+                           "body -- the frame contradicts itself\r\n", et,
+                           (unsigned)((((uint16_t)g_rxFrame[18] << 8) | g_rxFrame[19])));
+                    continue;
+                }
+
+                good = 1u;
+                for (fill_i = 24U; fill_i < 64U; fill_i++)
+                {
+                    if (g_rxFrame[fill_i] != 0x5AU) { good = 0u; break; }
+                }
+                if (!good)
+                {
+                    PRINTF("ENET-LAB3 CORRUPT: BAD-FILL peer 0x%04x byte %u is 0x%02x "
+                           "(want 0x5A) -- a broken beacon\r\n", et, (unsigned)fill_i,
+                           (unsigned)g_rxFrame[fill_i]);
                     continue;
                 }
 

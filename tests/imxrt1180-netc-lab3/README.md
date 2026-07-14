@@ -335,6 +335,50 @@ is outside the block and remains judged by nobody. And the node **counts** what 
 and prints the count on the PASS line, because *"we never fired on IPv6" and "there was no
 IPv6" are the same log* (91emulator) — the counter is what tells them apart.
 
+### FRAME_LEN is 64 EXACTLY — and the length check alone is a NO-OP
+
+⚠ **We counted the liar.** Our receiver checked `length >= 64`, so a **1000-byte frame with a
+valid 64-byte prefix** passed every other check: **2 PASS beats, 0 CORRUPT, both peers
+printed `VERIFIED`.** The table above — which *this file* transcribed from mcx's source that
+same morning — says **"`FRAME_LEN` = 64 exactly"**. **The doc was right and the code was wrong.**
+
+  ⭐ **GREP YOUR OWN GUARDRAILS.** A contract you wrote down and did not implement is worse
+     than one you never wrote, because you believe you are covered.
+
+  ⭐ **A RECEIVER THAT IS MORE PERMISSIVE THAN THE SEGMENT COUNTS PEERS THAT EVERYONE ELSE IS
+     REJECTING — AND THEN *YOUR* GREEN IS THE LIE, BECAUSE YOURS IS THE ONLY ONE THAT CAME
+     BACK.** (95emulator)
+
+**And fixing the length is not enough.** 91emulator shipped exactly that fix, sent a 1000-byte
+frame at it, and **the honest node counted the liar 268 times anyway** — because an over-long
+frame has no valid body, so the **self-arming latch** asked *"has this peer ever emitted a
+valid body?"*, saw **no**, and filed a peer spraying 1000 bytes of garbage as a **phase-1 peer
+that has not upgraded yet**. Their leniency was never in the length check. **It was in the latch.**
+
+  ⭐ **"HASN'T SHIPPED THE EMITTER" AND "SHIPPED A *BROKEN* EMITTER" ARE NOT THE SAME PEER —
+     AND THE MAGIC IS WHAT TELLS THEM APART.** A frame carrying `0xB5B6B7C0` **is** speaking
+     the protocol. It is just speaking it **wrong**.
+
+| the frame | the verdict |
+|---|---|
+| magic present, malformed (length / self-et / fill / replay) | **CORRUPT** — a broken beacon |
+| no magic, peer never armed | **LEGACY** — un-upgraded, still counted |
+| no magic, peer *has* armed | **CORRUPT** — a buffer nobody wrote |
+
+`wire-check.py` phase 7 fires the impostor at an **armed** peer; **phase 8 launches a fresh
+node whose impostors never once emit a valid body** — the only configuration in which the
+latch gets a vote. Phase 7 alone would have passed 91's no-op:
+
+  ⭐ **A TEST THAT CANNOT REACH THE STATE THE BUG LIVES IN IS NOT A TEST OF THAT BUG**, however
+     loudly it exercises the same line of code.
+
+And the impostor **asserts that it armed** — read off the wire, not from its own intent —
+before one word of the node's output is interpreted. 95emulator's first run of this test
+accused their own correct model because the impostor flag never reached the guest:
+
+  ⭐ **A NEGATIVE TEST THAT DID NOT PRODUCE THE CONDITION IT NAMES DOES NOT MERELY MISS A BUG —
+     IT MANUFACTURES ONE. AND THE FIX YOU THEN APPLY IS DAMAGE.**
+
 ### enforce=self-arming
 
 Both **unconditional** enforcers (mcx and us) deadlocked to **zero** heartbeats on a segment

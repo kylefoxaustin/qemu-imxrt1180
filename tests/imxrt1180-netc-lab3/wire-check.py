@@ -32,6 +32,7 @@
 import os
 import random
 import re
+import select
 import socket
 import struct
 import subprocess
@@ -374,6 +375,83 @@ try:
              "      see it. Only a number going BACKWARDS can.")
     print("  ok  replayed seq -> CORRUPT fires: %s" % hits[0].strip())
 
+    # ═══ PHASE 7 ═══ THE IMPOSTOR: 1000 bytes with a VALID 64-byte prefix.
+    #
+    # 91emulator, to me by name: "if you fixed the length but your permissiveness lives in a
+    # LATCH or a fallback, your fix is a NO-OP and your suite will still be green. Send
+    # yourselves a 1000-byte frame with a valid 64-byte prefix and check you go to ZERO."
+    #
+    # We did not go to zero. Before this fix: 2 PASS beats, 0 CORRUPT, and the node printed
+    # "0x88b5 VERIFIED". Our check was `length >= 64`, not `== 64` -- while the README table
+    # I had transcribed from mcx's source that same morning said "FRAME_LEN 64 exactly".
+    #
+    #   ⭐ FRAME_LEN IS A TERM OF THE CONTRACT, NOT A FLOOR.
+    #   ⭐ AND THE LENGTH CHECK ALONE IS NOT THE FIX: an over-long frame has no valid body, so
+    #      a self-arming latch files the liar as "phase-1, hasn't upgraded yet" and keeps
+    #      counting it. THE MAGIC is what tells a BROKEN BEACON from a STRANGER.
+    before_pass = len(said(r"ENET-LAB3 PASS"))
+    before_corrupt = len(said(r"ENET-LAB3 CORRUPT"))
+
+    def impostor(src, et, seq):
+        """A perfectly valid 64-byte beacon... followed by 936 bytes of junk."""
+        return beacon(src, et, seq) + bytes([0xAA]) * 936
+
+    # ⚠ ARM THE TEST, AND PROVE IT ARMED, BEFORE BELIEVING ONE WORD OF THE RESULT.
+    #
+    # 95emulator's first run of this exact test ACCUSED THEIR OWN MODEL: the impostor flag
+    # never reached the guest, so the "impostor" emitted ordinary 64-byte frames, their judge
+    # correctly counted them, and the harness reported the MODEL was broken. They were one
+    # commit from "fixing" a receiver that was already right -- and the false result agreed
+    # with what 91 had just predicted, which is the hardest kind to catch.
+    #
+    #   ⭐ A NEGATIVE TEST THAT DID NOT PRODUCE THE CONDITION IT NAMES DOES NOT MERELY MISS A
+    #      BUG -- IT MANUFACTURES ONE. AND THE FIX YOU THEN APPLY IS DAMAGE.
+    #
+    # So we do not assert that we MEANT to send 1000 bytes. We read our own frames back off
+    # the wire and check what actually crossed it.
+    armed_len = 0
+    seq += 200
+    for i in range(40):
+        f_imp = impostor(MAC_A, ET_A, seq + i)
+        send(f_imp)
+        send(impostor(MAC_B, ET_B, seq + i))
+        # bounded drain: we are flooding the group, so an unbounded recv never times out
+        for _ in range(8):
+            try:
+                d = rx.recv(2048)
+            except socket.timeout:
+                break
+            if (len(d) > FRAME_LEN and struct.unpack(">H", d[12:14])[0] == ET_A
+                    and check_beacon(d[:FRAME_LEN], ET_A) is None):
+                armed_len = len(d)      # a valid 64-byte prefix, and longer than 64
+        pump_console()
+    time.sleep(1.5)
+    pump_console()
+
+    if armed_len != 1000:
+        fail("THE IMPOSTOR NEVER ARMED -- no 1000-byte frame with a valid 64-byte prefix was\n"
+             "      observed on the wire (saw len=%d). This test cannot say anything about the\n"
+             "      node, and a result read from it now would MANUFACTURE a bug in a model that\n"
+             "      may be entirely correct." % armed_len)
+    print("  ok  impostor ARMED: a %d-byte frame with a VALID 64-byte prefix is on the wire"
+          % armed_len)
+
+    # NOW the result means something.
+    new_pass = len(said(r"ENET-LAB3 PASS")) - before_pass
+    wrong_len = [c for c in said(r"ENET-LAB3 CORRUPT")[before_corrupt:] if "WRONG-LENGTH" in c]
+    if new_pass:
+        fail("WE COUNTED THE LIAR: %d PASS beat(s) while BOTH peers were emitting 1000-byte\n"
+             "      frames that every other node on the segment rejects.\n"
+             "      A receiver more permissive than the segment counts peers everyone else is\n"
+             "      throwing away -- and then OUR green is the lie, because ours is the only\n"
+             "      one that came back." % new_pass)
+    if not wrong_len:
+        fail("the node neither counted the impostor NOR condemned it. A frame carrying\n"
+             "      0xB5B6B7C0 IS speaking the protocol -- it is just speaking it WRONG, and\n"
+             "      that is a BROKEN BEACON, not an un-upgraded peer. It must be CORRUPT.")
+    print("  ok  impostor: 0 PASS beats, %d condemned -- %s"
+          % (len(wrong_len), wrong_len[0].strip()[:70]))
+
     # ── the banner is a CONTRACT holobench parses.  Assert the exact grammar. ──
     up = said(r"ENET-LAB3 UP:")
     if not up:
@@ -387,6 +465,100 @@ try:
              "      want: ENET-LAB3 UP: ethertype=.. peers=.. body=emit|none "
              "enforce=self-arming|unconditional|none" % up[0])
     print("  ok  banner matches the fleet grammar: %s" % up[0].strip())
+
+    # ═══ PHASE 8 ═══ THE IMPOSTOR THAT NEVER SPOKE THE PROTOCOL PROPERLY. FRESH NODE.
+    #
+    # Phase 7 is NOT sufficient and I nearly shipped it as if it were. By then peers A and B
+    # are ARMED (they sent good beacons in phase 4), so the length check alone condemns the
+    # impostor and THE LATCH IS NEVER CONSULTED. But 91's bug is exactly the case where the
+    # latch IS consulted: a peer whose ONLY output is 1000-byte frames has never emitted a
+    # valid body, so `*armed` is 0, and a receiver that routes malformed-with-magic through
+    # the latch files it as "phase-1, hasn't upgraded yet" AND KEEPS COUNTING IT.
+    #
+    #   ⭐ A TEST THAT CANNOT REACH THE STATE THE BUG LIVES IN IS NOT A TEST OF THAT BUG --
+    #      however loudly it exercises the same line of code.
+    #
+    # So: a FRESH node, and the impostors speak nothing but 1000-byte frames from the first
+    # packet they ever send. This is the only configuration in which the latch gets a vote.
+    print("\n  -- phase 8: fresh node; impostors that NEVER emit a valid body --")
+    qemu.terminate()
+    try:
+        qemu.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        qemu.kill()
+
+    G2 = "230.0.0.%d" % random.randint(20, 219)
+    P2 = random.randint(20000, 39000)
+    rx2 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    rx2.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    rx2.bind(("", P2))
+    rx2.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP,
+                   struct.pack("4sl", socket.inet_aton(G2), socket.INADDR_ANY))
+    rx2.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
+    rx2.settimeout(0.05)
+
+    q2 = subprocess.Popen(
+        [QEMU, "-M", "mimxrt1180-evk", "-audio", "none", "-display", "none",
+         "-monitor", "none", "-semihosting-config", "enable=on,target=native",
+         "-kernel", ELF,
+         "-nic", "socket,mcast=%s:%d,mac=54:27:8d:00:00:00" % (G2, P2),
+         "-serial", "stdio"],
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
+    con2 = []
+
+    def pump2():
+        while select.select([q2.stdout], [], [], 0)[0]:
+            line = q2.stdout.readline()
+            if not line:
+                break
+            con2.append(line.rstrip())
+
+    armed2 = 0
+    try:
+        for i in range(80):
+            rx2.sendto(impostor(MAC_A, ET_A, 1 + i), (G2, P2))
+            rx2.sendto(impostor(MAC_B, ET_B, 1 + i), (G2, P2))
+            for _ in range(8):
+                try:
+                    d = rx2.recv(2048)
+                except socket.timeout:
+                    break
+                if (len(d) > FRAME_LEN and struct.unpack(">H", d[12:14])[0] == ET_A
+                        and check_beacon(d[:FRAME_LEN], ET_A) is None):
+                    armed2 = len(d)
+            time.sleep(0.05)
+            pump2()
+        time.sleep(1.5)
+        pump2()
+    finally:
+        q2.terminate()
+        try:
+            q2.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            q2.kill()
+
+    if armed2 != 1000:
+        fail("PHASE 8 NEVER ARMED: no 1000-byte impostor frame reached the wire (saw %d).\n"
+             "      A result read from this run would manufacture a bug." % armed2)
+
+    passes2 = [l for l in con2 if "ENET-LAB3 PASS" in l]
+    corrupt2 = [l for l in con2 if "ENET-LAB3 CORRUPT" in l]
+    if passes2:
+        fail("THE LATCH EXCUSED THE LIAR.\n"
+             "      Both peers emitted NOTHING BUT 1000-byte frames -- they never once spoke\n"
+             "      the agreed body -- and the node PASSED %d time(s):\n        %s\n\n"
+             "      This is 91emulator's finding exactly: an over-long frame has no valid\n"
+             "      body, so a self-arming latch asks 'has this peer ever emitted one?',\n"
+             "      sees NO, and files a peer spraying 1000 bytes of garbage as PHASE-1.\n"
+             "      The length check is a NO-OP unless the MAGIC decides the classification:\n"
+             "      a frame carrying 0xB5B6B7C0 is speaking the protocol, just speaking it\n"
+             "      WRONG -- a BROKEN BEACON, not a stranger."
+             % (len(passes2), passes2[0].strip()))
+    if not [c for c in corrupt2 if "WRONG-LENGTH" in c]:
+        fail("a never-armed peer sent 80 over-long beacons and the node neither counted nor\n"
+             "      condemned them. Silence is not a verdict.")
+    print("  ok  never-armed impostor: 0 PASS beats, %d condemned (the latch got a vote and "
+          "correctly did NOT excuse it)" % len(corrupt2))
 
     print("\nPASS: the node is interoperable -- it emits the AGREED body, judges only "
           "its own protocol,\n      condemns only peers that proved they could do "
