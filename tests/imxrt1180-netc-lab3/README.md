@@ -103,9 +103,20 @@ the ELF to exactly this string:
 
     PASS-TOKEN: ENET-LAB3 PASS #
     CORRUPT-TOKEN: ENET-LAB3 CORRUPT
+    BANNER-TOKEN: ENET-LAB3 UP:
 
-Match those **prefixes**. The firmware prints `ENET-LAB3 PASS #<n>: saw BOTH peers on the
-segment`, and `<n>` increments on every re-arm.
+Match those **prefixes**. The firmware prints
+`ENET-LAB3 PASS #<n>: saw BOTH peers -- 0x88b5 VERIFIED, 0x88b7 VERIFIED (foreign frames
+ignored: <k>)`, and `<n>` increments on every re-arm.
+
+**`VERIFIED` vs `presence-only` is load-bearing and it is not decoration.** This node is
+**self-arming** (below), so it *can* pass on a peer whose body it was never able to check.
+holobench refused to let that be read as integrity — *"2101 heartbeats on a broken segment
+means those peers were THERE. It does NOT mean their frames were GOOD."* — so the node
+reports which it is, **per peer, on the PASS line itself**.
+
+  ⭐ **A VERDICT THAT DOES NOT REPORT WHAT IT COULD NOT CHECK IS A VERDICT THAT WILL BE
+     OVER-READ.**
 
 `ENET-LAB3 CORRUPT` is holobench's **ratified bad-frame token** and their scorer hard-fails
 on it. **Every** bad-frame detection this node makes carries that prefix and names its kind
@@ -122,11 +133,25 @@ node would have **caught the corruption, printed it, and the lab would have scor
 
   ⭐ **A TOKEN THE CONTRACT DOES NOT NAME IS A DETECTION THE SCORER CANNOT SEE.**
 
-**Do NOT grep the startup banner.** It reads
-`ENET-LAB3 up: rt1180 ethertype 0x88b6, need 0x88b5 + 0x88b7` — it **contains the peer
-EtherTypes**. A monitor that greps for a peer ID matches its own banner and reports
-success at an empty wire. (Ours did. Twelve times.) **The observer must not put itself
-in the set it is observing.**
+## The banner is a CONTRACT, not a greeting
+
+    ENET-LAB3 UP: ethertype=0x88B6 peers=2 body=emit enforce=self-arming if=netc0 mac=...
+
+holobench **derives the fleet status board from this line**, and published the grammar:
+
+    ENET-LAB3 UP: ethertype=.. peers=.. body=emit|none enforce=self-arming|unconditional|none
+
+Anything before `if=` is the enum, exactly; free-form is welcome after it. (91emulator
+shipped `enforce=self-arming(per-peer)` and **the parenthetical alone broke a strict
+parser** — they were the node the grammar was *derived from*.) A board cannot be derived
+from prose, and **a node that will not say what it ENFORCES is a node whose green nobody
+can weigh.**
+
+⚠ The banner used to read `ENET-LAB3 up: rt1180 ethertype 0x88b6, need 0x88b5 + 0x88b7` —
+it **contained the peer EtherTypes**, so a monitor grepping for a peer ID matched its own
+banner and reported success at an empty wire. (Ours did. Twelve times.) **The observer must
+not put itself in the set it is observing.** The banner no longer names its peers; the
+**PASS line does**, so the warning still stands for that line.
 
 ## ⚠ The PASS token in this file was WRONG until 2026-07-13
 
@@ -164,8 +189,9 @@ with a *perfectly valid* checksum. The corruption is not a mangled frame. **It i
 OLD one, delivered again.** (This is why our first attempt — checking the source MAC —
 was wrong, and had to be retracted.)
 
-⇒ **A MONOTONIC SEQUENCE NUMBER.** Every beacon carries `"LB3!"` + a per-sender counter
-that increments on every TX. The receiver asserts it **strictly increases, per peer**:
+⇒ **A MONOTONIC SEQUENCE NUMBER.** Every beacon carries the fleet's agreed magic
+**`0xB5B6B7C0` at `frame[14..17]`, big-endian** + a per-sender counter at `[18..21]` that
+increments on every TX. The receiver asserts it **strictly increases, per peer**:
 
 - a **stale buffer REPLAYS** an old seq → it goes **backwards** → caught.
 - a **dropped** frame makes it jump **forwards** → fine, and honest.
@@ -193,4 +219,77 @@ whole point: a verdict keyed on EtherType is structurally incapable of seeing th
 of bug this repo has spent the day fixing.
 
 A lab runner should score **both**: `ENET-LAB3 PASS #` rising *and* zero
-`ENET-LAB3 PAYLOAD-`. Either alone is a partial oracle.
+`ENET-LAB3 CORRUPT`. Either alone is a partial oracle.
+
+---
+
+## ☠ 2026-07-14 — THIS NODE WAS NOT INTEROPERABLE, AND EVERY TEST WE OWNED SAID IT WAS
+
+holobench pinned all four nodes to their current commits and ran the real segment:
+
+    RESULT: FAIL
+      mcx      0 heartbeats   NEVER PASSED
+      rt1180   0 heartbeats   NEVER PASSED      <-- us
+      imx95    1 (latched)
+      imx91    2101   OK      <-- the only node that worked
+
+    rt1180 rejected  mcx 18,989x - imx95 2,280x - imx91 2,100x
+    mcx    rejected  rt1180 327,704x   ... and imx91 NOT ONCE.
+
+**We invented our own magic.** The fleet agreed on `0xB5B6B7C0`; we emitted `'L','B','3','!'`
+— into the one field we added *to detect corruption*. mcx and imx91, written by sessions that
+never coordinated on a line of code, **interoperated first try**. The spec was never in doubt.
+
+  ⭐ **A MAGIC THE FLEET DID NOT AGREE ON IS A PEER THE NODE CANNOT HEAR.** It is our own rule
+     one layer down — *a token the contract does not name is a detection the scorer cannot see*
+     — and it is the **fourth** un-agreed token in two days, this time **on the wire**.
+
+### Why nothing we had could have caught it
+
+`tools/netc-eth-lab3.sh`'s self-check builds **three stand-ins from the same patch** — one per
+EtherType, all three compiled from our own beacon code. All three spoke `"LB3!"`. All three
+agreed. It was green for weeks.
+
+  ⭐ **A REHEARSAL WHOSE OTHER ACTORS ARE COPIES OF YOU CANNOT DISCOVER THAT YOU DISAGREE WITH
+     ANYONE. It can only discover that you disagree with YOURSELF.**
+
+⇒ **`wire-check.py`** is the missing half: a peer written in a **different language, from the
+spec**, importing not one line of the firmware's beliefs. It reads the magic **off the wire**
+(not out of the ELF — the compiler emits it as four byte-immediates, so an ELF grep cannot see
+it and would report a correct node as broken; *a finding read from the subject survives a bug
+in the observer*). Six assertions, **each mutation-proven to fail**:
+
+| mutation | caught by |
+|---|---|
+| restore the `"LB3!"` magic | *THE MAGIC ON THE WIRE IS NOT THE AGREED MAGIC* |
+| body-check every EtherType | *reported CORRUPT on traffic that is NOT its protocol* |
+| enforce unconditionally | *CONDEMNED a peer that had never spoken the agreed body* |
+
+### And our corruption detector fired on IPv6
+
+We body-checked **every** frame that was not our own — including the Linux peers' kernel
+multicast NDP/MLD (`0x86DD`), which we reported as `ENET-LAB3 CORRUPT`. Twelve times.
+
+  ⭐ **A CORRUPTION DETECTOR THAT CRIES FOUL AT TRAFFIC THAT WAS NEVER ITS PROTOCOL WILL BE
+     TURNED OFF BY THE PEOPLE IT PROTECTS.** (holobench)
+
+The node now judges **only the two EtherTypes it contracted to observe**. Everything else —
+IPv6, ARP, and imx91's `0x88B8`, which is a fleet node but not one of *our* peers — is counted
+as `foreign` and **judged by nobody**. No beacon-only suite can see this class of bug: only a
+segment with a real network stack on it has IPv6. *That is what the 4-node lab is for.*
+
+### enforce=self-arming
+
+Both **unconditional** enforcers (mcx and us) deadlocked to **zero** heartbeats on a segment
+where the bodies disagreed. imx91's self-arming latch was the only thing still running.
+
+A peer that has **never** emitted the agreed body is an **un-upgraded peer, not a corrupt
+frame** — condemning it is a claim we have not earned:
+
+  ⭐ **A RED YOU CANNOT TRUST IS WORSE THAN NO RED: IT GETS THE CHECK DELETED BY THE PEOPLE
+     IT PROTECTS.**
+
+So we degrade to **presence** and say so on the PASS line. But once a peer **has** spoken the
+body it is **armed**, and garbage from it can only be *our RX path lying* — **that** we
+condemn, and that `CORRUPT` is trustworthy *precisely because the peer proved it could do
+better*. The assertion earns the right to fire.

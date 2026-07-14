@@ -51,14 +51,18 @@ fail() { echo "FAIL: $*"; exit 1; }
 # ---------------------------------------------------------------------------
 PASS_TOKEN=$(sed -n 's/^ *PASS-TOKEN: *//p'    "$README" | head -1)
 CORRUPT_TOKEN=$(sed -n 's/^ *CORRUPT-TOKEN: *//p' "$README" | head -1)
+BANNER_TOKEN=$(sed -n 's/^ *BANNER-TOKEN: *//p'  "$README" | head -1)
 
 [ -n "$PASS_TOKEN" ]    || fail "the README declares no PASS-TOKEN. A node whose PASS
       token is undocumented cannot be consumed by a farm."
 [ -n "$CORRUPT_TOKEN" ] || fail "the README declares no CORRUPT-TOKEN. A node whose
       bad-frame token is undocumented reports corruption to nobody."
+# The BANNER is a contract too: holobench DERIVES the fleet status board from it.
+# A node that will not say what it enforces is a node whose green nobody can weigh.
+[ -n "$BANNER_TOKEN" ] || fail "the README declares no BANNER-TOKEN."
 
 # ---- direction 1: every DECLARED token must be EMITTED ----------------------
-for tok in "$PASS_TOKEN" "$CORRUPT_TOKEN"; do
+for tok in "$PASS_TOKEN" "$CORRUPT_TOKEN" "$BANNER_TOKEN"; do
     strings "$ELF" | grep -qF "$tok" || {
         echo "FAIL: the README declares a token the BINARY NEVER PRINTS."
         echo "      declared: $tok"
@@ -80,11 +84,12 @@ UNDECLARED=$(
     while IFS= read -r tok; do
         [ -n "$tok" ] || continue
         case "$tok" in
-            "$PASS_TOKEN"*|"$CORRUPT_TOKEN"*) continue ;;
+            "$PASS_TOKEN"*|"$CORRUPT_TOKEN"*|"$BANNER_TOKEN"*) continue ;;
         esac
         # a declared token may be a PREFIX of the emitted one ("PASS #" vs "PASS")
         case "$PASS_TOKEN"    in "$tok"*) continue ;; esac
         case "$CORRUPT_TOKEN" in "$tok"*) continue ;; esac
+        case "$BANNER_TOKEN"  in "$tok"*) continue ;; esac
         printf '%s\n' "$tok"
     done <<< "$EMITTED"
 )
@@ -143,9 +148,59 @@ if git -C "$DIR" rev-parse --git-dir >/dev/null 2>&1; then
     fi
 fi
 
+# ---- AND THE ARTIFACT MUST NOT OUTLIVE ITS SOURCE ---------------------------
+#
+# 91emulator, 2026-07-14, correcting a credit I had given them for shipping "the same
+# gate" -- they had shipped the CONSUMER half only, and said so rather than keep it:
+#
+#   "Does the image match the md5 I published? -- and NOTHING AT ALL tied that image to
+#    the SOURCE IT WAS BUILT FROM. Edit the source, forget to regenerate, and my suite
+#    runs the STALE image, matches its own pin, and passes GREEN AGAINST CODE THAT WAS
+#    NEVER COMPILED."
+#   ⭐ "AN UNCORRECTED CREDIT IS WORSE THAN NO CREDIT, BECAUSE THE FLEET BUILDS ON IT."
+#
+# Ours was worse than stale-able: this firmware's source is a patch inside
+# tools/netc-eth-lab3.sh, applied to an SDK file OUTSIDE THE REPO. The ELF was committed;
+# the code that produced it was committed NOWHERE. An artifact with no source in the tree
+# cannot go stale -- it was never fresh.
+#
+#   consumer half:  is this the image that was announced?      (md5 of the ELF)
+#   producer half:  was that image built from THIS beacon?     (md5 of the generator)
+#
+# ⭐ NEITHER IS SUFFICIENT ALONE. A pin without a source gate blesses a binary nobody
+#    compiled; a source gate without a pin blesses a binary nobody announced.
+PIN="$ELF.pin"
+GEN="$DIR/../../tools/netc-eth-lab3.sh"
+[ -f "$PIN" ] || fail "no $PIN. The artifact is unpinned: nothing ties this ELF to the
+      source that produced it. Run: tools/netc-eth-lab3.sh --build"
+
+want_a=$(sed -n 's/^artifact *//p' "$PIN")
+want_s=$(sed -n 's/^source *//p'   "$PIN")
+have_a=$(md5sum "$ELF" | cut -d" " -f1)
+have_s=$(md5sum "$GEN" | cut -d" " -f1)
+
+[ "$have_a" = "$want_a" ] || fail "the ELF does not match its own pin.
+      pinned : $want_a
+      actual : $have_a"
+
+if [ "$have_s" != "$want_s" ]; then
+    echo "FAIL: THE BEACON SOURCE CHANGED AND THE ARTIFACT WAS NOT REBUILT."
+    echo "      pinned source : $want_s"
+    echo "      actual source : $have_s  (tools/netc-eth-lab3.sh)"
+    echo
+    echo "      The committed ELF was NOT built from the beacon now in the tree. Every"
+    echo "      assertion this test makes is about code nobody compiled -- and it would"
+    echo "      pass, because the ELF still matches the hash we published for it."
+    echo
+    echo "      AN ARTIFACT MUST NOT OUTLIVE ITS SOURCE.  Rebuild:"
+    echo "          tools/netc-eth-lab3.sh --build"
+    exit 1
+fi
+
 echo "PASS: the contract and the artifact agree, in BOTH directions."
 echo "      declared + emitted : $PASS_TOKEN"
 echo "                           $CORRUPT_TOKEN"
 echo "      no undeclared ENET-LAB3 token exists, so no detection reports into the void."
-echo "      and the ELF on disk IS the ELF in HEAD -- md5 $(md5sum "$ELF" | cut -d' ' -f1)"
+echo "      the ELF on disk IS the ELF in HEAD -- md5 $have_a"
+echo "      and it WAS BUILT FROM the beacon in this tree -- source md5 $have_s"
 exit 0

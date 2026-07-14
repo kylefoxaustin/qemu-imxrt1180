@@ -88,36 +88,83 @@ t = t.replace("    g_txFrame[12] = (length >> 8U) & 0xFFU;\n    g_txFrame[13] = 
 # replace the strict send/recv/memcmp loop with the lab-3 node
 start = t.index("    while (txFrameNum < EXAMPLE_EP_TXFRAME_NUM)")
 end   = t.index("\n    }\n", start) + len("\n    }\n")
-loop = '''    {
+
+# TEMPLATED WITH @PLACEHOLDERS@, NOT WITH %-FORMATTING, AND THAT IS DELIBERATE.
+#
+# holobench, 2026-07-14, after sed ate a beacon frame:
+#   "DO NOT ENCODE A PAYLOAD YOU CAN SHIP. EVERY LAYER OF ESCAPING IS A LAYER THAT CAN
+#    EAT A BYTE AND BLAME THE HARDWARE."
+#
+# This C lives inside a Python string inside a bash heredoc. Under %-formatting every
+# printf specifier had to be written `%%` -- so the source of a FRAME FORMAT was one
+# doubled percent away from silently changing, and the failure would have surfaced as a
+# wire fault. Placeholders substitute nothing they were not asked to.
+#
+# AND THE TEMPLATE IS A **RAW** STRING (r'''), WHICH IS THE SAME LESSON AGAIN.
+# As a normal string, Python read the C source's \r\n as REAL CARRIAGE RETURNS and
+# NEWLINES -- it broke every PRINTF's string literal across a line and the compiler said
+# "missing terminating quote". The old code survived by doubling every backslash, i.e. by
+# hand-paying an escaping tax on every line, forever. A raw string does not have the layer.
+loop = r'''
+    {
         uint32_t saw_a = 0, saw_b = 0, pass_seq = 0;
         uint32_t tx_seq = 0, last_a = 0, last_b = 0;
-        static const uint8_t MY_MAC[6] = { %s };
-        PRINTF("ENET-LAB3 up: rt1180 ethertype 0x%%04x, need 0x%%04x + 0x%%04x\\r\\n",
-               0x%04Xu, 0x%04Xu, 0x%04Xu);
+        uint32_t armed_a = 0, armed_b = 0;
+        uint32_t rx_foreign = 0;
+        static const uint8_t MY_MAC[6] = { @MAC@ };
+
+        /*
+         * THE BANNER IS A CONTRACT, NOT A GREETING.
+         *
+         * holobench derives the fleet status board FROM THIS LINE, and published the
+         * grammar:  ENET-LAB3 UP: ethertype=.. peers=.. body=emit|none
+         *                         enforce=self-arming|unconditional|none
+         * We printed a lowercase free-form sentence. A board cannot be derived from prose,
+         * and a node that will not say what it ENFORCES is a node whose green nobody can
+         * weigh. (91emulator shipped `enforce=self-arming(per-peer)` -- the parenthetical
+         * alone broke a strict parser. Exactly the enum, nothing else.)
+         */
+        PRINTF("ENET-LAB3 UP: ethertype=@ME@ peers=2 body=emit enforce=self-arming"
+               " if=netc0 mac=%02x:%02x:%02x:%02x:%02x:%02x\r\n",
+               MY_MAC[0], MY_MAC[1], MY_MAC[2], MY_MAC[3], MY_MAC[4], MY_MAC[5]);
 
         /* BROADCAST FOREVER. A peer that is not here yet is not a failure. */
         for (;;)
         {
             /*
-             * STAMP THE PAYLOAD. The lab's verdict keys on ETHERTYPE, and an
-             * EtherType survives a corrupted frame body -- so a node can report
-             * "I saw both peers" over garbage. (Ours did: 88 frames DMA'd to guest
-             * address 0, and it PASSED.)  holobench, 2026-07-13: "the checkable
-             * payload is the last thing between us and a lab that can be trusted
-             * when it is green."
+             * THE MAGIC IS 0xB5B6B7C0. IT WAS NEVER OURS TO CHOOSE.
              *
-             * ⚠ AND A CHECKSUM WOULD NOT CATCH IT. When the RX path drops a frame on
-             * the floor it leaves the descriptor pointing at a STALE BUFFER -- which
-             * holds a PREVIOUSLY VALID frame, with a PERFECTLY VALID CHECKSUM. The
-             * corruption is not a mangled frame; it is an OLD one, delivered again.
+             * We shipped 'L','B','3','!' -- a magic THE FLEET NEVER AGREED TO -- into the
+             * one field we added to DETECT CORRUPTION. holobench's interop matrix,
+             * 2026-07-14:
              *
-             * ⇒ A MONOTONIC SEQUENCE NUMBER. A stale buffer REPLAYS an old seq, and a
-             *   replay goes BACKWARDS. Dropped frames make it jump FORWARD, which is
-             *   fine and honest. Assert it strictly INCREASES, per peer.
-             *   The same discipline as the heartbeat: ASSERT ON A NUMBER GOING UP.
+             *     rt1180 rejected  mcx 18,989x - imx95 2,280x - imx91 2,100x
+             *     mcx    rejected  rt1180 327,704x   ... and imx91 NOT ONCE.
+             *
+             * TWO INDEPENDENT IMPLEMENTATIONS OF THE AGREED BODY -- mcx's and imx91's, by
+             * sessions that never coordinated on a line of code -- INTEROPERATED FIRST TRY.
+             * The spec was never in doubt. WE IMPLEMENTED A DIFFERENT ONE.
+             *
+             * So this is not a spec disagreement. It is the un-agreed-token bug for the
+             * fourth time in two days, and this time ON THE WIRE. Our own rule, one layer
+             * down: A TOKEN THE CONTRACT DOES NOT NAME IS A DETECTION THE SCORER CANNOT
+             * SEE -- and A MAGIC THE FLEET DID NOT AGREE ON IS A PEER THE NODE CANNOT HEAR.
+             *
+             * AND THE SELF-TEST BELOW COULD NEVER HAVE CAUGHT IT: it builds THREE STAND-INS
+             * FROM THIS SAME PATCH. All three spoke "LB3!", all three agreed, and it went
+             * green for weeks. A REHEARSAL WHOSE OTHER ACTORS ARE COPIES OF YOU CANNOT
+             * DISCOVER THAT YOU DISAGREE WITH ANYONE.
              */
-            g_txFrame[14] = 'L';  g_txFrame[15] = 'B';
-            g_txFrame[16] = '3';  g_txFrame[17] = '!';
+            g_txFrame[14] = 0xB5U;  g_txFrame[15] = 0xB6U;
+            g_txFrame[16] = 0xB7U;  g_txFrame[17] = 0xC0U;
+
+            /*
+             * A MONOTONIC SEQUENCE. A checksum cannot see a REPLAY: when the RX path drops
+             * a frame it leaves the descriptor pointing at a STALE BUFFER -- a previously
+             * VALID frame, with a perfectly valid checksum. The corruption is not a mangled
+             * frame; it is an OLD one, delivered again. A replay goes BACKWARDS. Dropped
+             * frames jump FORWARD, which is honest. Assert it strictly increases, per peer.
+             */
             ++tx_seq;
             g_txFrame[18] = (uint8_t)(tx_seq >> 24);
             g_txFrame[19] = (uint8_t)(tx_seq >> 16);
@@ -134,133 +181,148 @@ loop = '''    {
             /* Drain every frame that is waiting, not just one. */
             while (EP_GetRxFrameSize(&g_ep_handle, 0, &length) == kStatus_Success)
             {
+                uint16_t et;
+                uint32_t is_a;
+                uint32_t *armed;
+                uint32_t *last;
+                uint32_t good;
+
                 (void)EP_ReceiveFrameCopy(&g_ep_handle, 0, g_rxFrame, length, NULL);
-                uint16_t et = ((uint16_t)g_rxFrame[12] << 8) | g_rxFrame[13];
+                et = ((uint16_t)g_rxFrame[12] << 8) | g_rxFrame[13];
 
                 /* RULE 1: our own broadcast comes back to us on a mcast socket.
                  * Counting it would "see a peer" that is ourselves. */
-                if (et == 0x%04Xu) { continue; }
+                if (et == @ME@u) { continue; }
 
-                /* RULE 1b: AND THE SAME DOOR, ON THE OTHER HINGE.
+                /*
+                 * RULE 0 -- AND IT IS RULE ZERO BECAUSE IT MUST COME BEFORE ANY JUDGEMENT:
+                 * ONLY BODY-CHECK THE TWO ETHERTYPES WE CONTRACTED TO OBSERVE.
                  *
-                 * I closed rule 1 against myself by EtherType and then never checked
-                 * the SOURCE ADDRESS. When the RX ring overran, the driver copied a
-                 * STALE buffer whose body was ours, and this node cheerfully reported
-                 *     "peer ethertype 0x88b7 src 54:27:8d:00:00:00"
-                 * -- a peer whose MAC was ITS OWN -- and PASSED. The assertion keyed on
-                 * EtherType and was structurally incapable of seeing that the frame
-                 * BODY was garbage.
+                 * We used to body-check EVERY frame that was not our own -- so on a real
+                 * mixed segment we body-checked the Linux peers' kernel IPv6 (0x86DD:
+                 * multicast NDP/MLD) and REPORTED IT AS CORRUPT. Twelve times, in
+                 * holobench's run.
                  *
-                 * A FRAME THAT CLAIMS TO COME FROM ME DID NOT CROSS THE WIRE. Refuse it,
-                 * whatever its EtherType says. This is a real assertion: it FAILED
-                 * before the ring-full fix landed, and it is why the fix is verifiable. */
+                 * A CORRUPTION DETECTOR THAT CRIES FOUL AT TRAFFIC THAT WAS NEVER ITS
+                 * PROTOCOL WILL BE TURNED OFF BY THE PEOPLE IT PROTECTS. (holobench)
+                 *
+                 * NO SYNTHETIC BEACON-ONLY SUITE CAN SEE THIS: only a real segment carrying
+                 * a Linux network stack has IPv6 on it. This is what the 4-node lab is FOR,
+                 * and it is precisely the bug our self-test is structurally blind to.
+                 *
+                 * The same test also (correctly) stops us judging imx91 (0x88B8) -- a fleet
+                 * node that is not one of OUR two required peers. Its frames are not ours
+                 * to condemn.
+                 */
+                if (et != @PA@u && et != @PB@u) { ++rx_foreign; continue; }
+
+                /* A FRAME THAT CLAIMS TO COME FROM ME DID NOT CROSS THE WIRE.
+                 * When the RX ring overran, the driver copied a STALE buffer whose body was
+                 * OURS, and this node cheerfully reported a peer whose MAC was ITS OWN --
+                 * and PASSED. This assertion FAILED before the ring-full fix, which is why
+                 * the fix is verifiable. */
                 if (g_rxFrame[6]  == MY_MAC[0] && g_rxFrame[7]  == MY_MAC[1] &&
                     g_rxFrame[8]  == MY_MAC[2] && g_rxFrame[9]  == MY_MAC[3] &&
                     g_rxFrame[10] == MY_MAC[4] && g_rxFrame[11] == MY_MAC[5])
                 {
                     PRINTF("ENET-LAB3 CORRUPT: frame claims src = MY OWN MAC "
-                           "(et 0x%%04x) -- RX path is lying\\r\\n", et);
+                           "(et 0x%04x) -- RX path is lying\r\n", et);
                     continue;
                 }
 
-                /* PAYLOAD ASSERTION -- the frame BODY, not just its label. */
-                if (g_rxFrame[14] != 'L' || g_rxFrame[15] != 'B' ||
-                    g_rxFrame[16] != '3' || g_rxFrame[17] != '!')
+                is_a  = (et == @PA@u);
+                armed = is_a ? &armed_a : &armed_b;
+                last  = is_a ? &last_a  : &last_b;
+
+                good = (g_rxFrame[14] == 0xB5U && g_rxFrame[15] == 0xB6U &&
+                        g_rxFrame[16] == 0xB7U && g_rxFrame[17] == 0xC0U);
+
+                if (!good)
                 {
                     /*
-                     * THE RATIFIED PREFIX FIRST, THE KIND AFTER IT.
+                     * SELF-ARMING, PER PEER. (91emulator's mechanism; holobench MEASURED it:
+                     * on a segment where the body formats disagreed, the self-arming node was
+                     * THE ONLY ONE THAT STILL FUNCTIONED. Both UNCONDITIONAL enforcers --
+                     * mcx and us -- deadlocked to ZERO heartbeats.)
                      *
-                     * holobench ratified `ENET-LAB3 CORRUPT` as THE bad-frame token and
-                     * their scorer hard-fails on grep 'ENET-LAB3 CORRUPT'.  This used to
-                     * print `ENET-LAB3 PAYLOAD-GARBAGE`, WHICH THE SCORER DOES NOT LOOK
-                     * FOR -- so the node would catch the corruption, print it on its own
-                     * console, AND THE LAB WOULD SCORE IT GREEN.
+                     * A peer that has NEVER emitted the agreed body is an UN-UPGRADED PEER,
+                     * not a corrupt frame. Condemning it is a claim we have not earned, and
+                     *   A RED YOU CANNOT TRUST IS WORSE THAN NO RED: IT GETS THE CHECK
+                     *   DELETED BY THE PEOPLE IT PROTECTS.
+                     * So degrade to PRESENCE -- and SAY SO, in the PASS line.
                      *
-                     *   A TOKEN THE CONTRACT DOES NOT NAME IS A DETECTION THE SCORER
-                     *   CANNOT SEE.
-                     *
-                     * The same drift that put a PASS token in the README that the binary
-                     * never printed -- reintroduced five minutes after the contract was
-                     * agreed, in the one field where it was still free to prevent.
-                     * check-token.sh now asserts the BIJECTION, both directions.
+                     * But once a peer HAS spoken the body it is ARMED, and garbage from it
+                     * can only be OUR RX path lying. THAT we condemn -- and that CORRUPT is
+                     * trustworthy precisely because the peer proved it could do better.
+                     * The assertion earns the right to fire.
                      */
-                    PRINTF("ENET-LAB3 CORRUPT: PAYLOAD-GARBAGE et 0x%%04x carries no "
-                           "beacon magic -- the RX path handed up a buffer that is not "
-                           "a beacon\\r\\n", et);
+                    if (*armed)
+                    {
+                        PRINTF("ENET-LAB3 CORRUPT: PAYLOAD-GARBAGE peer 0x%04x carries no "
+                               "beacon magic -- and this peer HAS spoken it before, so the "
+                               "RX path handed up a buffer that is not a beacon\r\n", et);
+                        continue;
+                    }
+                    if (is_a) { saw_a = 1; } else { saw_b = 1; }
                     continue;
                 }
+
+                *armed = 1;
+
                 {
                     uint32_t seq = ((uint32_t)g_rxFrame[18] << 24) |
                                    ((uint32_t)g_rxFrame[19] << 16) |
                                    ((uint32_t)g_rxFrame[20] << 8)  |
                                     (uint32_t)g_rxFrame[21];
-                    uint32_t *last = (et == 0x%04Xu) ? &last_a : &last_b;
 
-                    /* A REPLAY IS THE SIGNATURE OF A STALE BUFFER. It cannot happen on
-                     * a wire that delivers each frame once; it happens when the RX path
-                     * drops a frame and leaves the descriptor pointing at the LAST one. */
                     if (*last != 0u && seq <= *last)
                     {
-                        PRINTF("ENET-LAB3 CORRUPT: PAYLOAD-REPLAY peer 0x%%04x seq "
-                               "%%u <= last %%u -- the RX path delivered a STALE "
-                               "BUFFER (a valid frame, just not a NEW one)\\r\\n",
+                        PRINTF("ENET-LAB3 CORRUPT: PAYLOAD-REPLAY peer 0x%04x seq "
+                               "%u <= last %u -- the RX path delivered a STALE BUFFER "
+                               "(a valid frame, just not a NEW one)\r\n",
                                et, (unsigned)seq, (unsigned)*last);
                         continue;
                     }
                     *last = seq;
                 }
 
-                if (et == 0x%04Xu && !saw_a)
-                {
-                    saw_a = 1;
-                    PRINTF("ENET-LAB3 rx: peer ethertype 0x%%04x src %%02x:%%02x:%%02x:%%02x:%%02x:%%02x\\r\\n",
-                           et, g_rxFrame[6], g_rxFrame[7], g_rxFrame[8],
-                           g_rxFrame[9], g_rxFrame[10], g_rxFrame[11]);
-                }
-                if (et == 0x%04Xu && !saw_b)
-                {
-                    saw_b = 1;
-                    PRINTF("ENET-LAB3 rx: peer ethertype 0x%%04x src %%02x:%%02x:%%02x:%%02x:%%02x:%%02x\\r\\n",
-                           et, g_rxFrame[6], g_rxFrame[7], g_rxFrame[8],
-                           g_rxFrame[9], g_rxFrame[10], g_rxFrame[11]);
-                }
+                if (is_a) { saw_a = 1; } else { saw_b = 1; }
             }
 
             /* RULE 3: PASS only on BOTH -- AND THEN RE-ARM, FOREVER.
              *
-             * This used to latch (`announced = 1`, saw_a/saw_b never cleared). It
-             * printed PASS once and then STOPPED LOOKING -- and a satisfied assertion
-             * and an absent one print exactly the same thing: nothing.
+             * This used to latch. It printed PASS once and then STOPPED LOOKING -- and a
+             * satisfied assertion and an absent one print exactly the same thing: nothing.
+             * A RE-ARMING ASSERTION IS AN ORACLE THAT CANNOT EXPIRE. Its PASS becomes a
+             * HEARTBEAT WITH THE WIRE IN THE LOOP, and a heartbeat that STOPS is something
+             * a scorer can assert on POSITIVELY instead of inferring health from silence.
              *
-             * mcxn947qemu named the class and holobench measured it on us:
-             *   "A COLLAPSED oracle never COULD see the axis. An EXPIRED oracle
-             *    COULD, DID, and then STOPPED LOOKING."
-             * In the fleet's staggered lab, all three nodes PASSed at t+210 -- and
-             * from that instant two of the three were blind. The one node that
-             * re-armed was the one scheduled to DEPART at t+420, so after the
-             * departure ZERO assertions remained on a segment whose survivability
-             * was the entire point of the lab.
-             *
-             * ⭐ A RE-ARMING ASSERTION IS AN ORACLE THAT CANNOT EXPIRE. Its PASS line
-             * stops being a one-shot verdict and becomes a HEARTBEAT WITH THE WIRE IN
-             * THE LOOP -- and a heartbeat that STOPS is something a scorer can assert
-             * on POSITIVELY, instead of inferring health from silence.
-             *
-             * The sequence number makes it stronger still: "the wire absorbed the
-             * loss" becomes an assertion on A NUMBER GOING UP, never on the absence
-             * of a message. (mcxn's offer, taken.)
+             * AND THE PASS LINE CARRIES ITS OWN PROVENANCE. A self-arming node can pass on
+             * PRESENCE alone, and holobench refused to let that be read as integrity:
+             *   "2101 heartbeats on a broken segment means those peers were THERE. It does
+             *    NOT mean their frames were GOOD."
+             * So the node reports which it is, PER PEER. A VERDICT THAT DOES NOT REPORT WHAT
+             * IT COULD NOT CHECK IS A VERDICT THAT WILL BE OVER-READ.
              */
             if (saw_a && saw_b)
             {
-                PRINTF("ENET-LAB3 PASS #%%u: saw BOTH peers on the segment\\r\\n",
-                       (unsigned)++pass_seq);
+                PRINTF("ENET-LAB3 PASS #%u: saw BOTH peers -- 0x%04x %s, 0x%04x %s "
+                       "(foreign frames ignored: %u)\r\n",
+                       (unsigned)++pass_seq,
+                       @PA@u, armed_a ? "VERIFIED" : "presence-only",
+                       @PB@u, armed_b ? "VERIFIED" : "presence-only",
+                       (unsigned)rx_foreign);
                 saw_a = 0;
                 saw_b = 0;          /* RE-ARM: go back to requiring BOTH, forever. */
             }
             for (volatile uint32_t d = 0; d < 400000U; d++) { }
         }
     }
-''' % (", ".join("0x%02X" % b for b in mac), me, pa, pb, me, pa, pa, pb)
+'''
+loop = (loop.replace("@MAC@", ", ".join("0x%02X" % b for b in mac))
+            .replace("@ME@",  "0x%04X" % me)
+            .replace("@PA@",  "0x%04X" % pa)
+            .replace("@PB@",  "0x%04X" % pb))
 t = t[:start] + loop + t[end:]
 open(src, "w").write(t)
 
@@ -289,7 +351,31 @@ if [ "$MODE" = "--build" ]; then
     OUT="${2:-$ROOT/tests/imxrt1180-netc-lab3/netc-lab3-0x88B6.elf}"
     echo ">> building the rt1180 node: ethertype 0x88B6 -> $OUT"
     build_node 0x88B6 0x88B5 0x88B7 "$OUT" 54:27:8d:00:00:00 || exit 1
-    echo ">> built.  md5: $(md5sum "$OUT" | cut -d" " -f1)"
+
+    # THE PIN RECORDS *BOTH* HALVES, BECAUSE EITHER ALONE IS A GATE YOU CAN WALK AROUND.
+    #
+    # 91emulator, 2026-07-14, correcting a credit I had given them:
+    #   "I shipped the CONSUMER half -- 'does the image match the md5 I published?' -- and
+    #    NOTHING AT ALL tied that image to the SOURCE IT WAS BUILT FROM. Edit the source,
+    #    forget to regenerate, and my suite runs the STALE image, matches its own pin, and
+    #    passes GREEN AGAINST CODE THAT WAS NEVER COMPILED."
+    #
+    # We had it worse: this firmware's source is a patch INSIDE THIS SCRIPT, applied to an
+    # SDK file that lives OUTSIDE THE REPO. The ELF was committed; the code that produced it
+    # was not committed anywhere. So:
+    #
+    #   artifact  md5 of the ELF        -- "is this the image that was announced?"
+    #   source    md5 of THIS SCRIPT    -- "was that image built from THIS beacon?"
+    #
+    # ⭐ AN ARTIFACT MUST NOT BE ABLE TO OUTLIVE ITS SOURCE.
+    #    (The build is reproducible -- two clean builds hash identically -- so this is a
+    #    real equality, not a hopeful one.)
+    {
+        echo "artifact $(md5sum "$OUT"       | cut -d" " -f1)"
+        echo "source   $(md5sum "$0"         | cut -d" " -f1)"
+    } > "$OUT.pin"
+    echo ">> built.  artifact md5: $(md5sum "$OUT" | cut -d" " -f1)"
+    echo ">>         source   md5: $(md5sum "$0"   | cut -d" " -f1)  ($OUT.pin)"
     exit 0
 fi
 
