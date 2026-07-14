@@ -7,7 +7,7 @@ all: sai.elf
 sai.elf: sai.c sai.ld
 	$(CC) $(CF) -T sai.ld sai.c -o $@
 run: all
-	$(QEMU) -M mimxrt1180-evk -display none -monitor none -kernel sai.elf \
+	$(QEMU) -M mimxrt1180-evk -audio none -display none -monitor none -kernel sai.elf \
 	  -serial null -semihosting-config enable=on,target=native
 clean:
 	rm -f sai.elf

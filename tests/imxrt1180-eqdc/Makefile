@@ -7,7 +7,7 @@ all: eqdc.elf
 eqdc.elf: eqdc.c eqdc.ld
 	$(CC) $(CF) -T eqdc.ld eqdc.c -o $@
 run: all
-	$(QEMU) -M mimxrt1180-evk -display none -monitor none -kernel eqdc.elf \
+	$(QEMU) -M mimxrt1180-evk -audio none -display none -monitor none -kernel eqdc.elf \
 	  -serial null -semihosting-config enable=on,target=native
 clean:
 	rm -f eqdc.elf

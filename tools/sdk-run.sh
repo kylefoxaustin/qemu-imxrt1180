@@ -48,7 +48,7 @@ ELF="$(ls "$BUILD"/*.elf 2>/dev/null | head -1)"
 [ -n "$ELF" ] || { echo "   no ELF produced"; exit 1; }
 
 echo ">> running on $QEMU"
-timeout 12 "$QEMU" -M mimxrt1180-evk -display none -monitor none \
+timeout 12 "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none \
     -kernel "$ELF" -serial "file:/tmp/sdk_$NAME.con" \
     -semihosting-config enable=on,target=native -d unimp 2>/tmp/sdk_$NAME.unimp
 echo "---- console ----"

@@ -74,7 +74,7 @@ rc=$?
 mv "$SRC.orig" "$SRC"; mv "$HW.orig" "$HW"          # restore pristine sources
 [ $rc -eq 0 ] || { echo "BUILD FAILED"; tail -3 /tmp/netc_lab_build.log; exit 1; }
 ELF="$(ls "$BUILD"/*.elf | head -1)"
-C="-M mimxrt1180-evk -display none -monitor none -kernel $ELF -semihosting-config enable=on,target=native"
+C="-M mimxrt1180-evk -audio none -display none -monitor none -kernel $ELF -semihosting-config enable=on,target=native"
 
 if [ -n "${PEER:-}" ]; then
     echo ">> joining external segment at $PEER (cross-model)"

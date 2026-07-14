@@ -7,7 +7,7 @@ all: dma.elf
 dma.elf: dma.c dma.ld
 	$(CC) $(CF) -T dma.ld dma.c -o $@
 run: all
-	$(QEMU) -M mimxrt1180-evk -display none -monitor none -kernel dma.elf \
+	$(QEMU) -M mimxrt1180-evk -audio none -display none -monitor none -kernel dma.elf \
 	  -serial null -semihosting-config enable=on,target=native
 clean:
 	rm -f dma.elf

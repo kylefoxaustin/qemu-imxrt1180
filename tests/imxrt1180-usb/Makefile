@@ -7,7 +7,7 @@ all: usb.elf
 usb.elf: usb.c usb.ld
 	$(CC) $(CF) -T usb.ld usb.c -o $@
 run: all
-	$(QEMU) -M mimxrt1180-evk -display none -monitor none -kernel usb.elf \
+	$(QEMU) -M mimxrt1180-evk -audio none -display none -monitor none -kernel usb.elf \
 	  -serial null -semihosting-config enable=on,target=native
 clean:
 	rm -f usb.elf

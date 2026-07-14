@@ -7,7 +7,7 @@ all: motor.elf
 motor.elf: motor.c motor.ld
 	$(CC) $(CF) -T motor.ld motor.c -o $@
 run: all
-	$(QEMU) -M mimxrt1180-evk -display none -monitor none -kernel motor.elf \
+	$(QEMU) -M mimxrt1180-evk -audio none -display none -monitor none -kernel motor.elf \
 	  -serial null -semihosting-config enable=on,target=native
 clean:
 	rm -f motor.elf

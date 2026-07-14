@@ -7,7 +7,7 @@ all: can.elf
 can.elf: can.c can.ld
 	$(CC) $(CF) -T can.ld can.c -o $@
 run: all
-	$(QEMU) -M mimxrt1180-evk -display none -monitor none -kernel can.elf \
+	$(QEMU) -M mimxrt1180-evk -audio none -display none -monitor none -kernel can.elf \
 	  -serial null -semihosting-config enable=on,target=native
 clean:
 	rm -f can.elf

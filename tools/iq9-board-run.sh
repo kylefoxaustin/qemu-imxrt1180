@@ -11,7 +11,7 @@ set -u
 cd "$(dirname "$0")"
 Q="./qemu-system-arm"
 export LD_LIBRARY_PATH="$PWD/libs:${LD_LIBRARY_PATH:-}"
-COMMON="-M mimxrt1180-evk -display none -monitor none -serial null -semihosting-config enable=on,target=native"
+COMMON="-M mimxrt1180-evk -audio none -display none -monitor none -serial null -semihosting-config enable=on,target=native"
 
 echo ">> $($Q --version | head -1) on $(uname -m)"
 echo ">> $($Q -M help | grep -i mimxrt1180 || echo 'MACHINE NOT FOUND')"

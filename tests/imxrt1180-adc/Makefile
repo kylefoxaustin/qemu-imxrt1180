@@ -7,7 +7,7 @@ all: adc.elf
 adc.elf: adc.c adc.ld
 	$(CC) $(CF) -T adc.ld adc.c -o $@
 run: all
-	$(QEMU) -M mimxrt1180-evk -display none -monitor none -kernel adc.elf \
+	$(QEMU) -M mimxrt1180-evk -audio none -display none -monitor none -kernel adc.elf \
 	  -serial null -semihosting-config enable=on,target=native
 clean:
 	rm -f adc.elf

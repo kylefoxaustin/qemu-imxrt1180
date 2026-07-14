@@ -7,7 +7,7 @@ all: pwm.elf
 pwm.elf: pwm.c pwm.ld
 	$(CC) $(CF) -T pwm.ld pwm.c -o $@
 run: all
-	$(QEMU) -M mimxrt1180-evk -display none -monitor none -icount shift=0 -kernel pwm.elf \
+	$(QEMU) -M mimxrt1180-evk -audio none -display none -monitor none -icount shift=0 -kernel pwm.elf \
 	  -serial null -semihosting-config enable=on,target=native
 clean:
 	rm -f pwm.elf

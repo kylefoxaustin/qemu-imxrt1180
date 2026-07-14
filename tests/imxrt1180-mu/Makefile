@@ -15,7 +15,7 @@ m7.elf: m7.c m7.ld
 	$(CC) -mcpu=cortex-m7 $(CF) -T m7.ld m7.c -o $@
 
 run: all
-	$(QEMU) -M mimxrt1180-evk -display none -monitor none \
+	$(QEMU) -M mimxrt1180-evk -audio none -display none -monitor none \
 	  -kernel m33.elf -device loader,file=m7.elf \
 	  -serial null -semihosting-config enable=on,target=native
 

@@ -48,7 +48,7 @@ echo ">> building stock SDK flexspi_nor polling_transfer"
 ELF="$(ls "$BUILD"/*.elf | head -1)"
 
 echo ">> running"
-timeout 30 "$QEMU" -M mimxrt1180-evk -display none -monitor none -kernel "$ELF" \
+timeout 30 "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none -kernel "$ELF" \
     -semihosting-config enable=on,target=native -serial "file:$CON" >/dev/null 2>&1
 
 grep -q "Erase data - successfully"   "$CON" && e=PASS || { e=FAIL; rc_all=1; }
@@ -93,7 +93,7 @@ mv "$SRC.orig" "$SRC"                     # always restore the pristine SDK sour
 if [ $rc -ne 0 ]; then
     echo "   BUILD FAILED (adversarial)"; exit 1
 fi
-timeout 30 "$QEMU" -M mimxrt1180-evk -display none -monitor none \
+timeout 30 "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none \
     -kernel "$(ls "$BUILD"/*.elf | head -1)" \
     -semihosting-config enable=on,target=native -serial "file:$CON" >/dev/null 2>&1
 if grep -q "PHYS: PASS" "$CON"; then

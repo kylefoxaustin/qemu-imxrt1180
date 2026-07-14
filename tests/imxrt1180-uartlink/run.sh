@@ -32,7 +32,7 @@ make -C "$DIR" uartlink.elf >/dev/null 2>&1 || { echo "build failed"; exit 1; }
 OUT=$(mktemp)
 
 # QEMU is the socket server (LPUART2 = serial_hd(1)); console via semihosting.
-timeout "$HANG_GUARD" "$QEMU" -M mimxrt1180-evk -display none -monitor none \
+timeout "$HANG_GUARD" "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none \
   -kernel "$DIR/uartlink.elf" -semihosting-config enable=on,target=native \
   -chardev socket,id=ul,host=127.0.0.1,port=$PORT,server=on,wait=off \
   -serial null -serial chardev:ul >"$OUT" 2>&1 &

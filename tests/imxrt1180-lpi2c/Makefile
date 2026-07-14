@@ -11,7 +11,7 @@ i2c.elf: i2c.c i2c.ld
 # clears it), so 'make run' proves the transaction (ACK + 2-byte read + NACK);
 # to see a real value, qom-set the temperature after boot (see scratchpad).
 run: all
-	$(QEMU) -M mimxrt1180-evk -display none -monitor none -kernel i2c.elf \
+	$(QEMU) -M mimxrt1180-evk -audio none -display none -monitor none -kernel i2c.elf \
 	  -device tmp105,bus=lpi2c4-bus,address=0x48 \
 	  -serial null -semihosting-config enable=on,target=native
 clean:

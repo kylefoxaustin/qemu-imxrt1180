@@ -93,7 +93,7 @@ def probe(regs):
     space under test.)
     """
     p = subprocess.Popen(
-        [QEMU, "-M", "mimxrt1180-evk", "-display", "none", "-accel", "qtest",
+        [QEMU, "-M", "mimxrt1180-evk", "-audio", "none", "-display", "none", "-accel", "qtest",
          "-qtest", "stdio", "-monitor", "none", "-serial", "none"],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL, text=True)

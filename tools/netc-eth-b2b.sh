@@ -35,7 +35,7 @@ sed -i "s|$NLB|$LB|" "$HW"            # restore the source
 ELF="$(ls "$BUILD"/*.elf | head -1)"
 
 echo ">> launching two instances on a socket L2 segment (port $PORT)"
-C="-M mimxrt1180-evk -display none -monitor none -kernel $ELF -semihosting-config enable=on,target=native"
+C="-M mimxrt1180-evk -audio none -display none -monitor none -kernel $ELF -semihosting-config enable=on,target=native"
 timeout 14 $QEMU $C -nic socket,listen=127.0.0.1:$PORT -serial file:/tmp/ethA.con >/dev/null 2>&1 &
 A=$!
 sleep 0.6

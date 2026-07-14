@@ -7,7 +7,7 @@ all: tmr.elf
 tmr.elf: tmr.c tmr.ld
 	$(CC) $(CF) -T tmr.ld tmr.c -o $@
 run: all
-	$(QEMU) -M mimxrt1180-evk -display none -monitor none -kernel tmr.elf \
+	$(QEMU) -M mimxrt1180-evk -audio none -display none -monitor none -kernel tmr.elf \
 	  -serial null -semihosting-config enable=on,target=native
 clean:
 	rm -f tmr.elf

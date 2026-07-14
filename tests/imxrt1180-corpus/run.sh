@@ -29,7 +29,7 @@ printf "%-34s %-8s %s\n" "----" "------" "----"
 find "$FWDIR" -ipath '*evkmimxrt1180*cm33*.bin' | sort -u | while read -r bin; do
     name=$(echo "$bin" | sed -E 's|.*evkmimxrt1180/||; s|/cm33.*||')
     out=$(mktemp); err=$(mktemp)
-    timeout "$TIMEOUT" "$QEMU" -M mimxrt1180-evk -display none -monitor none \
+    timeout "$TIMEOUT" "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none \
         -kernel "$bin" -serial stdio -semihosting-config enable=on,target=native \
         >"$out" 2>"$err" </dev/null
     rc=$?

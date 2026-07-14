@@ -9,7 +9,7 @@ CROSS   ?= arm-none-eabi-
 CC      := $(CROSS)gcc
 CFLAGS  := -mcpu=cortex-m33 -mthumb -Os -ffreestanding -nostdlib -nostartfiles -Wall
 QEMU    ?= ../../build/qemu-system-arm
-QFLAGS  := -M mimxrt1180-evk -display none -monitor none \
+QFLAGS  := -M mimxrt1180-evk -audio none -display none -monitor none \
            -semihosting-config enable=on,target=native
 
 ELFS := hello.elf hello_uart.elf

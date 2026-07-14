@@ -257,7 +257,26 @@ static void imxrt1180_lpuart_write(void *opaque, hwaddr offset,
         s->tocr = value;
         break;
     case LPUART_TOSR:
-        s->tosr = value;
+        /*
+         * ================= TOSR IS W1C, AND I NEARLY SHIPPED A HANG =================
+         *
+         * The four timeout flags reset SET (TOSR = 0xF) and are WRITE-1-TO-CLEAR.
+         * This was a PLAIN STORE.  With TOSR seeded to 0xF -- which I did today, to
+         * make the reset-value gate green -- a driver clearing flag 0 writes 0x1, a
+         * plain store SETS it, the driver polls for it to drop, AND SPINS FOREVER.
+         *
+         * Before the seed, TOSR read 0 and the flag was already clear, so the driver
+         * never entered that loop.  I TOOK A BENIGN ZERO AND TURNED IT INTO A HANG,
+         * AND THE GATE CALLED IT AN IMPROVEMENT.
+         *
+         *   ⭐ SEED CONFIG.  *IMPLEMENT* STATUS.
+         *      A reset value is not a number you return -- it is the state a WORKING
+         *      REGISTER STARTS IN.  If the register has behaviour, the reset value is
+         *      only half the fix, and shipping the other half is not optional.
+         *      (91emulator, 2026-07-13, who caught this on their own TOSR and warned
+         *      the fleet hours after I had already done it.)
+         */
+        s->tosr &= ~(uint32_t)value;
         break;
     case LPUART_TIMEOUT0 ... LPUART_TIMEOUT3:
         s->timeout[(offset - LPUART_TIMEOUT0) >> 2] = value;

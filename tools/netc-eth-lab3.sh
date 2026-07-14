@@ -204,7 +204,7 @@ PY
     cp "$(ls /tmp/lab3_build/*.elf | head -1)" "$OUT"
 }
 
-QARGS="-M mimxrt1180-evk -display none -monitor none -semihosting-config enable=on,target=native"
+QARGS="-M mimxrt1180-evk -audio none -display none -monitor none -semihosting-config enable=on,target=native"
 
 # ---------------------------------------------------------------- join -------
 if [ "$MODE" = "--join" ]; then
