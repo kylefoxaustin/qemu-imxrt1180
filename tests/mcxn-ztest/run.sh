@@ -18,7 +18,7 @@ elfs=("$ZTEST_DIR"/*.elf)
 fail=0
 for elf in "${elfs[@]}"; do
     name="$(basename "$elf" .elf)"
-    OUT="$(timeout 60 "$QEMU" -M frdm-mcxn947 -display none -monitor none \
+    OUT="$(timeout -k 5 60 "$QEMU" -M frdm-mcxn947 -display none -monitor none \
             -serial stdio -kernel "$elf" -no-reboot </dev/null 2>/dev/null || true)"
     if echo "$OUT" | grep -q "PROJECT EXECUTION SUCCESSFUL"; then
         # Count reported suite/case results for a one-line summary.

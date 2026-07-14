@@ -17,7 +17,7 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 make -C "$DIR" dmareq.elf >/dev/null 2>&1 || { echo "build failed"; exit 1; }
 OUT=$(mktemp)
 
-timeout "$HANG_GUARD" "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none \
+timeout -k 5 "$HANG_GUARD" "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none \
   -kernel "$DIR/dmareq.elf" -semihosting-config enable=on,target=native \
   -chardev socket,id=ul,host=127.0.0.1,port=$PORT,server=on,wait=off \
   -serial null -serial chardev:ul >"$OUT" 2>&1 &

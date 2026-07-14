@@ -16,10 +16,10 @@ if [ ! -f "$ELF" ]; then
 fi
 PORT=$(( (RANDOM%20000)+20000 )); O1=$(mktemp); O2=$(mktemp)
 trap 'rm -f "$O1" "$O2"' EXIT
-timeout 9 "$QEMU" -M frdm-mcxn947 -display none -monitor none -serial stdio \
+timeout -k 5 9 "$QEMU" -M frdm-mcxn947 -display none -monitor none -serial stdio \
   -nic socket,listen=127.0.0.1:$PORT,model=mcxn-enet,mac=02:4d:43:58:00:01 -kernel "$ELF" -no-reboot >"$O1" 2>/dev/null &
 sleep 1
-timeout 9 "$QEMU" -M frdm-mcxn947 -display none -monitor none -serial stdio \
+timeout -k 5 9 "$QEMU" -M frdm-mcxn947 -display none -monitor none -serial stdio \
   -nic socket,connect=127.0.0.1:$PORT,model=mcxn-enet,mac=02:4d:43:58:00:02 -kernel "$ELF" -no-reboot >"$O2" 2>/dev/null &
 wait
 a=$(grep -ac 'ENET-LAB rx: ethertype 0x88b5' "$O1" || true)

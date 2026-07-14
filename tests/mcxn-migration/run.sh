@@ -13,11 +13,11 @@ trap 'rm -f "$MIG" "$POST"' EXIT
 [ -f "$BLINKY" ] || { echo "SKIP: no blinky ELF at $BLINKY"; exit 0; }
 # Save: boot, run, migrate full state to a file.
 ( sleep 4; printf 'migrate "exec:cat > %s"\n' "$MIG"; sleep 3; printf 'quit\n' ) | \
-  timeout 15 "$QEMU" -M frdm-mcxn947 -display none -serial null -monitor stdio \
+  timeout -k 5 15 "$QEMU" -M frdm-mcxn947 -display none -serial null -monitor stdio \
   -kernel "$BLINKY" -no-reboot >/dev/null 2>&1 || true
 [ -s "$MIG" ] || { echo "FAIL: migration file empty (save failed)"; exit 1; }
 # Restore: load the state into a fresh instance, capture resumed output.
-timeout 9 "$QEMU" -M frdm-mcxn947 -display none -serial "file:$POST" -monitor none \
+timeout -k 5 9 "$QEMU" -M frdm-mcxn947 -display none -serial "file:$POST" -monitor none \
   -incoming "exec:cat $MIG" -kernel "$BLINKY" -no-reboot >/dev/null 2>&1 || true
 n=$(grep -ac 'LED state' "$POST" || true)
 echo "migration file: $(stat -c%s "$MIG") bytes; resumed toggles: $n"

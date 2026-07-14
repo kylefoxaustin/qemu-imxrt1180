@@ -20,7 +20,7 @@ QPID=$!; trap 'kill $QPID 2>/dev/null; rm -f "$CON"' EXIT
 for i in $(seq 1 30); do grep -aqi 'IPv4 address' "$CON" 2>/dev/null && break; sleep 1; done
 sleep 1
 MSG="MCX-UDP-OVER-ENET-$$-$RANDOM"
-REPLY=$(timeout 6 python3 -c '
+REPLY=$(timeout -k 5 6 python3 -c '
 import socket,sys
 s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.settimeout(5)
 m=b"'"$MSG"'"

@@ -21,7 +21,7 @@ fi
 "$CC" -mcpu=cortex-m33 -mthumb -nostdlib -nostartfiles -ffreestanding -O2 \
       -Wall -T "$HERE/link.ld" "$HERE/main.c" -o "$ELF"
 
-OUT="$(timeout 10 "$QEMU" -M frdm-mcxn947 -display none -monitor none \
+OUT="$(timeout -k 5 10 "$QEMU" -M frdm-mcxn947 -display none -monitor none \
         -serial stdio -kernel "$ELF" -no-reboot 2>&1 || true)"
 
 echo "--- guest output ---"

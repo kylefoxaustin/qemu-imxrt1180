@@ -15,7 +15,7 @@ QEMU="${QEMU:-$HERE/../../build/qemu-system-arm}"
 DHCP_ELF="${DHCP_ELF:-$HOME/mcxn-images/mcxn-dhcp.elf}"
 [ -x "$QEMU" ] || { echo "SKIP: qemu not built at $QEMU"; exit 0; }
 [ -f "$DHCP_ELF" ] || { echo "SKIP: no DHCP ELF at $DHCP_ELF (build the Zephyr sample)"; exit 0; }
-OUT="$(timeout 20 "$QEMU" -M frdm-mcxn947 -display none -monitor none -serial stdio \
+OUT="$(timeout -k 5 20 "$QEMU" -M frdm-mcxn947 -display none -monitor none -serial stdio \
         -nic user,model=mcxn-enet -kernel "$DHCP_ELF" -no-reboot 2>/dev/null \
         | tr -d '\000' | sed 's/\x1b\[[0-9;]*m//g' || true)"
 echo "--- guest output ---"; echo "$OUT" | grep -aiE 'dhcp|address|subnet|router|lease' | head; echo "--------------------"

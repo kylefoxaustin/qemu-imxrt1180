@@ -14,7 +14,7 @@ command -v "$CC" >/dev/null 2>&1 || { echo "SKIP: $CC not found"; exit 0; }
       -Wall -T "$HERE/link.ld" "$HERE/main.c" -o "$ELF"
 
 SERIAL="$(mktemp)"; QMP="$(mktemp -u).sock"
-timeout 15 "$QEMU" -M frdm-mcxn947 -display none -monitor none \
+timeout -k 5 15 "$QEMU" -M frdm-mcxn947 -display none -monitor none \
     -serial "file:$SERIAL" -qmp "unix:$QMP,server=on,wait=off" \
     -kernel "$ELF" -no-reboot &
 QPID=$!

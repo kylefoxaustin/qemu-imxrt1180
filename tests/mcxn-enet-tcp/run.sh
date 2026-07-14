@@ -30,7 +30,7 @@ MSG="MCX-TCP-OVER-ENET-$$-$RANDOM"
 # before the echo_server's TCP listener is accepting, and slirp can drop the
 # first SYN — a single attempt is a flaky oracle (per the fleet net-flake
 # post-mortem), so re-attempt a few times within the outer timeout.
-REPLY=$(printf '%s\n' "$MSG" | timeout 12 python3 -c '
+REPLY=$(printf '%s\n' "$MSG" | timeout -k 5 12 python3 -c '
 import socket,sys,time
 d=sys.stdin.buffer.read()
 for _ in range(4):

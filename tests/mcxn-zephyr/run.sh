@@ -14,7 +14,7 @@ ZEPHYR_ELF="${ZEPHYR_ELF:-$ZDIR/build/zephyr/zephyr.elf}"
 BLINKY_ELF="${BLINKY_ELF:-$ZDIR/build_blinky/zephyr/zephyr.elf}"
 [ -x "$QEMU" ] || { echo "SKIP: qemu not built at $QEMU"; exit 0; }
 
-boot() { timeout 12 "$QEMU" -M frdm-mcxn947 -display none -monitor none \
+boot() { timeout -k 5 12 "$QEMU" -M frdm-mcxn947 -display none -monitor none \
                  -serial stdio -kernel "$1" -no-reboot 2>/dev/null || true; }
 
 fail=0; ran=0

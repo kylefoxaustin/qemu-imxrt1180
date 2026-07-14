@@ -27,7 +27,7 @@ for d in "$BUILDS"/*/; do
     elf="$d/zephyr/zephyr.elf"
     [ -f "$elf" ] || continue
     name=$(basename "$d")
-    out=$(timeout "$TIMEOUT" "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none \
+    out=$(timeout -k 5 "$TIMEOUT" "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none \
         -kernel "$elf" -serial stdio -semihosting-config enable=on,target=native \
         </dev/null 2>/tmp/z_err.$$)
     if grep -qiE "PROJECT EXECUTION SUCCESSFUL" <<<"$out"; then
