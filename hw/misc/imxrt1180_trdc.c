@@ -92,6 +92,10 @@ static void imxrt1180_trdc_reset(DeviceState *dev)
     IMXRT1180TRDCState *s = IMXRT1180_TRDC(dev);
 
     memset(s->regs, 0, sizeof(s->regs));
+    /* Offsets from PERI_TRDC.h, values from the RM's cold-POR column. */
+    s->regs[0x000 / 4] = 0x00000010;    /* TRDC_CR        */
+    s->regs[0x1C0 / 4] = 0x00000008;    /* TRDC_IDAU_CR   */
+    s->regs[0x1E4 / 4] = 0x01000000;    /* TRDC_FLW_PBASE */
 }
 
 /* NDID=16 domains, NMSTR=16 masters, NMBC=2, NMRC=2 blocks.  Counts must cover

@@ -64,9 +64,13 @@
 static uint32_t lpspi_sr(IMXRT1180LPSPIState *s)
 {
     uint32_t v = s->sr_sticky;
-    if (s->cr & CR_MEN) {
-        v |= SR_TDF;                 /* tx FIFO always has room */
-    }
+    /*
+     * TDF means "the transmit FIFO count is at or below the watermark" -- TRUE OF AN
+     * EMPTY FIFO, enabled or not.  The RM resets SR to 0x1 for that reason.  Gating
+     * it on MEN made SR read 0 at reset: "the TX FIFO is FULL", from a module that
+     * has never sent a byte.
+     */
+    v |= SR_TDF;                     /* tx FIFO always has room */
     if (s->rx_count) {
         v |= SR_RDF;
     }
@@ -254,7 +258,10 @@ static void imxrt1180_lpspi_reset(DeviceState *dev)
 {
     IMXRT1180LPSPIState *s = IMXRT1180_LPSPI(dev);
 
-    s->cr = s->sr_sticky = s->ier = s->der = s->fcr = s->tcr = 0;
+    s->cr = s->sr_sticky = s->ier = s->der = s->fcr = 0;
+    /* TCR resets with FRAMESZ = 31 (a 32-bit frame).  Zero would be a 1-bit frame,
+     * and LPSPI_MasterTransfer read-modify-writes TCR. */
+    s->tcr = 0x0000001F;
     memset(s->cfgr, 0, sizeof(s->cfgr));
     memset(s->dmr, 0, sizeof(s->dmr));
     memset(s->ccr, 0, sizeof(s->ccr));
@@ -277,7 +284,14 @@ static void imxrt1180_lpspi_realize(DeviceState *dev, Error **errp)
     for (int i = 0; i < IMXRT1180_LPSPI_NUMCS; i++) {
         sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->cs_lines[i]);
     }
-    s->bus = ssi_create_bus(dev, "spi");
+    /* Name the bus after the instance -- see the note in imxrt1180_lpi2c.c.  A
+     * bus-less `-device` lands on whichever bus QEMU picks last, so a test that
+     * does not pin its bus is not testing the controller it names. */
+    {
+        g_autofree char *bname = g_strdup_printf(
+            "%s-bus", object_get_canonical_path_component(OBJECT(dev)));
+        s->bus = ssi_create_bus(dev, bname);
+    }
     s->cs_active = -1;
 }
 

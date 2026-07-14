@@ -9,7 +9,7 @@ spi.elf: spi.c spi.ld
 # bus-less -device attaches to the default (last-registered) SSI bus = LPSPI4.
 run: all
 	$(QEMU) -M mimxrt1180-evk -display none -monitor none -kernel spi.elf \
-	  -device at25df321a -serial null -semihosting-config enable=on,target=native
+	  -device at25df321a,bus=lpspi4-bus -serial null -semihosting-config enable=on,target=native
 clean:
 	rm -f spi.elf
 .PHONY: all run clean

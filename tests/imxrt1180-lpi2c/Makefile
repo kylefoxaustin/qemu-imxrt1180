@@ -12,7 +12,7 @@ i2c.elf: i2c.c i2c.ld
 # to see a real value, qom-set the temperature after boot (see scratchpad).
 run: all
 	$(QEMU) -M mimxrt1180-evk -display none -monitor none -kernel i2c.elf \
-	  -device tmp105,address=0x48 \
+	  -device tmp105,bus=lpi2c4-bus,address=0x48 \
 	  -serial null -semihosting-config enable=on,target=native
 clean:
 	rm -f i2c.elf

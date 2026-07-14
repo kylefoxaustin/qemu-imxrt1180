@@ -43,7 +43,14 @@ static const MemoryRegionOps cmp_ops = {
     .read = cmp_read, .write = cmp_write, .endianness = DEVICE_LITTLE_ENDIAN,
     .valid.min_access_size = 4, .valid.max_access_size = 4,
 };
-static void cmp_reset(DeviceState *dev) { memset(IMXRT1180_CMP(dev)->regs, 0, sizeof(IMXRT1180_CMP(dev)->regs)); }
+static void cmp_reset(DeviceState *dev)
+{
+    IMXRT1180CmpState *s = IMXRT1180_CMP(dev);
+
+    memset(s->regs, 0, sizeof(s->regs));
+    /* C3 @0x14 (PERI_CMP.h) resets to 0x1100_0000 -- the RM's cold-POR column. */
+    s->regs[0x14 / 4] = 0x11000000;
+}
 static void cmp_realize(DeviceState *dev, Error **errp)
 {
     IMXRT1180CmpState *s = IMXRT1180_CMP(dev);

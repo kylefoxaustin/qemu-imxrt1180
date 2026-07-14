@@ -72,70 +72,6 @@ CAN2                       MECR                   # block not modelled; the catc
 CAN3                       CTRL2                  # block not modelled; the catch-all answers 0
 CAN3                       FDCTRL                 # block not modelled; the catch-all answers 0
 CAN3                       MECR                   # block not modelled; the catch-all answers 0
-CCM                        GPR_SHARED0_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED0_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED0_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED0_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED10_AUTHEN    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED10_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED10_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED10_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED11_AUTHEN    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED11_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED11_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED11_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED12_AUTHEN    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED12_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED12_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED12_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED13_AUTHEN    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED13_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED13_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED13_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED14_AUTHEN    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED14_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED14_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED14_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED15_AUTHEN    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED15_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED15_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED15_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED1_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED1_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED1_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED1_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED2_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED2_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED2_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED2_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED3_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED3_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED3_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED3_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED4_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED4_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED4_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED4_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED5_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED5_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED5_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED5_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED6_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED6_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED6_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED6_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED7_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED7_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED7_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED7_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED8_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED8_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED8_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED8_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED9_AUTHEN     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED9_AUTHEN_CLR # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED9_AUTHEN_SET # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CCM                        GPR_SHARED9_AUTHEN_TOG # MODELLED BLOCK, reset value not set -- a real lie, fix me
 CM33PLATFORM_MIX_SLICE     EDGELOCK_HDSK_CTRL     # block not modelled; the catch-all answers 0
 CM33PLATFORM_MIX_SLICE     EDGELOCK_HDSK_STAT     # block not modelled; the catch-all answers 0
 CM33PLATFORM_MIX_SLICE     FUNC_STAT              # block not modelled; the catch-all answers 0
@@ -162,10 +98,6 @@ CM7PLATFORM_TCM            MIF_DLY_ARR_HF         # block not modelled; the catc
 CM7PLATFORM_TCM            MIF_DLY_SLEEP          # block not modelled; the catch-all answers 0
 CM7PLATFORM_TCM            MIF_MLPL_ARR_PDN       # block not modelled; the catch-all answers 0
 CM7PLATFORM_TCM            MIF_MLPL_SLEEP         # block not modelled; the catch-all answers 0
-CMP1                       C3                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CMP2                       C3                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CMP3                       C3                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-CMP4                       C3                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
 DAC                        CR                     # block not modelled; the catch-all answers 0
 DCDC                       CURRENT_TRG            # block not modelled; the catch-all answers 0
 DCDC                       FILTER_CNT             # block not modelled; the catch-all answers 0
@@ -298,26 +230,10 @@ ENETC1_SI1                 SICAPR1                # block not modelled; the catc
 ENETC1_SI1                 SICCAR                 # block not modelled; the catch-all answers 0
 ENETC1_SI1                 SIMCAR                 # block not modelled; the catch-all answers 0
 ENETC1_SI1                 SISR                   # block not modelled; the catch-all answers 0
-FLEXSPI1                   AHBCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI1                   FLSHCR4                # MODELLED BLOCK, reset value not set -- a real lie, fix me
 FLEXSPI1                   INTR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI1                   LUTCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI1                   LUTKEY                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI1                   MCR0                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI1                   MCR1                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI1                   MCR2                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
 FLEXSPI1                   STS0                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI1                   STS2                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI2                   AHBCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI2                   FLSHCR4                # MODELLED BLOCK, reset value not set -- a real lie, fix me
 FLEXSPI2                   INTR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI2                   LUTCR                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI2                   LUTKEY                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI2                   MCR0                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI2                   MCR1                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI2                   MCR2                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
 FLEXSPI2                   STS0                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-FLEXSPI2                   STS2                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
 FLEXSPI_SLV                MODULE_CONTROL         # MODELLED BLOCK, reset value not set -- a real lie, fix me
 FLEXSPI_SLV                MODULE_STATUS          # MODELLED BLOCK, reset value not set -- a real lie, fix me
 FLEXSPI_SLV                READ_REGISTER_COMMAND0 # MODELLED BLOCK, reset value not set -- a real lie, fix me
@@ -367,108 +283,6 @@ I3C2                       SINTSET                # block not modelled; the catc
 I3C2                       SSTATUS                # block not modelled; the catch-all answers 0
 I3C2                       STCCLOCK               # block not modelled; the catch-all answers 0
 I3C2                       SVENDORID              # block not modelled; the catch-all answers 0
-LPI2C1                     MSR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C1                     SASR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C1                     SRDR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C1                     SRDROR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C2                     MSR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C2                     SASR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C2                     SRDR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C2                     SRDROR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C3                     MSR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C3                     SASR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C3                     SRDR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C3                     SRDROR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C4                     MSR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C4                     SASR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C4                     SRDR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C4                     SRDROR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C5                     MRDR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C5                     MRDROR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C5                     MSR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C5                     SASR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C5                     SRDR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C5                     SRDROR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C6                     MRDR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C6                     MRDROR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C6                     MSR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C6                     SASR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C6                     SRDR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPI2C6                     SRDROR                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPSPI1                     SR                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPSPI1                     TCR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPSPI2                     SR                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPSPI2                     TCR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPSPI3                     SR                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPSPI3                     TCR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPSPI4                     SR                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPSPI4                     TCR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPSPI5                     RSR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPSPI5                     SR                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPSPI5                     TCR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPSPI6                     RSR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPSPI6                     SR                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPSPI6                     TCR                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART1                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART1                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART1                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART1                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART1                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART10                   BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART10                   DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART10                   DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART10                   FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART10                   TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART11                   BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART11                   DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART11                   DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART11                   FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART11                   TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART12                   BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART12                   DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART12                   DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART12                   FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART12                   TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART2                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART2                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART2                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART2                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART2                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART3                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART3                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART3                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART3                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART3                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART4                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART4                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART4                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART4                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART4                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART5                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART5                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART5                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART5                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART5                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART6                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART6                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART6                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART6                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART6                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART7                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART7                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART7                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART7                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART7                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART8                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART8                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART8                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART8                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART8                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART9                    BAUD                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART9                    DATA                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART9                    DATARO                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART9                    FIFO                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-LPUART9                    TOSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
 MEGA_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_IG            # block not modelled; the catch-all answers 0
 MEGA_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_PD_B          # block not modelled; the catch-all answers 0
 MEGA_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_WLPD          # block not modelled; the catch-all answers 0
@@ -543,19 +357,10 @@ PDM                        VAD0_NCONFIG           # block not modelled; the catc
 PDM                        VAD0_STAT              # block not modelled; the catch-all answers 0
 PDM                        VAD0_ZCD               # block not modelled; the catch-all answers 0
 RTWDOG1                    CS                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-RTWDOG1                    TOVAL                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
 RTWDOG2                    CS                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-RTWDOG2                    TOVAL                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
 RTWDOG3                    CS                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-RTWDOG3                    TOVAL                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
 RTWDOG4                    CS                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-RTWDOG4                    TOVAL                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
 RTWDOG5                    CS                     # MODELLED BLOCK, reset value not set -- a real lie, fix me
-RTWDOG5                    TOVAL                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-SAI1                       TCSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-SAI2                       TCSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-SAI3                       TCSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-SAI4                       TCSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
 SEMC                       BR10                   # block not modelled; the catch-all answers 0
 SEMC                       BR11                   # block not modelled; the catch-all answers 0
 SEMC                       BR9                    # block not modelled; the catch-all answers 0
@@ -576,10 +381,6 @@ SINC3                      SR                     # block not modelled; the catc
 SPDIF                      SCR                    # block not modelled; the catch-all answers 0
 SPDIF                      SIS                    # block not modelled; the catch-all answers 0
 SPDIF                      STC                    # block not modelled; the catch-all answers 0
-SRC_GENERAL_REG            SBMR2                  # MODELLED BLOCK, reset value not set -- a real lie, fix me
-SRC_GENERAL_REG            SRMASK                 # MODELLED BLOCK, reset value not set -- a real lie, fix me
-SRC_GENERAL_REG            SRSR                   # MODELLED BLOCK, reset value not set -- a real lie, fix me
-SRC_GENERAL_REG            SRSR_BBSM              # MODELLED BLOCK, reset value not set -- a real lie, fix me
 SW0_BASE                   BPCAPR                 # block not modelled; the catch-all answers 0
 SW0_BASE                   BRCAPR                 # block not modelled; the catch-all answers 0
 SW0_BASE                   CCAR                   # block not modelled; the catch-all answers 0
@@ -745,21 +546,6 @@ TMR0_GLOBAL                SMBUCR                 # block not modelled; the catc
 TMR0_GLOBAL                SMCAPR                 # block not modelled; the catch-all answers 0
 TMR0_GLOBAL                SMCLWMR                # block not modelled; the catch-all answers 0
 TMR0_GLOBAL                SMDTR                  # block not modelled; the catch-all answers 0
-TPM1                       MOD                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-TPM2                       MOD                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-TPM3                       MOD                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-TPM4                       MOD                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-TPM5                       MOD                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-TPM6                       MOD                    # MODELLED BLOCK, reset value not set -- a real lie, fix me
-TRDC1                      TRDC_CR                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-TRDC1                      TRDC_FLW_PBASE         # MODELLED BLOCK, reset value not set -- a real lie, fix me
-TRDC1                      TRDC_IDAU_CR           # MODELLED BLOCK, reset value not set -- a real lie, fix me
-TRDC2                      TRDC_CR                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-TRDC2                      TRDC_FLW_PBASE         # MODELLED BLOCK, reset value not set -- a real lie, fix me
-TRDC2                      TRDC_IDAU_CR           # MODELLED BLOCK, reset value not set -- a real lie, fix me
-TRDC3                      TRDC_CR                # MODELLED BLOCK, reset value not set -- a real lie, fix me
-TRDC3                      TRDC_FLW_PBASE         # MODELLED BLOCK, reset value not set -- a real lie, fix me
-TRDC3                      TRDC_IDAU_CR           # MODELLED BLOCK, reset value not set -- a real lie, fix me
 USBHSDCD1                  CLOCK                  # block not modelled; the catch-all answers 0
 USBHSDCD1                  TIMER0                 # block not modelled; the catch-all answers 0
 USBHSDCD1                  TIMER1                 # block not modelled; the catch-all answers 0
@@ -932,8 +718,6 @@ WAKEUP_MIX_SLICE           MLPL_STAT              # block not modelled; the catc
 WAKEUP_MIX_SLICE           PSW_CNT_CFG_HF         # block not modelled; the catch-all answers 0
 WAKEUP_MIX_SLICE           PSW_CNT_CFG_LF         # block not modelled; the catch-all answers 0
 WAKEUP_MIX_SLICE           PSW_CTRL               # block not modelled; the catch-all answers 0
-CCM                        OBSERVE0_FREQUENCY_CURRENT # MODELLED BLOCK, reset value not set -- NEWLY VISIBLE (the gate could not see CCM's struct arrays until the extractor was fixed). The clock tree is next.
-CCM                        OBSERVE1_FREQUENCY_CURRENT # MODELLED BLOCK, reset value not set -- NEWLY VISIBLE (the gate could not see CCM's struct arrays until the extractor was fixed). The clock tree is next.
 NETC_IERB                  SBCR                   # MODELLED BLOCK, reset value not set -- NEWLY VISIBLE (struct-array blind spot)
 OTFAD1                     CTX0_RGD_W1            # block not modelled (catch-all answers 0) -- NEWLY VISIBLE (struct-array blind spot)
 OTFAD1                     CTX1_RGD_W1            # block not modelled (catch-all answers 0) -- NEWLY VISIBLE (struct-array blind spot)

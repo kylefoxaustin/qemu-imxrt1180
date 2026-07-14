@@ -96,9 +96,20 @@ static void imxrt1180_rtwdog_reset(DeviceState *dev)
 {
     IMXRT1180RTWDOGState *s = IMXRT1180_RTWDOG(dev);
 
-    s->cs = 0;
+    /*
+     * THE WATCHDOG IS ENABLED OUT OF RESET.  CS = 0x0000_0900 (EN | the default
+     * clock select) and TOVAL = 0x0000_0400.  We claimed CS = 0: a DISABLED
+     * watchdog with a ZERO timeout.
+     *
+     * Firmware that read-modify-writes CS -- which is what RTWDOG_Init does after
+     * the unlock sequence -- read our zero and wrote back a configuration the
+     * silicon never had.  And firmware that DELIBERATELY leaves the watchdog alone
+     * (because the RM says it is already running and must be serviced) sails through
+     * here and is reset on hardware.
+     */
+    s->cs = 0x00000900;
     s->cnt = 0;
-    s->toval = 0;
+    s->toval = 0x00000400;
     s->win = 0;
     s->unlock_step = 0;
     s->unlocked = false;

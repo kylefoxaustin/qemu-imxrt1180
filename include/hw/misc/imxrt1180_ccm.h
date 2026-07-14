@@ -28,6 +28,11 @@ struct IMXRT1180CCMState {
     /* The PLL/OSC frequencies are not constants -- they are COMPUTED from the
      * ANADIG registers the guest wrote, exactly as fsl_clock.c does it. */
     IMXRT1180AnadigState *anadig;
+
+    /* Has the guest ARMED this OBSERVE slice (taken it out of RESET)?  A frequency
+     * detector that has never run has not measured anything, and reports 0 -- which
+     * is what the RM's reset column says and what the silicon does. */
+    bool obs_armed[2];
 };
 
 /*

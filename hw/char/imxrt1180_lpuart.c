@@ -52,6 +52,7 @@
 #define CTRL_TCIE   0x00400000u
 #define CTRL_TIE    0x00800000u
 
+#define DATA_RXEMPT 0x00001000u  /* PERI_LPUART.h DATA_RXEMPT_MASK */
 #define FIFO_RXEMPT 0x00400000u
 #define FIFO_TXEMPT 0x00800000u
 
@@ -127,7 +128,20 @@ static uint64_t imxrt1180_lpuart_read(void *opaque, hwaddr offset, unsigned size
         break;
     case LPUART_DATA:
     case LPUART_DATARO:
-        r = s->rx_byte;
+        /*
+         * RXEMPT (bit 12) -- WITHOUT IT, AN EMPTY RECEIVER HANDS OUT A PHANTOM NUL.
+         *
+         * This returned the raw byte and nothing else, so with no character received
+         * DATA read 0x0000: RXEMPT CLEAR, data 0x00.  To a driver that is not "the
+         * receiver is empty" -- IT IS THE BYTE 0x00, AND IT IS VALID.  The RM resets
+         * DATA to 0x1000 for exactly this reason.
+         *
+         *   AN UNMODELLED BIT IS NOT A FREE BIT.  IT STILL ANSWERS, AND ZERO IS AN
+         *   ANSWER.  (91emulator and mcxn947qemu found the same thing in LPI2C's
+         *   MRDR alias the same day: "I was telling the guest the receive FIFO HAS
+         *   DATA when nothing had been received.")
+         */
+        r = s->rx_byte | (s->rx_full ? 0 : DATA_RXEMPT);
         if (offset == LPUART_DATA && s->rx_full) {
             s->rx_full = false;
             imxrt1180_lpuart_update_irq(s);
@@ -188,7 +202,10 @@ static void imxrt1180_lpuart_write(void *opaque, hwaddr offset,
     case LPUART_GLOBAL:
         s->global = value;
         if (value & GLOBAL_RST) {
-            s->ctrl = s->baud = s->fifo = s->water = 0;
+            /* A software reset restores the RESET VALUES, not zero. */
+            s->ctrl = s->water = 0;
+            s->baud = 0x0F000004;
+            s->fifo = 0x00C00033;
             s->rx_full = false;
             imxrt1180_lpuart_update_irq(s);
             imxrt1180_lpuart_update_dma(s);   /* BAUD cleared => requests drop */
@@ -296,9 +313,23 @@ static void imxrt1180_lpuart_reset(DeviceState *dev)
 {
     IMXRT1180LPUARTState *s = IMXRT1180_LPUART(dev);
 
-    s->global = s->pincfg = s->baud = s->ctrl = 0;
-    s->match = s->modir = s->fifo = s->water = 0;
-    s->reir = s->teir = s->hdcr = s->tocr = s->tosr = 0;
+    s->global = s->pincfg = s->ctrl = 0;
+    s->match = s->modir = s->water = 0;
+    s->reir = s->teir = s->hdcr = s->tocr = 0;
+
+    /*
+     * RESET VALUES from the RM's cold-POR column (tests/imxrt1180-reset-values).
+     * A memset-to-zero is a CLAIM ABOUT EVERY BIT, and firmware read-modify-writes
+     * all three of these -- BAUD in particular: LPUART_SetBaudRate() reads BAUD,
+     * masks in OSR/SBR and writes it back, so a zeroed BAUD launders our lie into
+     * the guest's own configuration.
+     *   BAUD = 0x0F000004  (OSR = 15, SBR = 4)
+     *   FIFO = 0x00C00033  (TX/RX FIFO size fields + the empty flags)
+     *   TOSR = 0x0000000F
+     */
+    s->baud = 0x0F000004;
+    s->fifo = 0x00C00033;
+    s->tosr = 0x0000000F;
     s->timeout[0] = s->timeout[1] = s->timeout[2] = s->timeout[3] = 0;
     s->rx_byte = 0;
     s->rx_full = false;

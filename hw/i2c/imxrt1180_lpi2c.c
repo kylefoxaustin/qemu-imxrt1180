@@ -59,12 +59,32 @@
 #define MTDR_CMD_MASK  0x7
 #define MRDR_RXEMPTY 0x4000
 
+/*
+ * The TARGET (slave) engine is not modelled -- but ITS REGISTERS STILL ANSWER, and
+ * ZERO IS AN ANSWER.  SASR/SRDR/SRDROR reset with RXEMPTY (bit 14) SET; returning 0
+ * tells the guest THE TARGET RECEIVE FIFO HAS DATA when nothing has been received,
+ * and a driver polling the FIFO reads a phantom byte out of an empty one.
+ *
+ *   AN UNMODELLED REGISTER IS NOT A FREE REGISTER.
+ *
+ * (mcxn947qemu and 91emulator both found exactly this, in the same block, the same
+ * day: "MRDR itself was correct; its ALIAS was not.")
+ */
+#define LPI2C_SASR   0x150
+#define LPI2C_SRDR   0x170
+#define LPI2C_SRDROR 0x178
+#define SLAVE_RXEMPTY 0x4000
+
 static uint32_t lpi2c_msr(IMXRT1180LPI2CState *s)
 {
     uint32_t v = s->msr_sticky;
-    if (s->mcr & MCR_MEN) {
-        v |= MSR_TDF;                     /* tx FIFO always has room */
-    }
+    /*
+     * TDF is "the transmit FIFO count is at or below the watermark" -- which is TRUE
+     * OF AN EMPTY FIFO, enabled or not.  The RM resets MSR to 0x1 for that reason.
+     * Gating it on MEN made MSR read 0 at reset: "the TX FIFO is full", from a
+     * module that has never sent anything.
+     */
+    v |= MSR_TDF;                         /* tx FIFO always has room */
     if (s->rx_count) {
         v |= MSR_RDF;
     }
@@ -150,6 +170,10 @@ static uint64_t imxrt1180_lpi2c_read(void *opaque, hwaddr offset, unsigned size)
         return s->mcr;
     case LPI2C_MSR:
         return lpi2c_msr(s);
+    case LPI2C_SASR:
+    case LPI2C_SRDR:
+    case LPI2C_SRDROR:
+        return SLAVE_RXEMPTY;             /* target engine: honestly EMPTY */
     case LPI2C_MIER:
         return s->mier;
     case LPI2C_MDER:
@@ -274,7 +298,23 @@ static void imxrt1180_lpi2c_realize(DeviceState *dev, Error **errp)
                           TYPE_IMXRT1180_LPI2C, 0x1000);
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
     sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq);
-    s->bus = i2c_init_bus(dev, "i2c");
+    /*
+     * NAME THE BUS AFTER THE INSTANCE.  Every LPI2C used to create a bus called
+     * "i2c", so `-device tmp105` (with no bus=) attached to whichever one QEMU
+     * happened to pick -- THE LAST ONE.  The lpi2c test therefore worked only
+     * because it targeted LPI2C4 and LPI2C4 happened to be the last of four.
+     * Adding LPI2C5/6 -- a pure fidelity fix -- silently re-homed the test's
+     * device onto a controller the firmware never touches, and the test failed
+     * with "the device did not ACK".
+     *
+     *   A TEST THAT DEPENDS ON HOW MANY INSTANCES EXIST IS NOT TESTING THE ONE
+     *   IT NAMES.  Now the bus is "lpi2c4-bus" and the test must say so.
+     */
+    {
+        g_autofree char *bname = g_strdup_printf(
+            "%s-bus", object_get_canonical_path_component(OBJECT(dev)));
+        s->bus = i2c_init_bus(dev, bname);
+    }
 }
 
 static const VMStateDescription vmstate_imxrt1180_lpi2c = {

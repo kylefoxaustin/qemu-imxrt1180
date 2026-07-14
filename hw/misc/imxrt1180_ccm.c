@@ -95,6 +95,7 @@
 /* OBSERVE[n].CONTROL: SELECT picks the observed clock; OFF gates the observer. */
 #define OBS_SELECT_MASK        0x1FFu
 #define OBS_OFF                (1u << 24)
+#define OBS_RESET              (1u << 15)  /* CCM_OBSERVE_CONTROL_RESET_MASK */
 #define OBS_DIV_MASK           0xFFu
 #define OBS_DIV_SHIFT          16
 
@@ -336,8 +337,8 @@ static uint32_t ccm_obs_hz(IMXRT1180CCMState *s, unsigned slice)
     uint32_t sel = ctrl & OBS_SELECT_MASK;
     uint32_t div = ((ctrl >> OBS_DIV_SHIFT) & OBS_DIV_MASK) + 1;
 
-    if (ctrl & OBS_OFF) {
-        return 0;                       /* observer not running: nothing measured */
+    if (!s->obs_armed[slice] || (ctrl & OBS_OFF) || (ctrl & OBS_RESET)) {
+        return 0;                       /* never started: NOTHING HAS BEEN MEASURED */
     }
     if (sel >= IMXRT1180_CCM_NROOT) {
         qemu_log_mask(LOG_UNIMP, "%s: OBSERVE%u selects source %u (not a clock "
@@ -349,10 +350,64 @@ static uint32_t ccm_obs_hz(IMXRT1180CCMState *s, unsigned slice)
     return imxrt1180_ccm_root_hz(s, sel) / div;
 }
 
+/*
+ * ===================== SET / CLR / TOG ARE ALIASES, NOT REGISTERS =====================
+ *
+ * Every one of these register groups has three write-alias siblings at +4/+8/+C:
+ * writing SET *sets* those bits in the BASE register, CLR *clears* them, TOG *toggles*
+ * them.  Reading any of the three returns the BASE.  They are not storage.
+ *
+ * THIS MODEL TREATED THEM AS ORDINARY REGISTERS -- `regs[offset/4] = value` -- so
+ * EVERY GUEST WRITE THROUGH A SET/CLR/TOG ALIAS WAS SILENTLY DISCARDED.  It landed in
+ * a backing word nobody reads, and the base register never moved.
+ *
+ * It is not hypothetical.  CLOCK_GetFreqFromObs() arms the frequency detector
+ * ENTIRELY through the aliases:
+ *
+ *     OBSERVE[i].CONTROL     = OFF;                  // stop
+ *     OBSERVE[i].CONTROL_SET = RESET;                // reset the slice
+ *     OBSERVE[i].CONTROL_CLR = RAW;
+ *     OBSERVE[i].CONTROL    |= SELECT(sig) | DIVIDE(n);
+ *     OBSERVE[i].CONTROL_CLR = RESET | OFF;          // un-reset and START
+ *     while (OBSERVE[i].FREQUENCY_CURRENT == 0) { }  // <-- would spin forever
+ *
+ * 91emulator found the identical bug in their i.MX 91 CCM ("writes to CONTROL_SET were
+ * dropped on the floor") and it hid because BOTH read paths were right by accident.
+ * A RESULT THAT IS CORRECT BY LUCK IS A RESULT YOU HAVE NOT CHECKED.
+ *
+ * Also: the RM resets each alias to the SAME value as its base (AUTHEN and
+ * AUTHEN_SET/CLR/TOG all read 0xFFFF0000).  That is the reset-value gate telling us,
+ * in its own way, that they are aliases -- and it flagged all 64 GPR_SHARED ones.
+ */
+static bool ccm_alias(hwaddr off, hwaddr *base)
+{
+    static const struct { hwaddr first; unsigned count, step; } groups[] = {
+        { 0x0000,  IMXRT1180_CCM_NROOT, CCM_ROOT_STEP },   /* CLOCK_ROOT[n].CONTROL */
+        { 0x4400,  CCM_OBS_COUNT,       CCM_OBS_STEP  },   /* OBSERVE[n].CONTROL    */
+        { 0x4430,  CCM_OBS_COUNT,       CCM_OBS_STEP  },   /* OBSERVE[n].AUTHEN     */
+        { 0x4800,  16,                  0x20          },   /* GPR_SHARED[n]         */
+        { 0x4810,  16,                  0x20          },   /* GPR_SHARED[n].AUTHEN  */
+        { 0x4C00,  CCM_GPR_PRIV_COUNT,  CCM_GPR_PRIV_STEP },  /* GPR_PRIVATE[n]     */
+        { 0x4C10,  CCM_GPR_PRIV_COUNT,  CCM_GPR_PRIV_STEP },  /* ...AUTHEN          */
+    };
+
+    for (size_t g = 0; g < ARRAY_SIZE(groups); g++) {
+        for (unsigned n = 0; n < groups[g].count; n++) {
+            hwaddr b = groups[g].first + n * groups[g].step;
+            if (off > b && off <= b + 0xC) {       /* +4 SET, +8 CLR, +0xC TOG */
+                *base = b;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 static uint64_t imxrt1180_ccm_read(void *opaque, hwaddr offset, unsigned size)
 {
     IMXRT1180CCMState *s = IMXRT1180_CCM(opaque);
     unsigned slice;
+    hwaddr base;
 
     if (offset + 4 > IMXRT1180_CCM_SIZE) {
         qemu_log_mask(LOG_GUEST_ERROR, "%s: OOB read @0x%" HWADDR_PRIx "\n",
@@ -373,6 +428,10 @@ static uint64_t imxrt1180_ccm_read(void *opaque, hwaddr offset, unsigned size)
         return ccm_obs_hz(s, slice);            /* COMPUTED, not fabricated */
     }
 
+    if (ccm_alias(offset, &base)) {
+        return s->regs[base / 4];               /* an alias reads its BASE */
+    }
+
     return s->regs[offset / 4];
 }
 
@@ -380,13 +439,48 @@ static void imxrt1180_ccm_write(void *opaque, hwaddr offset,
                                 uint64_t value, unsigned size)
 {
     IMXRT1180CCMState *s = IMXRT1180_CCM(opaque);
+    hwaddr base;
+    unsigned slice;
 
     if (offset + 4 > IMXRT1180_CCM_SIZE) {
         qemu_log_mask(LOG_GUEST_ERROR, "%s: OOB write @0x%" HWADDR_PRIx "\n",
                       __func__, offset);
         return;
     }
-    s->regs[offset / 4] = value;
+
+    if (ccm_alias(offset, &base)) {
+        uint32_t *r = &s->regs[base / 4];
+        switch (offset - base) {
+        case 0x4: *r |=  (uint32_t)value; break;   /* SET */
+        case 0x8: *r &= ~(uint32_t)value; break;   /* CLR */
+        case 0xC: *r ^=  (uint32_t)value; break;   /* TOG */
+        }
+        offset = base;                             /* fall through to the side-effects */
+        value = *r;
+    } else {
+        s->regs[offset / 4] = value;
+    }
+
+    /*
+     * OBSERVE[n].CONTROL: the frequency detector is ARMED by taking the slice out of
+     * RESET (the SDK does CONTROL_SET = RESET, then CONTROL_CLR = RESET | OFF).
+     *
+     * Until then FREQUENCY_CURRENT reads 0 -- WHICH IS WHAT THE RM'S RESET COLUMN
+     * SAYS, and it is the truth: a frequency detector that has not run has not
+     * measured anything.  The old model returned a fabricated 6 MHz unconditionally,
+     * including at reset; the first fix computed the frequency but still reported it
+     * at reset, because I treated "OFF == 0" as "running".  A detector that has never
+     * been started has no reading, and 0 is how the hardware says so.
+     */
+    for (slice = 0; slice < CCM_OBS_COUNT; slice++) {
+        if (offset == CCM_OBS_CONTROL + slice * CCM_OBS_STEP) {
+            if (value & OBS_RESET) {
+                s->obs_armed[slice] = false;       /* held in reset */
+            } else if (!(value & OBS_OFF)) {
+                s->obs_armed[slice] = true;        /* un-reset and running */
+            }
+        }
+    }
 }
 
 static const MemoryRegionOps imxrt1180_ccm_ops = {
@@ -417,6 +511,7 @@ static void imxrt1180_ccm_reset(DeviceState *dev)
     unsigned n;
 
     memset(s->regs, 0, sizeof(s->regs));
+    memset(s->obs_armed, 0, sizeof(s->obs_armed));
 
 #define CCM_SET(off, val)  (s->regs[(off) / 4] = (val))
 
@@ -445,6 +540,14 @@ static void imxrt1180_ccm_reset(DeviceState *dev)
         CCM_SET(b + 0x8, 0xFFFF0000);                  /* AUTHEN_CLR        */
         CCM_SET(b + 0xC, 0xFFFF0000);                  /* AUTHEN_TOG        */
     }
+    /* GPR_SHARED[16].AUTHEN @0x4810, step 0x20 (PERI_CCM.h).  The SET/CLR/TOG
+     * siblings are ALIASES and read the base, so they need no reset value of
+     * their own -- which is exactly why the RM prints the same 0xFFFF0000 for
+     * all four. */
+    for (n = 0; n < 16; n++) {
+        CCM_SET(0x4810 + n * 0x20, 0xFFFF0000);
+    }
+
     /* GPR_SHARED_STATUS[8] @0x4A00, step 4 (PERI_CCM.h).  Two are non-zero. */
     CCM_SET(0x4A00 + 4 * 4, 0xFF000100);      /* GPR_SHARED_STATUS4 */
     CCM_SET(0x4A00 + 5 * 4, 0x00000007);      /* GPR_SHARED_STATUS5 */

@@ -63,7 +63,18 @@ static uint64_t tpm_read(void *opaque, hwaddr off, unsigned size)
     case R_SC: return s->sc;
     case R_MOD: return s->mod;
     case R_STATUS: return s->status;
-    case R_CNT: return (s->mod & 0xFFFF) - (uint16_t)ptimer_get_count(s->timer);
+    /*
+     * A STOPPED COUNTER READS ZERO.  This synthesised MOD - ptimer_get_count()
+     * unconditionally; with the counter halted ptimer_get_count() is 0, so CNT read
+     * back MOD itself -- 0xFFFF out of reset, where silicon reads 0.  (The same
+     * shape as eFlexPWM's CNT, which read 1.)  While CMOD == 0 the TPM counter does
+     * not run, and a counter that is not running is at zero.
+     */
+    case R_CNT:
+        if (!(s->sc & SC_CMOD)) {
+            return 0;
+        }
+        return (s->mod & 0xFFFF) - (uint16_t)ptimer_get_count(s->timer);
     }
     /* CONTROLS[] channel regs + others: register-backed so read-back matches
      * (TPM_SetupPwm polls `while (cnv != base->CONTROLS[].CnV)`). */
@@ -98,7 +109,13 @@ static const MemoryRegionOps tpm_ops = {
 static void tpm_reset(DeviceState *dev)
 {
     IMXRT1180TPMState *s = IMXRT1180_TPM(dev);
-    s->sc = s->mod = s->status = 0;
+    s->sc = s->status = 0;
+    /*
+     * MOD resets to 0xFFFF -- the free-running full-range modulo.  We reset it to 0,
+     * which makes the period 1 tick and the counter effectively DEAD AT RESET until
+     * the guest writes MOD.  (91emulator hit the identical thing in their TPM.)
+     */
+    s->mod = 0x0000FFFF;
     memset(s->regs, 0, sizeof(s->regs));
     ptimer_transaction_begin(s->timer); ptimer_stop(s->timer); ptimer_transaction_commit(s->timer);
     qemu_set_irq(s->irq, 0);

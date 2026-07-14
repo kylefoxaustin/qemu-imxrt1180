@@ -126,6 +126,19 @@ static void imxrt1180_src_reset(DeviceState *dev)
     memset(s->blk_regs, 0, sizeof(s->blk_regs));
 
     /*
+     * SRC_GENERAL reset values (offsets PERI_SRC_GENERAL.h, values from the RM).
+     *
+     * SRSR / SRSR_BBSM = 1: bit 0 is the POWER-ON-RESET flag, and it IS SET after a
+     * power-on reset -- which is precisely the state we are in.  Reading 0 tells the
+     * guest "no reset cause recorded", from a machine that has just come out of one.
+     * Boot code branches on this.
+     */
+    s->src_regs[0x18 / 4] = 0x00003FBF;   /* SRMASK    */
+    s->src_regs[0x44 / 4] = 0x08000000;   /* SBMR2     */
+    s->src_regs[0x4C / 4] = 0x00000001;   /* SRSR_BBSM */
+    s->src_regs[0x50 / 4] = 0x00000001;   /* SRSR: power-on reset happened */
+
+    /*
      * BLK_CTRL_S_AONMIX CM33_IRQ_MASK[0..7] @0x00 and CM7_IRQ_MASK[0..7] @0x20 reset
      * to 0xFFFFFFFF -- EVERY INTERRUPT MASKED.  A memset to zero says the exact
      * opposite: every one of 512 interrupt sources UNMASKED out of reset.

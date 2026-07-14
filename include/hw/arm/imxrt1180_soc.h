@@ -123,6 +123,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
  * RTWDOG1..5 — 2 in the AON mix, 3 in the WAKEUP mix (non-secure bases).
  * SystemInit unlocks + disables each early in boot.
  */
+#define IMXRT1180_NUM_LPUART      12      /* LPUART1..12 (CMSIS: 12 instances) */
 #define IMXRT1180_NUM_RTWDOG      5
 
 /* Messaging Unit (RT domain) to the EdgeLock secure enclave (ELE/S3), NS base. */
@@ -134,10 +135,10 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 #define IMXRT1180_MU1_IRQ         21
 
 /* LPI2C1..4 — controller-mode I2C (NS bases).  LPI2C2 is the EVK sensor bus. */
-#define IMXRT1180_NUM_LPI2C       4
+#define IMXRT1180_NUM_LPI2C       6       /* LPI2C1..6 (CMSIS: 6 instances) */
 
 /* LPSPI1..4 — controller-mode SPI (NS bases). */
-#define IMXRT1180_NUM_LPSPI       4
+#define IMXRT1180_NUM_LPSPI       6       /* LPSPI1..6 (CMSIS: 6 instances) */
 
 /* LPIT1..3 — low-power periodic interrupt timers (NS bases). */
 #define IMXRT1180_NUM_LPIT        3
@@ -242,8 +243,11 @@ struct IMXRT1180State {
     ARMv7MState  armv7m[IMXRT1180_MAX_CPUS];   /* cpu0 = M33, cpu1 = M7        */
     MemoryRegion cpu_mem[IMXRT1180_MAX_CPUS];  /* per-core alias of the SoC map*/
 
-    IMXRT1180LPUARTState lpuart1;              /* debug console (LPUART1)      */
-    IMXRT1180LPUARTState lpuart2;              /* board-to-board link (LPUART2)*/
+    /* LPUART1..12.  [0] is the debug console (serial_hd(0)); [1] the b2b link
+     * port (serial_hd(1)).  The other ten are modelled but unbound -- the chip
+     * HAS them, and a guest that pokes LPUART5 must not get silent zeros from a
+     * catch-all. */
+    IMXRT1180LPUARTState lpuart[IMXRT1180_NUM_LPUART];
     IMXRT1180AnadigState anadig;               /* analog clock (OSC/PLL)       */
     IMXRT1180RTWDOGState rtwdog[IMXRT1180_NUM_RTWDOG]; /* RTWDOG1..5            */
     IMXRT1180S3MUState   mu_rt_s3;             /* MU to EdgeLock enclave (ELE) */

@@ -660,6 +660,27 @@ static void flexspi_reset(DeviceState *dev)
     IMXRT1180FlexSPIState *s = IMXRT1180_FLEXSPI(dev);
 
     memset(s->regs, 0, sizeof(s->regs));
+
+    /*
+     * FlexSPI reset values -- offsets from PERI_FLEXSPI.h, values from the RM's
+     * cold-POR column.  MCR0 (0xFFFF80C2) is the one that matters: FLEXSPI_Init
+     * READ-MODIFY-WRITES it (mask in a field, write back), so a zeroed MCR0 launders
+     * our lie into the controller configuration the guest then runs with -- and the
+     * top 16 bits are the AHB/IP grant timeout counters, which reset to ALL-ONES.
+     *
+     * LUTKEY (0x5AF05AF0) is the key value the driver compares against before it
+     * will unlock the LUT.
+     */
+    s->regs[0x00 / 4] = 0xFFFF80C2;   /* MCR0    */
+    s->regs[0x04 / 4] = 0xFFFFFFFF;   /* MCR1    */
+    s->regs[0x08 / 4] = 0x200081F7;   /* MCR2    */
+    s->regs[0x0C / 4] = 0x00000018;   /* AHBCR   */
+    s->regs[0x18 / 4] = 0x5AF05AF0;   /* LUTKEY  */
+    s->regs[0x1C / 4] = 0x00000002;   /* LUTCR   */
+    s->regs[0x94 / 4] = 0x000000C3;   /* FLSHCR4 */
+    s->regs[0xE0 / 4] = 0x00000002;   /* STS0    */
+    s->regs[0xE8 / 4] = 0x01000100;   /* STS2    */
+
     s->lut_unlocked = false;
     fifo8_reset(&s->rx);
     fifo8_reset(&s->tx);

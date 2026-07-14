@@ -51,6 +51,7 @@
 #define SAI_MCR     0x100
 
 /* TCSR/RCSR bit masks (shared layout for the two CSR registers). */
+#define CSR_TE      (1u << 31)  /* transmitter/receiver enable */
 #define CSR_FRF     (1u << 16)  /* FIFO request flag        */
 #define CSR_FWF     (1u << 17)  /* FIFO warning flag        */
 #define CSR_FEF     (1u << 18)  /* FIFO error (underrun/overrun) flag */
@@ -109,11 +110,19 @@ static uint64_t imxrt1180_sai_read(void *opaque, hwaddr off, unsigned size)
         return SAI_PARAM_VALUE;
     case SAI_TCSR:
         /*
-         * Soft-reset bits are momentary: never read back as set.  Always
-         * advertise FIFO space (FRF/FWF) and a clean-empty FIFO (FEF clear).
+         * Soft-reset bits are momentary: never read back as set.  The FIFO
+         * request/warning flags advertise space in the TX FIFO -- BUT ONLY WHEN THE
+         * TRANSMITTER IS ENABLED.
+         *
+         * They used to be ORed in UNCONDITIONALLY, so TCSR read 0x00030000 out of
+         * reset where the RM says 0: A DISABLED TRANSMITTER ASKING FOR DATA. A
+         * driver (or a DMA request line) keyed on FRF would service a channel that
+         * does not exist yet.
          */
         v &= ~(CSR_SR | CSR_FR);
-        v |= CSR_FRF | CSR_FWF;
+        if (v & CSR_TE) {
+            v |= CSR_FRF | CSR_FWF;      /* enabled: the FIFO has room */
+        }
         v &= ~CSR_FEF;
         return v;
     case SAI_RCSR:

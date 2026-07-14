@@ -61,8 +61,10 @@ static void imxrt1180_soc_instance_init(Object *obj)
     /* Cores are initialized in realize() once the part (and thus the active
      * core count) is known — only the cores we actually realize are created,
      * so no half-built child trips qdev's realized-properly assert. */
-    object_initialize_child(obj, "lpuart1", &s->lpuart1, TYPE_IMXRT1180_LPUART);
-    object_initialize_child(obj, "lpuart2", &s->lpuart2, TYPE_IMXRT1180_LPUART);
+    for (int i = 0; i < IMXRT1180_NUM_LPUART; i++) {
+        g_autofree char *uname = g_strdup_printf("lpuart%d", i + 1);
+        object_initialize_child(obj, uname, &s->lpuart[i], TYPE_IMXRT1180_LPUART);
+    }
     object_initialize_child(obj, "anadig", &s->anadig, TYPE_IMXRT1180_ANADIG);
     for (int i = 0; i < IMXRT1180_NUM_RTWDOG; i++) {
         g_autofree char *name = g_strdup_printf("rtwdog%d", i + 1);
@@ -405,29 +407,46 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     }
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->netc), 0, IMXRT1180_NETC_BASE);
 
-    /* LPUART1 — debug console.  Binds host serial_hd(0); IRQ 19 -> M33 NVIC. */
-    qdev_prop_set_chr(DEVICE(&s->lpuart1), "chardev", serial_hd(0));
-    if (!sysbus_realize(SYS_BUS_DEVICE(&s->lpuart1), errp)) {
-        return;
-    }
-    sysbus_mmio_map(SYS_BUS_DEVICE(&s->lpuart1), 0, IMXRT1180_LPUART1_BASE);
-    sysbus_connect_irq(SYS_BUS_DEVICE(&s->lpuart1), 0,
-                       qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
-                                        IMXRT1180_LPUART1_IRQ));
-
     /*
-     * LPUART2 — board-to-board link port.  Binds host serial_hd(1) when the
-     * user supplies a second -serial (e.g. a socket chardev to another board);
-     * otherwise it is a stand-alone modelled UART.  IRQ 20 -> M33 NVIC.
+     * LPUART1..12.  Bases and IRQs from MIMXRT1189_cm33_COMMON.h -- not invented.
+     *
+     * The model used to instantiate ONLY LPUART1 (console) and LPUART2 (b2b link).
+     * The chip has TWELVE, and the other ten fell through to the unimplemented
+     * catch-all, which answers 0 to every read.  A guest that touched LPUART5 got
+     * a BAUD of 0, a DATA of 0 (i.e. "a NUL byte is waiting") and no complaint.
+     * AN ABSENT INSTANCE IS NOT A FREE INSTANCE: IT STILL ANSWERS.
+     *
+     * [0] binds serial_hd(0) (the EVK debug console) and [1] serial_hd(1) (the
+     * board-to-board link port).  The rest are modelled but unbound.
      */
-    qdev_prop_set_chr(DEVICE(&s->lpuart2), "chardev", serial_hd(1));
-    if (!sysbus_realize(SYS_BUS_DEVICE(&s->lpuart2), errp)) {
-        return;
+    static const struct { hwaddr base; unsigned irq; } lpuart_cfg[] = {
+        { 0x44380000, 19  },  /* LPUART1  -- debug console (serial_hd(0)) */
+        { 0x44390000, 20  },  /* LPUART2  -- b2b link port  (serial_hd(1)) */
+        { 0x42570000, 68  },  /* LPUART3  */
+        { 0x42580000, 69  },  /* LPUART4  */
+        { 0x42590000, 70  },  /* LPUART5  */
+        { 0x425A0000, 71  },  /* LPUART6  */
+        { 0x44570000, 196 },  /* LPUART7  */
+        { 0x42DA0000, 197 },  /* LPUART8  */
+        { 0x42D70000, 156 },  /* LPUART9  */
+        { 0x42D80000, 157 },  /* LPUART10 */
+        { 0x42D90000, 158 },  /* LPUART11 */
+        { 0x44580000, 159 },  /* LPUART12 */
+    };
+    QEMU_BUILD_BUG_ON(ARRAY_SIZE(lpuart_cfg) != IMXRT1180_NUM_LPUART);
+
+    for (int i = 0; i < IMXRT1180_NUM_LPUART; i++) {
+        if (i < 2) {
+            qdev_prop_set_chr(DEVICE(&s->lpuart[i]), "chardev", serial_hd(i));
+        }
+        if (!sysbus_realize(SYS_BUS_DEVICE(&s->lpuart[i]), errp)) {
+            return;
+        }
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->lpuart[i]), 0, lpuart_cfg[i].base);
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->lpuart[i]), 0,
+                           qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
+                                            lpuart_cfg[i].irq));
     }
-    sysbus_mmio_map(SYS_BUS_DEVICE(&s->lpuart2), 0, IMXRT1180_LPUART2_BASE);
-    sysbus_connect_irq(SYS_BUS_DEVICE(&s->lpuart2), 0,
-                       qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]),
-                                        IMXRT1180_LPUART2_IRQ));
 
     /* ANADIG — analog clock block (OSC/PLL); reports clocks stable/locked so
      * the SDK CLOCK_Init poll loops complete. */
@@ -619,6 +638,8 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         { 0x44350000, 14 },  /* LPI2C2 (EVK sensor bus) */
         { 0x42530000, 62 },  /* LPI2C3 */
         { 0x42540000, 63 },  /* LPI2C4 */
+        { 0x42D30000, 152 }, /* LPI2C5 */
+        { 0x42D40000, 153 }, /* LPI2C6 */
     };
     for (int i = 0; i < IMXRT1180_NUM_LPI2C; i++) {
         if (!sysbus_realize(SYS_BUS_DEVICE(&s->lpi2c[i]), errp)) {
@@ -639,6 +660,8 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         { 0x44370000, 17 },  /* LPSPI2 */
         { 0x42550000, 65 },  /* LPSPI3 */
         { 0x42560000, 66 },  /* LPSPI4 */
+        { 0x42D50000, 194 }, /* LPSPI5 */
+        { 0x42D60000, 195 }, /* LPSPI6 */
     };
     for (int i = 0; i < IMXRT1180_NUM_LPSPI; i++) {
         if (!sysbus_realize(SYS_BUS_DEVICE(&s->lpspi[i]), errp)) {
@@ -742,7 +765,7 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         { "dma-tx-req", 18 }, { "dma-rx-req", 19 },   /* LPUART2 */
     };
     for (int i = 0; i < 4; i++) {
-        DeviceState *u = (i < 2) ? DEVICE(&s->lpuart1) : DEVICE(&s->lpuart2);
+        DeviceState *u = DEVICE(&s->lpuart[i < 2 ? 0 : 1]);
         qdev_connect_gpio_out_named(u, lpuart_dma[i].line, 0,
                                     qdev_get_gpio_in_named(edma3, "dma-req",
                                                            lpuart_dma[i].src));

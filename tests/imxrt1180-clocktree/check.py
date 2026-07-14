@@ -155,4 +155,56 @@ if bad:
 print("\nPASS: every root reports source/(DIV+1) exactly.")
 print("      Bus_Aon  @ mux2 div4 = %d Hz   (the EVK's 132 MHz)" % (SYS_PLL2 // 4))
 print("      Gpt1     @ mux2 div1 = %d Hz   (the EVK's 240 MHz)" % (SYS_PLL3 // 2))
+
+# ---------------------------------------------------------------------------
+# PHASE 2: CLOCK_GetFreqFromObs(), THROUGH THE SET/CLR ALIASES.
+#
+# The SDK arms the frequency detector ENTIRELY through CONTROL_SET / CONTROL_CLR.
+# This model used to treat those as ORDINARY REGISTERS -- `regs[off/4] = value` --
+# so every alias write landed in a backing word nobody reads and THE BASE REGISTER
+# NEVER MOVED.  The arming sequence did nothing, and
+#
+#     while (OBSERVE[i].FREQUENCY_CURRENT == 0UL) { }
+#
+# would have spun FOREVER.  (91emulator found the identical bug in the i.MX 91 CCM:
+# "writes to CONTROL_SET were dropped on the floor" -- and it hid because both read
+# paths were right by accident.)
+#
+# So drive the driver's OWN sequence, verbatim, and require the number it would
+# return: 132 MHz.  Reading FREQUENCY_CURRENT while the slice is HELD IN RESET must
+# give 0 -- a detector that has not run has not measured anything, which is what the
+# RM's reset column says.
+# ---------------------------------------------------------------------------
+OBS_SEL, OBS_RAW, OBS_RESET, OBS_OFF = 0x1FF, 0x1000, 0x8000, 0x1000000
+CCM_OBS_DIV = 3                      # fsl_clock.c
+ROOT_BUS_AON = 3
+
+seq = [
+    "writel 0x%x 0x%x" % (ROOT_CTRL(ROOT_BUS_AON), (2 << 8) | (4 - 1)),  # 528/4
+    "writel 0x%x 0x%x" % (OBS_CTRL(0),        OBS_OFF),        # CONTROL   = OFF
+    "writel 0x%x 0x%x" % (OBS_CTRL(0) + 0x4,  OBS_RESET),      # CONTROL_SET = RESET
+    "writel 0x%x 0x%x" % (OBS_CTRL(0) + 0x8,  OBS_RAW),        # CONTROL_CLR = RAW
+    "writel 0x%x 0x%x" % (OBS_CTRL(0),
+                          (OBS_OFF | OBS_RESET) | ROOT_BUS_AON | (CCM_OBS_DIV << 16)),
+    "readl 0x%x" % OBS_FREQ(0),                                # held in reset -> 0
+    "writel 0x%x 0x%x" % (OBS_CTRL(0) + 0x8, OBS_RESET | OBS_OFF),   # un-reset + START
+    "readl 0x%x" % OBS_FREQ(0),                                # now it measures
+]
+held, running = [int(v, 16) for v in qtest(seq)]
+want_obs = (SYS_PLL2 // 4) // (CCM_OBS_DIV + 1)
+sdk_would_return = running * (CCM_OBS_DIV + 1)
+
+print("\nCLOCK_GetFreqFromObs(), driven through the SET/CLR aliases:")
+print("  FREQUENCY_CURRENT held in reset : %d          (the RM's reset value)" % held)
+print("  FREQUENCY_CURRENT running       : %d Hz" % running)
+print("  the SDK returns FREQ * (DIV+1)  : %d Hz" % sdk_would_return)
+
+if held != 0 or running != want_obs or sdk_would_return != SYS_PLL2 // 4:
+    print("\nFAIL: the observe path is wrong.")
+    print("      want held=0, running=%d, returned=%d" % (want_obs, SYS_PLL2 // 4))
+    print("      A zero here means the alias writes were DISCARDED and the SDK's")
+    print("      `while (FREQUENCY_CURRENT == 0) {}` would spin forever.")
+    sys.exit(EXIT_LIES)
+
+print("\nPASS: the driver's own arming sequence terminates and yields 132 MHz.")
 sys.exit(EXIT_PASS)
