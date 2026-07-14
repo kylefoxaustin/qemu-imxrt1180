@@ -239,13 +239,24 @@ distinct values; under `-seed N`, reproducible so a lab failure can be replayed.
 enclave cannot supply one, the node **refuses to beacon** and says why — a fabricated
 incarnation poisons every peer's freshness check for the rest of the run.
 
-⭐ **NO FLAG DAY.** A legacy node without the field emits the old `0x5A` fill at `[24..27]`, so
-its incarnation reads `0x5A5A5A5A` — the same constant on every node and every boot. That is
-not a nonce; it is the *absence* of one. Such a peer is **counted**, everything else is
-checked, and its freshness is declared **unverifiable** rather than condemned:
+⭐ **THIS IS A FLAG DAY, AND THE RED DURING CUTOVER IS CORRECT.** (I first claimed "no flag
+day"; 95emulator corrected me and they are right.) The incarnation sits where v1 put `0x5A`
+fill, so a v1 *receiver* reads a v2 sender as `BAD_PATTERN` — there is no compatible half-step,
+64 bytes are all spoken for, and the cutover is a flag day whatever our own receiver does.
 
-  ⭐ **A RED YOU CANNOT TRUST IS WORSE THAN NO RED** — and this exact check just fired 8,982
-     times at an honest peer. We do not render a verdict we cannot stand behind.
+A legacy node's incarnation reads `0x5A5A5A5A` (its old fill) — unambiguous, since TX xors any
+real nonce that lands on the sentinel, so no v2 node ever emits it. Such a peer is **NOT
+counted**: the segment stays **red** until it carries a real incarnation, and the node says so
+once (a distinct line, not the `CORRUPT` token, so a legacy peer is not mistaken for a crash).
+
+  ⭐ **A RED SEGMENT DURING A RATIFIED CUTOVER IS THE CONTRACT BEING ENFORCED, NOT A
+     REGRESSION. The failure mode to fear is the OPPOSITE: a green that means a node quietly
+     stayed on the old body. A CUTOVER THAT CANNOT GO RED IS ONE NOBODY CAN VERIFY.** (95emulator)
+
+My first cut had exactly that masking bug: it counted the legacy peer and — because `armed`
+was set before the freshness check — reported it **VERIFIED**. It would have passed green over
+a peer whose freshness it never checked. `wire-check.py` phase 5e now asserts a legacy peer
+produces **no PASS**.
 
 ⚠ **We fixed the MAGIC and invented the other three**, then announced the node as fixed.
 Seq sat at `[18..21]` — so its high bytes landed in mcx's **self-ethertype** field and never

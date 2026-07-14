@@ -108,6 +108,13 @@ def beacon(src, et, seq, magic=MAGIC, self_et=None, inc=0xA11CE001):
     return frame(src, et, body, fill=FILL)
 
 
+def legacy_beacon(src, et, seq):
+    """A v1 body: magic, self-et, seq, then 0x5A ALL THE WAY from [24] -- no incarnation.
+    Its [24..27] reads as the sentinel 0x5A5A5A5A."""
+    body = MAGIC + struct.pack(">H", et) + struct.pack(">I", seq)
+    return frame(src, et, body, fill=FILL)
+
+
 def check_beacon(f, et):
     """mcx's frame_ok(), transcribed. Returns None if good, else the reason it rejects."""
     if len(f) != FRAME_LEN:
@@ -418,6 +425,81 @@ try:
              "      directions -- otherwise it has simply switched the detector off.")
     print("  ok  stale frame from the abandoned boot -> still CORRUPT: %s"
           % stale[0].strip()[:70])
+
+    # ═══ PHASE 5e ═══ A LEGACY PEER MUST NOT MASK A NON-CUTOVER.
+    #
+    # 95emulator corrected my "no flag day" claim: this IS a flag day. And my first cut had
+    # the masking bug they named -- it counted a legacy peer and reported it VERIFIED, so the
+    # node would pass GREEN over a peer that had not cut over.
+    #
+    #   ⭐ A CUTOVER THAT CANNOT GO RED IS ONE NOBODY CAN VERIFY. The failure to fear is a
+    #      green that means a node quietly stayed on the old body.
+    #
+    # So: a fresh node, one GOOD peer (0x88b7) and one LEGACY peer (0x88b5, no incarnation).
+    # The node must NOT PASS -- it cannot see both cut-over peers -- and it must say why.
+    print("\n  -- phase 5e: a legacy (no-incarnation) peer must not be counted --")
+    # NOTE: a SEPARATE node on its own group. We must NOT kill the main `qemu` here --
+    # phases 6 and 7 still need it. (I did kill it, copying phase 8's pattern, and phases
+    # 6/7 then ran against a dead node. An ordering bug is a test bug, and a test bug
+    # manufactures a finding.)
+    G3 = "230.0.0.%d" % random.randint(20, 219)
+    P3 = random.randint(20000, 39000)
+    rx3 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    rx3.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    rx3.bind(("", P3))
+    rx3.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP,
+                   struct.pack("4sl", socket.inet_aton(G3), socket.INADDR_ANY))
+    rx3.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
+    rx3.settimeout(0.05)
+    q3 = subprocess.Popen(
+        [QEMU, "-M", "mimxrt1180-evk", "-audio", "none", "-display", "none",
+         "-monitor", "none", "-semihosting-config", "enable=on,target=native",
+         "-kernel", ELF, "-nic", "socket,mcast=%s:%d,mac=54:27:8d:00:00:00" % (G3, P3),
+         "-serial", "stdio"],
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
+    con3 = []
+
+    def pump3():
+        while select.select([q3.stdout], [], [], 0)[0]:
+            ln = q3.stdout.readline()
+            if not ln:
+                break
+            con3.append(ln.rstrip())
+
+    try:
+        # wait for the node's banner: a fresh QEMU needs its PHY link up before it drains RX
+        t0 = time.time()
+        while time.time() - t0 < 8 and not [l for l in con3 if "ENET-LAB3 UP:" in l]:
+            pump3(); time.sleep(0.1)
+        seq3 = 0
+        t0 = time.time()
+        while time.time() - t0 < 10:
+            seq3 += 1
+            rx3.sendto(beacon(MAC_B, ET_B, seq3), (G3, P3))            # GOOD, cut over
+            rx3.sendto(legacy_beacon(MAC_A, ET_A, seq3), (G3, P3))     # LEGACY, no incarnation
+            time.sleep(0.05)
+            pump3()
+        time.sleep(1.0)
+        pump3()
+    finally:
+        q3.terminate()
+        try:
+            q3.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            q3.kill()
+
+    passes3 = [l for l in con3 if "ENET-LAB3 PASS" in l]
+    if passes3:
+        fail("THE NODE PASSED WITH A LEGACY PEER PRESENT.\n"
+             "      Peer 0x88b5 sent NO incarnation (it had not cut over), and the node "
+             "passed anyway:\n        %s\n\n"
+             "      That is the masking bug: a green that hides a node still on the old body.\n"
+             "      A ratified cutover must be able to go RED." % passes3[-1].strip())
+    if not [l for l in con3 if "LEGACY body" in l and "0x88b5" in l]:
+        fail("the node did not announce that 0x88b5 is on the legacy body. It must say why\n"
+             "      the segment is red, or a legacy peer is indistinguishable from a crash.")
+    print("  ok  legacy peer NOT counted, no PASS, and the node said why: %s"
+          % [l for l in con3 if "LEGACY body" in l][0].strip()[:72])
 
     # ═══ PHASE 6 ═══ a REPLAY (stale buffer) must be caught.
     before = len(said(r"ENET-LAB3 CORRUPT"))

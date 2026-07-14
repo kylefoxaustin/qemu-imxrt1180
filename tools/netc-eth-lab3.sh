@@ -531,16 +531,37 @@ loop = r'''
                      */
                     if (peer_inc == 0x5A5A5A5Au)
                     {
+                        /*
+                         * A LEGACY PEER, AND THIS IS A RATIFIED FLAG-DAY CUTOVER -- SO THE
+                         * SEGMENT MUST BE ABLE TO GO RED, AND WE DO NOT COUNT IT.
+                         *
+                         * 95emulator corrected my first take (I claimed "no flag day"): the
+                         * incarnation sits where v1 put 0x5A fill, so a v1 RECEIVER reads a v2
+                         * sender as BAD_PATTERN. There is no compatible half-step; the cutover
+                         * is a flag day whatever our receiver does.
+                         *
+                         *   ⭐ A RED SEGMENT DURING A RATIFIED CUTOVER IS THE CONTRACT BEING
+                         *      ENFORCED, NOT A REGRESSION. The failure mode to fear is the
+                         *      OPPOSITE: a green that means a node quietly stayed on the old
+                         *      body. A CUTOVER THAT CANNOT GO RED IS ONE NOBODY CAN VERIFY.
+                         *
+                         * My first version COUNTED the legacy peer and -- because *armed was
+                         * set above -- reported it VERIFIED. That is precisely the masking
+                         * bug: I would have passed GREEN over a peer whose freshness I never
+                         * checked, hiding that it had not cut over. So: acknowledge once, and
+                         * do NOT count it. We stay red until it carries a real incarnation.
+                         * (0x5A5A5A5A is unambiguous: TX xors any real nonce that lands on it,
+                         * so no v2 node ever emits the sentinel.)
+                         */
                         if (!*legacy_said)
                         {
                             *legacy_said = 1u;
-                            PRINTF("ENET-LAB3 rx: peer 0x%04x carries NO INCARNATION "
-                                   "(legacy body) -- counting it, but its freshness is "
-                                   "UNVERIFIABLE: a restart and a replay are the same "
-                                   "observation. Not condemning what I cannot judge.\r\n",
-                                   et);
+                            PRINTF("ENET-LAB3 rx: peer 0x%04x is on the LEGACY body (no "
+                                   "incarnation) -- NOT counting it. The segment stays red "
+                                   "until it cuts over; a green here would hide that it "
+                                   "did not.\r\n", et);
                         }
-                        *last = seq;
+                        continue;
                     }
                     else if (*armed && peer_inc == *prev)
                     {
