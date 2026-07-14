@@ -167,9 +167,26 @@ loop = '''    {
                 if (g_rxFrame[14] != 'L' || g_rxFrame[15] != 'B' ||
                     g_rxFrame[16] != '3' || g_rxFrame[17] != '!')
                 {
-                    PRINTF("ENET-LAB3 PAYLOAD-GARBAGE: et 0x%%04x carries no beacon "
-                           "magic -- the RX path handed up a buffer that is not a "
-                           "beacon\\r\\n", et);
+                    /*
+                     * THE RATIFIED PREFIX FIRST, THE KIND AFTER IT.
+                     *
+                     * holobench ratified `ENET-LAB3 CORRUPT` as THE bad-frame token and
+                     * their scorer hard-fails on grep 'ENET-LAB3 CORRUPT'.  This used to
+                     * print `ENET-LAB3 PAYLOAD-GARBAGE`, WHICH THE SCORER DOES NOT LOOK
+                     * FOR -- so the node would catch the corruption, print it on its own
+                     * console, AND THE LAB WOULD SCORE IT GREEN.
+                     *
+                     *   A TOKEN THE CONTRACT DOES NOT NAME IS A DETECTION THE SCORER
+                     *   CANNOT SEE.
+                     *
+                     * The same drift that put a PASS token in the README that the binary
+                     * never printed -- reintroduced five minutes after the contract was
+                     * agreed, in the one field where it was still free to prevent.
+                     * check-token.sh now asserts the BIJECTION, both directions.
+                     */
+                    PRINTF("ENET-LAB3 CORRUPT: PAYLOAD-GARBAGE et 0x%%04x carries no "
+                           "beacon magic -- the RX path handed up a buffer that is not "
+                           "a beacon\\r\\n", et);
                     continue;
                 }
                 {
@@ -184,8 +201,9 @@ loop = '''    {
                      * drops a frame and leaves the descriptor pointing at the LAST one. */
                     if (*last != 0u && seq <= *last)
                     {
-                        PRINTF("ENET-LAB3 PAYLOAD-REPLAY: peer 0x%%04x seq %%u <= last "
-                               "%%u -- the RX path delivered a STALE BUFFER\\r\\n",
+                        PRINTF("ENET-LAB3 CORRUPT: PAYLOAD-REPLAY peer 0x%%04x seq "
+                               "%%u <= last %%u -- the RX path delivered a STALE "
+                               "BUFFER (a valid frame, just not a NEW one)\\r\\n",
                                et, (unsigned)seq, (unsigned)*last);
                         continue;
                     }
@@ -263,6 +281,18 @@ PY
 QARGS="-M mimxrt1180-evk -audio none -display none -monitor none -semihosting-config enable=on,target=native"
 
 # ---------------------------------------------------------------- join -------
+# ------------------------------------------------------------------ build ----
+# Produce the COMMITTED artifact and stop.  A farm must be able to REBUILD the binary
+# it is about to run -- NEVER TEST A BINARY YOU DID NOT JUST BUILD -- without also
+# launching a node onto somebody's live segment.
+if [ "$MODE" = "--build" ]; then
+    OUT="${2:-$ROOT/tests/imxrt1180-netc-lab3/netc-lab3-0x88B6.elf}"
+    echo ">> building the rt1180 node: ethertype 0x88B6 -> $OUT"
+    build_node 0x88B6 0x88B5 0x88B7 "$OUT" 54:27:8d:00:00:00 || exit 1
+    echo ">> built.  md5: $(md5sum "$OUT" | cut -d" " -f1)"
+    exit 0
+fi
+
 if [ "$MODE" = "--join" ]; then
     echo ">> building the rt1180 node: ethertype 0x88B6"
     build_node 0x88B6 0x88B5 0x88B7 /tmp/node-rt1180.elf 54:27:8d:00:00:00 || exit 1

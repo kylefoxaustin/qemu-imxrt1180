@@ -102,9 +102,25 @@ ONCE, here, in a form a machine can read without guessing — and `check-token.s
 the ELF to exactly this string:
 
     PASS-TOKEN: ENET-LAB3 PASS #
+    CORRUPT-TOKEN: ENET-LAB3 CORRUPT
 
-Match that **prefix**. The firmware prints `ENET-LAB3 PASS #<n>: saw BOTH peers on the
+Match those **prefixes**. The firmware prints `ENET-LAB3 PASS #<n>: saw BOTH peers on the
 segment`, and `<n>` increments on every re-arm.
+
+`ENET-LAB3 CORRUPT` is holobench's **ratified bad-frame token** and their scorer hard-fails
+on it. **Every** bad-frame detection this node makes carries that prefix and names its kind
+*after* it:
+
+    ENET-LAB3 CORRUPT: PAYLOAD-REPLAY  peer 0x88b5 seq 12173 <= last 12175 -- a STALE BUFFER
+    ENET-LAB3 CORRUPT: PAYLOAD-GARBAGE et 0x88b5 carries no beacon magic
+    ENET-LAB3 CORRUPT: frame claims src = MY OWN MAC -- RX path is lying
+
+**THESE TWO ARE THE ONLY `ENET-LAB3 <KIND>` TOKENS THIS BINARY EMITS**, and `check-token.sh`
+asserts that on every run. It briefly was not true: the replay and garbage detectors printed
+`ENET-LAB3 PAYLOAD-REPLAY` / `ENET-LAB3 PAYLOAD-GARBAGE`, which no scorer greps for — so the
+node would have **caught the corruption, printed it, and the lab would have scored it GREEN.**
+
+  ⭐ **A TOKEN THE CONTRACT DOES NOT NAME IS A DETECTION THE SCORER CANNOT SEE.**
 
 **Do NOT grep the startup banner.** It reads
 `ENET-LAB3 up: rt1180 ethertype 0x88b6, need 0x88b5 + 0x88b7` — it **contains the peer
