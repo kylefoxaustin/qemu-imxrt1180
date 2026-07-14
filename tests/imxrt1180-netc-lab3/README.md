@@ -130,3 +130,51 @@ The counter is a feature, not noise: it turns "did it pass *again* after the lat
 arrived?" into an assertion on **a number going up**, never on the absence of a message.
 `PASS #1` at t+210 and `PASS #7` at t+400 says the node is *still actively satisfied* —
 not that it once was.
+
+## The payload assertion — the frame BODY, not just its label
+
+holobench, 2026-07-13, on a lab that was green:
+
+> *"Still open and still the biggest hole: the verdict keys on ETHERTYPE. Your 88
+> frames DMA'd to guest address 0 would STILL be invisible to this run. The checkable
+> payload is the last thing between us and a lab that can be trusted when it is green."*
+
+Correct. An EtherType survives a corrupted frame body, so a node can report *"I saw
+both peers"* over garbage — and ours did, 88 times, while passing.
+
+⚠ **AND A CHECKSUM DOES NOT FIX IT.** When the RX path drops a frame it leaves the
+descriptor pointing at a **stale buffer** — which holds a *previously valid* frame,
+with a *perfectly valid* checksum. The corruption is not a mangled frame. **It is an
+OLD one, delivered again.** (This is why our first attempt — checking the source MAC —
+was wrong, and had to be retracted.)
+
+⇒ **A MONOTONIC SEQUENCE NUMBER.** Every beacon carries `"LB3!"` + a per-sender counter
+that increments on every TX. The receiver asserts it **strictly increases, per peer**:
+
+- a **stale buffer REPLAYS** an old seq → it goes **backwards** → caught.
+- a **dropped** frame makes it jump **forwards** → fine, and honest.
+
+Same discipline as the heartbeat: **assert on a number going up.**
+
+### It is a real assertion, and here is the proof it can fail
+
+Restore the pre-`91ccabb9c8` model (gate `can_receive`/flush on `RBLENR` instead of
+`RBMR[EN]`, and remove the ring-full check) and run the same staggered join:
+
+```
+BUG RESTORED:   PASS heartbeats 11,625   ← STILL PASSES
+                PAYLOAD-REPLAY     26    ← and this is what sees it
+
+  ENET-LAB3 PAYLOAD-REPLAY: peer 0x88b5 seq 12173 <= last 12175
+                            -- the RX path delivered a STALE BUFFER
+
+FIX IN PLACE:   PASS heartbeats 11,420
+                PAYLOAD-REPLAY      0
+```
+
+**The node PASSES under the bug and the payload check FAILS under it.** That gap is the
+whole point: a verdict keyed on EtherType is structurally incapable of seeing the class
+of bug this repo has spent the day fixing.
+
+A lab runner should score **both**: `ENET-LAB3 PASS #` rising *and* zero
+`ENET-LAB3 PAYLOAD-`. Either alone is a partial oracle.

@@ -90,6 +90,7 @@ start = t.index("    while (txFrameNum < EXAMPLE_EP_TXFRAME_NUM)")
 end   = t.index("\n    }\n", start) + len("\n    }\n")
 loop = '''    {
         uint32_t saw_a = 0, saw_b = 0, pass_seq = 0;
+        uint32_t tx_seq = 0, last_a = 0, last_b = 0;
         static const uint8_t MY_MAC[6] = { %s };
         PRINTF("ENET-LAB3 up: rt1180 ethertype 0x%%04x, need 0x%%04x + 0x%%04x\\r\\n",
                0x%04Xu, 0x%04Xu, 0x%04Xu);
@@ -97,6 +98,32 @@ loop = '''    {
         /* BROADCAST FOREVER. A peer that is not here yet is not a failure. */
         for (;;)
         {
+            /*
+             * STAMP THE PAYLOAD. The lab's verdict keys on ETHERTYPE, and an
+             * EtherType survives a corrupted frame body -- so a node can report
+             * "I saw both peers" over garbage. (Ours did: 88 frames DMA'd to guest
+             * address 0, and it PASSED.)  holobench, 2026-07-13: "the checkable
+             * payload is the last thing between us and a lab that can be trusted
+             * when it is green."
+             *
+             * ⚠ AND A CHECKSUM WOULD NOT CATCH IT. When the RX path drops a frame on
+             * the floor it leaves the descriptor pointing at a STALE BUFFER -- which
+             * holds a PREVIOUSLY VALID frame, with a PERFECTLY VALID CHECKSUM. The
+             * corruption is not a mangled frame; it is an OLD one, delivered again.
+             *
+             * ⇒ A MONOTONIC SEQUENCE NUMBER. A stale buffer REPLAYS an old seq, and a
+             *   replay goes BACKWARDS. Dropped frames make it jump FORWARD, which is
+             *   fine and honest. Assert it strictly INCREASES, per peer.
+             *   The same discipline as the heartbeat: ASSERT ON A NUMBER GOING UP.
+             */
+            g_txFrame[14] = 'L';  g_txFrame[15] = 'B';
+            g_txFrame[16] = '3';  g_txFrame[17] = '!';
+            ++tx_seq;
+            g_txFrame[18] = (uint8_t)(tx_seq >> 24);
+            g_txFrame[19] = (uint8_t)(tx_seq >> 16);
+            g_txFrame[20] = (uint8_t)(tx_seq >> 8);
+            g_txFrame[21] = (uint8_t)(tx_seq);
+
             txOver = false;
             if (EP_SendFrame(&g_ep_handle, 0, &txFrame, NULL, NULL) == kStatus_Success)
             {
@@ -134,6 +161,35 @@ loop = '''    {
                     PRINTF("ENET-LAB3 CORRUPT: frame claims src = MY OWN MAC "
                            "(et 0x%%04x) -- RX path is lying\\r\\n", et);
                     continue;
+                }
+
+                /* PAYLOAD ASSERTION -- the frame BODY, not just its label. */
+                if (g_rxFrame[14] != 'L' || g_rxFrame[15] != 'B' ||
+                    g_rxFrame[16] != '3' || g_rxFrame[17] != '!')
+                {
+                    PRINTF("ENET-LAB3 PAYLOAD-GARBAGE: et 0x%%04x carries no beacon "
+                           "magic -- the RX path handed up a buffer that is not a "
+                           "beacon\\r\\n", et);
+                    continue;
+                }
+                {
+                    uint32_t seq = ((uint32_t)g_rxFrame[18] << 24) |
+                                   ((uint32_t)g_rxFrame[19] << 16) |
+                                   ((uint32_t)g_rxFrame[20] << 8)  |
+                                    (uint32_t)g_rxFrame[21];
+                    uint32_t *last = (et == 0x%04Xu) ? &last_a : &last_b;
+
+                    /* A REPLAY IS THE SIGNATURE OF A STALE BUFFER. It cannot happen on
+                     * a wire that delivers each frame once; it happens when the RX path
+                     * drops a frame and leaves the descriptor pointing at the LAST one. */
+                    if (*last != 0u && seq <= *last)
+                    {
+                        PRINTF("ENET-LAB3 PAYLOAD-REPLAY: peer 0x%%04x seq %%u <= last "
+                               "%%u -- the RX path delivered a STALE BUFFER\\r\\n",
+                               et, (unsigned)seq, (unsigned)*last);
+                        continue;
+                    }
+                    *last = seq;
                 }
 
                 if (et == 0x%04Xu && !saw_a)
@@ -186,7 +242,7 @@ loop = '''    {
             for (volatile uint32_t d = 0; d < 400000U; d++) { }
         }
     }
-''' % (", ".join("0x%02X" % b for b in mac), me, pa, pb, me, pa, pb)
+''' % (", ".join("0x%02X" % b for b in mac), me, pa, pb, me, pa, pa, pb)
 t = t[:start] + loop + t[end:]
 open(src, "w").write(t)
 
