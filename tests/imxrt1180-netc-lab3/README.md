@@ -27,7 +27,8 @@ token is printed by the **firmware**, not by the harness.
 | MAC | `54:27:8d:00:00:00` |
 | MAC IP | NETC (ENETC endpoint) |
 | Core | Cortex-M33, bare metal |
-| PASS token | `ENET-LAB3 PASS: saw BOTH peers on the segment` |
+| PASS token | see the machine-readable `PASS-TOKEN:` line below — **match the prefix, not the whole line** (the firmware appends a sequence counter). |
+| ⚠ do NOT grep | `ENET-LAB3 up: ... need 0x88b5 + 0x88b7` — the banner **contains the peer EtherTypes**. A monitor that greps for a peer ID matches its own banner and shouts PASS at an empty wire. The observer must not put itself in the set it is observing. |
 
 ## The three properties a lab runner needs, and how each was checked
 
@@ -93,3 +94,39 @@ MCAST=230.0.0.9:31337 tools/netc-eth-lab3.sh --join
 
 Needs the extracted MCUXpresso SDK (see `CLAUDE.md`). The committed ELF is what that
 script produced for `0x88B6`; if you rebuild and it differs, the SDK moved.
+
+## The contract a consumer must match
+
+A board farm asserts on the node's own PASS token, verbatim. So the token is declared
+ONCE, here, in a form a machine can read without guessing — and `check-token.sh` holds
+the ELF to exactly this string:
+
+    PASS-TOKEN: ENET-LAB3 PASS #
+
+Match that **prefix**. The firmware prints `ENET-LAB3 PASS #<n>: saw BOTH peers on the
+segment`, and `<n>` increments on every re-arm.
+
+**Do NOT grep the startup banner.** It reads
+`ENET-LAB3 up: rt1180 ethertype 0x88b6, need 0x88b5 + 0x88b7` — it **contains the peer
+EtherTypes**. A monitor that greps for a peer ID matches its own banner and reports
+success at an empty wire. (Ours did. Twelve times.) **The observer must not put itself
+in the set it is observing.**
+
+## ⚠ The PASS token in this file was WRONG until 2026-07-13
+
+It documented `ENET-LAB3 PASS: saw BOTH peers on the segment`. **That exact string does
+not exist in the binary** — the firmware prints `ENET-LAB3 PASS #<n>:`, with a counter.
+A board farm that asserted on the documented token verbatim (which is the *correct*
+discipline: grep the token, not a substring) would have scored this node **RED on a
+segment where it was passing**.
+
+Nothing was checking that the doc and the artifact agreed. Caught only because holobench
+said it would take the token *verbatim from this file*.
+
+  ⭐ **A PASS TOKEN IS AN INTERFACE. THIS ONE WAS DOCUMENTED IN ONE FILE AND EMITTED
+     FROM ANOTHER, AND NOBODY DIFFED THEM.**
+
+The counter is a feature, not noise: it turns "did it pass *again* after the late peer
+arrived?" into an assertion on **a number going up**, never on the absence of a message.
+`PASS #1` at t+210 and `PASS #7` at t+400 says the node is *still actively satisfied* —
+not that it once was.
