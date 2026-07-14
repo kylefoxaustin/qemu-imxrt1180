@@ -199,8 +199,53 @@ that demonstrably interoperates — **not from a description of it**:
 | `[14..17]` | magic `0xB5B6B7C0`, big-endian | `BAD_MAGIC` |
 | `[18..19]` | **self-ethertype** — must equal `[12..13]`, or the frame **contradicts itself** | `BAD_SELF_ET` |
 | `[20..23]` | monotonic sequence, big-endian | `BAD_REPLAY` |
-| `[24..63]` | fill `0x5A`, **every byte** | `BAD_PATTERN` |
+| `[24..27]` | **incarnation** — a per-boot nonce | tells REBOOT from REPLAY |
+| `[28..63]` | fill `0x5A`, **every byte** | `BAD_PATTERN` |
 | | **`FRAME_LEN` = 64 exactly** | |
+
+### The incarnation — because a sequence number cannot survive a peer restart
+
+holobench's 4-node lab, 2026-07-14 — the first run where all four nodes passed — produced
+**8,982** false CORRUPTs from our node and **8,987** from imx95:
+
+    ENET-LAB3 CORRUPT: PAYLOAD-REPLAY peer 0x88b5 seq 1 <= last 13485 -- a STALE BUFFER
+
+**mcx's sequence did not go backwards. It restarted from 1** — mcx is the node that departs
+at t+420 and rejoins at t+480, a fresh QEMU whose beacon counter starts over.
+
+  ⭐ **A PEER THAT RESTARTED IS NOT A PEER THAT REPLAYED.** The freshness check all four of us
+     adopted this week condemned an honest, freshly-booted peer forever and called it a stale
+     buffer. No stale buffer can produce a monotonically *increasing* run starting at 1.
+
+  ⭐ **AND NO SUITE BUT THAT LAB COULD HAVE FOUND IT.** Every suite boots N nodes and runs them
+     to the end; nobody restarts a peer mid-run. The bug is structurally unreachable until a
+     coordinator kills a node and brings it back. *The departure feature holobench built to
+     test the WIRE found a bug in the ASSERTION.*
+
+So the body carries a per-boot nonce, and freshness becomes a claim about a **peer**, not a
+**process** (TCP's ISN, DTLS's epoch — every protocol that survives a restart has one):
+
+| | verdict |
+|---|---|
+| seq backwards, **same** incarnation | **REPLAY** — a stale buffer. Condemn. |
+| seq backwards, **new** incarnation | **REBOOT** — reset the counter. Count it. |
+| a frame carrying the incarnation the peer **already left** | **REPLAY** — a boot that no longer exists. Condemn. |
+
+⚠ **The nonce must actually differ across boots**, and a cycle counter does NOT: TCG is
+deterministic, so the same instruction stream reaches the same count every run — an
+incarnation built from one would look like a nonce and never change, which is *worse* than
+none. We ask the ELE (via S3MU `GET_RNG_RANDOM`) for real entropy. **Measured, six boots: six
+distinct values; under `-seed N`, reproducible so a lab failure can be replayed.** If the
+enclave cannot supply one, the node **refuses to beacon** and says why — a fabricated
+incarnation poisons every peer's freshness check for the rest of the run.
+
+⭐ **NO FLAG DAY.** A legacy node without the field emits the old `0x5A` fill at `[24..27]`, so
+its incarnation reads `0x5A5A5A5A` — the same constant on every node and every boot. That is
+not a nonce; it is the *absence* of one. Such a peer is **counted**, everything else is
+checked, and its freshness is declared **unverifiable** rather than condemned:
+
+  ⭐ **A RED YOU CANNOT TRUST IS WORSE THAN NO RED** — and this exact check just fired 8,982
+     times at an honest peer. We do not render a verdict we cannot stand behind.
 
 ⚠ **We fixed the MAGIC and invented the other three**, then announced the node as fixed.
 Seq sat at `[18..21]` — so its high bytes landed in mcx's **self-ethertype** field and never

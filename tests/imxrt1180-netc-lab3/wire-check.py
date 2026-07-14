@@ -51,8 +51,17 @@ ELF = os.environ.get("ELF", os.path.join(HERE, "netc-lab3-0x88B6.elf"))
 #     [18..19]  SELF-ETHERTYPE — must equal [12..13], or the
 #               frame CONTRADICTS ITSELF                           -> BAD_SELF_ET
 #     [20..23]  monotonic sequence, big-endian                     -> BAD_REPLAY
-#     [24..63]  fill 0x5A, EVERY byte                              -> BAD_PATTERN
+#     [24..27]  INCARNATION -- a per-boot nonce                    -> tells REBOOT from REPLAY
+#     [28..63]  fill 0x5A, EVERY byte                              -> BAD_PATTERN
 #     FRAME_LEN 64 exactly
+#
+# The incarnation is new (holobench's 4-node lab, 2026-07-14). A sequence number alone
+# cannot survive a peer RESTART: mcx departs at t+420 and rejoins at t+480, its counter
+# starts at 1, and our freshness check condemned it 8,982 times as a "stale buffer".
+#   ⭐ A PEER THAT RESTARTED IS NOT A PEER THAT REPLAYED.
+# LEGACY sentinel: a node without the field emits the old 0x5A fill from [24], so its
+# "incarnation" reads 0x5A5A5A5A -- the same constant on every node and every boot. That
+# is not a nonce, it is the ABSENCE of one, and such a peer must NOT be condemned.
 #
 # ⚠ THE FIRST VERSION OF THIS FILE ENCODED ONLY THE MAGIC, AND PUT SEQ AT [18..21].
 #   I took "magic = 0xB5B6B7C0 at [14..17]" out of a bus message, called it the spec, and
@@ -68,7 +77,8 @@ ELF = os.environ.get("ELF", os.path.join(HERE, "netc-lab3-0x88B6.elf"))
 #   checker" is worth nothing if you derive its beliefs from the thing under test.
 FRAME_LEN = 64
 MAGIC = bytes([0xB5, 0xB6, 0xB7, 0xC0])  # at frame[14..17], big-endian
-FILL = 0x5A                              # at frame[24..63], every byte
+FILL = 0x5A                              # at frame[28..63], every byte
+LEGACY_INC = 0x5A5A5A5A                  # what a node WITHOUT the field emits at [24..27]
 ET_ME = 0x88B6  # rt1180  (the node under test)
 ET_A = 0x88B5  # mcxn947 (peer A)
 ET_B = 0x88B7  # imx95   (peer B)
@@ -91,10 +101,10 @@ def frame(src, et, body=b"", fill=0x00):
     return f + bytes([fill]) * max(0, FRAME_LEN - len(f))
 
 
-def beacon(src, et, seq, magic=MAGIC, self_et=None):
-    """A WELL-FORMED beacon, built to mcx's frame_ok() -- all four fields."""
+def beacon(src, et, seq, magic=MAGIC, self_et=None, inc=0xA11CE001):
+    """A WELL-FORMED beacon -- magic, self-et, seq, incarnation, fill."""
     body = magic + struct.pack(">H", et if self_et is None else self_et) \
-                 + struct.pack(">I", seq)
+                 + struct.pack(">I", seq) + struct.pack(">I", inc)
     return frame(src, et, body, fill=FILL)
 
 
@@ -108,9 +118,9 @@ def check_beacon(f, et):
     if self_et != et:
         return ("BAD_SELF_ET: [18..19] declares 0x%04x but [12..13] says 0x%04x "
                 "-- the frame contradicts itself" % (self_et, et))
-    bad = [i for i in range(24, FRAME_LEN) if f[i] != FILL]
+    bad = [i for i in range(28, FRAME_LEN) if f[i] != FILL]
     if bad:
-        return ("BAD_PATTERN: [24..63] must be 0x5A fill; byte %d is 0x%02x"
+        return ("BAD_PATTERN: [28..63] must be 0x5A fill; byte %d is 0x%02x"
                 % (bad[0], f[bad[0]]))
     return None
 
@@ -361,10 +371,58 @@ try:
                  % label)
         print("  ok  ARMED peer, %s -> rejected" % label)
 
+    # ═══ PHASE 5c ═══ A RESTART IS NOT A REPLAY. This is holobench's lab bug, reproduced.
+    #
+    # Peer A is armed (incarnation 0xA11CE001, seq up around 100+). Now it "reboots": a NEW
+    # incarnation, and the sequence starts over at 1. The old code condemned this 8,982
+    # times. The node must instead RESET its baseline and keep counting.
+    time.sleep(0.8)          # let phase-5b's malformed frames drain first
+    pump_console()
+    before = len(said(r"ENET-LAB3 CORRUPT"))
+    reboot_inc = 0xB007B007
+    for i in range(10):
+        send(beacon(MAC_A, ET_A, 1 + i, inc=reboot_inc))   # seq 1,2,3.. under a NEW boot
+        time.sleep(0.05)
+    time.sleep(1.0)
+    pump_console()
+    new_corrupt = said(r"ENET-LAB3 CORRUPT")[before:]
+    replay_after_reboot = [c for c in new_corrupt if "0x88b5" in c and "REPLAY" in c]
+    if replay_after_reboot:
+        fail("A RESTARTED PEER WAS CONDEMNED AS A REPLAY.\n"
+             "      Peer 0x88b5 rebooted (new incarnation, seq restarts at 1) and the node\n"
+             "      called it a stale buffer:\n        %s\n\n"
+             "      This is exactly the 8,982 false CORRUPTs holobench measured. A sequence\n"
+             "      number alone is a claim about a PROCESS; the incarnation makes it a claim\n"
+             "      about a PEER. A PEER THAT RESTARTED IS NOT A PEER THAT REPLAYED."
+             % "\n        ".join(replay_after_reboot))
+    if not said(r"peer 0x88b5 REBOOTED"):
+        fail("the node did not recognise peer 0x88b5's restart. It should announce the new\n"
+             "      incarnation and reset freshness, not silently accept OR condemn.")
+    print("  ok  restart welcomed: %s" % said(r"peer 0x88b5 REBOOTED")[0].strip()[:76])
+
+    # ═══ PHASE 5d ═══ ...but a STALE frame from the boot it LEFT is still a replay.
+    #
+    # The incarnation must not disarm the detector. A frame carrying the OLD incarnation,
+    # after the peer has moved on, is a buffer from a boot that no longer exists -- a real
+    # stale-buffer replay, and it must still be condemned.
+    before = len(said(r"ENET-LAB3 CORRUPT"))
+    for i in range(8):
+        send(beacon(MAC_A, ET_A, 500 + i, inc=0xA11CE001))   # the incarnation it LEFT
+        time.sleep(0.05)
+    time.sleep(1.0)
+    pump_console()
+    stale = [c for c in said(r"ENET-LAB3 CORRUPT")[before:] if "REBOOTED OUT OF" in c]
+    if not stale:
+        fail("a frame carrying the incarnation the peer already REBOOTED OUT OF was NOT\n"
+             "      condemned. The incarnation must distinguish reboot from replay in BOTH\n"
+             "      directions -- otherwise it has simply switched the detector off.")
+    print("  ok  stale frame from the abandoned boot -> still CORRUPT: %s"
+          % stale[0].strip()[:70])
+
     # ═══ PHASE 6 ═══ a REPLAY (stale buffer) must be caught.
     before = len(said(r"ENET-LAB3 CORRUPT"))
     for i in range(8):
-        send(beacon(MAC_B, ET_B, 50))     # goes BACKWARDS: last was >= 100
+        send(beacon(MAC_B, ET_B, 50, inc=0xA11CE001))     # SAME incarnation, seq BACKWARDS
         time.sleep(0.05)
     time.sleep(1.0)
     pump_console()

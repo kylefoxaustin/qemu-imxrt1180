@@ -106,12 +106,20 @@ end   = t.index("\n    }\n", start) + len("\n    }\n")
 # "missing terminating quote". The old code survived by doubling every backslash, i.e. by
 # hand-paying an escaping tax on every line, forever. A raw string does not have the layer.
 loop = r'''
+    #define MU_RSR   (*(volatile uint32_t *)(0x47540000u + 0x12Cu))
+    #define MU_TR(n) (*(volatile uint32_t *)(0x47540000u + 0x200u + 4u * (n)))
+    #define MU_RR(n) (*(volatile uint32_t *)(0x47540000u + 0x280u + 4u * (n)))
     {
         uint32_t saw_a = 0, saw_b = 0, pass_seq = 0;
         uint32_t tx_seq = 0, last_a = 0, last_b = 0;
         uint32_t armed_a = 0, armed_b = 0;
         uint32_t rx_foreign = 0;
         uint32_t fill_i;
+        uint32_t my_incarnation = 0;
+        /* per-peer: the incarnation we are tracking, and the one it rebooted OUT OF. */
+        uint32_t inc_a = 0, inc_b = 0, inc_obs = 0;
+        uint32_t prev_a = 0, prev_b = 0, prev_obs = 0;
+        uint32_t legacy_said_a = 0, legacy_said_b = 0;
         /* A THIRD, OBSERVED-BUT-NOT-REQUIRED PEER. See the beacon-range note below. */
         uint32_t obs_et = 0, obs_armed = 0, obs_last = 0, obs_said = 0;
         static const uint8_t MY_MAC[6] = { @MAC@ };
@@ -130,6 +138,73 @@ loop = r'''
         PRINTF("ENET-LAB3 UP: ethertype=@ME@ peers=2 body=emit enforce=self-arming"
                " if=netc0 mac=%02x:%02x:%02x:%02x:%02x:%02x\r\n",
                MY_MAC[0], MY_MAC[1], MY_MAC[2], MY_MAC[3], MY_MAC[4], MY_MAC[5]);
+
+        /*
+         * ⭐ THE INCARNATION. A SEQUENCE NUMBER ALONE CANNOT SURVIVE A PEER RESTART.
+         *
+         * holobench's 4-node lab, 2026-07-14 -- the first run where all four nodes passed:
+         *
+         *     rt1180 AND imx95, independently, 8,982 and 8,987 times:
+         *       ENET-LAB3 CORRUPT: PAYLOAD-REPLAY peer 0x88b5 seq 1 <= last 13485
+         *
+         *     "mcx's sequence did not go BACKWARDS. IT RESTARTED FROM 1. mcx is the node
+         *      that DEPARTS at t+420 and REJOINS at t+480 -- a fresh QEMU, fresh firmware,
+         *      and the beacon counter starts over."
+         *
+         * ⭐ A PEER THAT RESTARTED IS NOT A PEER THAT REPLAYED. Our freshness check --
+         *    which all four of us adopted this week -- condemned an honest, healthy,
+         *    freshly-booted peer, forever, and called it a stale buffer. No stale buffer
+         *    can produce a monotonically INCREASING run starting at 1.
+         *
+         * ⭐ AND NO SUITE BUT THAT LAB COULD HAVE FOUND IT: every suite boots N nodes and
+         *    runs them to the end. NOBODY RESTARTS A PEER MID-RUN. The bug is structurally
+         *    unreachable until a coordinator KILLS a node and BRINGS IT BACK.
+         *
+         * So the body carries a per-boot nonce, and freshness becomes a claim about a PEER
+         * rather than about a PROCESS:
+         *
+         *     seq backwards + SAME incarnation  -> REPLAY.  A stale buffer.  CONDEMN.
+         *     seq backwards + NEW  incarnation  -> A REBOOT. Reset the counter. COUNT IT.
+         *
+         * (TCP's ISN, DTLS's epoch, a Lamport epoch: every protocol that survives a peer
+         * restart has one, and for exactly this reason.)
+         *
+         * ⚠ IT MUST ACTUALLY DIFFER ACROSS BOOTS. A cycle counter is DETERMINISTIC in TCG --
+         *   the same instruction stream reaches the same count every run -- so an incarnation
+         *   built from one would be IDENTICAL every boot: it would LOOK like a nonce, never
+         *   change, and every peer would go on condemning us while believing the restart had
+         *   been handled. That is worse than no incarnation at all.
+         *
+         *   So we ask the ELE (via S3MU) for real entropy. MEASURED, six boots: six distinct
+         *   values; and under `-seed N` it is reproducible, so a lab failure can be replayed.
+         *   If the enclave cannot give us one, WE DO NOT INVENT ONE -- we refuse to beacon
+         *   and say why. A node with a fabricated incarnation poisons every peer's freshness
+         *   check for the rest of the run.
+         */
+        {
+            volatile uint32_t *nonce = (volatile uint32_t *)0x20001800u;
+            uint32_t st;
+
+            *nonce = 0xDEADBEEFu;                       /* poison: an untouched buffer SHOWS */
+            MU_TR(0) = 0x17CD0407u;                     /* ELE GET_RNG_RANDOM, 4 words */
+            MU_TR(1) = 0u;
+            MU_TR(2) = (uint32_t)(uintptr_t)nonce;
+            MU_TR(3) = 4u;
+            while (!(MU_RSR & 1u)) { }
+            (void)MU_RR(0);
+            st = MU_RR(1);
+
+            if ((st & 0xFFu) != 0xD6u || *nonce == 0xDEADBEEFu) {
+                PRINTF("ENET-LAB3 UP: ethertype=@ME@ peers=2 body=none enforce=none"
+                       " -- REFUSING TO BEACON: the enclave gave no incarnation, and a "
+                       "fabricated one would poison every peer's freshness check\r\n");
+                for (;;) { }
+            }
+            my_incarnation = *nonce;
+            if (my_incarnation == 0x5A5A5A5Au) {
+                my_incarnation ^= 1u;   /* never collide with the LEGACY sentinel below */
+            }
+        }
 
         /* BROADCAST FOREVER. A peer that is not here yet is not a failure. */
         for (;;)
@@ -201,9 +276,16 @@ loop = r'''
             g_txFrame[22] = (uint8_t)(tx_seq >> 8);
             g_txFrame[23] = (uint8_t)(tx_seq);
 
-            /* [24..63] = 0x5A, every byte. The SDK example fills its 1000-byte frame with
-             * `count % 0xFF` -- which is a perfectly valid stream of the WRONG BYTES. */
-            for (fill_i = 24U; fill_i < 64U; fill_i++) { g_txFrame[fill_i] = 0x5AU; }
+            /* [24..27] = the per-boot INCARNATION, big-endian. */
+            g_txFrame[24] = (uint8_t)(my_incarnation >> 24);
+            g_txFrame[25] = (uint8_t)(my_incarnation >> 16);
+            g_txFrame[26] = (uint8_t)(my_incarnation >> 8);
+            g_txFrame[27] = (uint8_t)(my_incarnation);
+
+            /* [28..63] = 0x5A, every byte. (The fill moved up by four; FRAME_LEN is still
+             * 64. The SDK example fills its 1000-byte frame with `count % 0xFF` -- a
+             * perfectly valid stream of the WRONG BYTES.) */
+            for (fill_i = 28U; fill_i < 64U; fill_i++) { g_txFrame[fill_i] = 0x5AU; }
 
             txOver = false;
             if (EP_SendFrame(&g_ep_handle, 0, &txFrame, NULL, NULL) == kStatus_Success)
@@ -219,6 +301,10 @@ loop = r'''
                 uint32_t is_a;
                 uint32_t *armed;
                 uint32_t *last;
+                uint32_t *inc;
+                uint32_t *prev;
+                uint32_t *legacy_said;
+                uint32_t peer_inc;
                 uint32_t good;
                 uint32_t has_magic;
 
@@ -296,12 +382,15 @@ loop = r'''
                  */
                 if (et == @PA@u) {
                     is_a = 1u; armed = &armed_a; last = &last_a;
+                    inc = &inc_a; prev = &prev_a; legacy_said = &legacy_said_a;
                 } else if (et == @PB@u) {
                     is_a = 0u; armed = &armed_b; last = &last_b;
+                    inc = &inc_b; prev = &prev_b; legacy_said = &legacy_said_b;
                 } else {
                     if (obs_et == 0u) { obs_et = et; }
                     if (et != obs_et) { ++rx_foreign; continue; }  /* only one spare slot */
                     is_a = 2u; armed = &obs_armed; last = &obs_last;
+                    inc = &inc_obs; prev = &prev_obs; legacy_said = &legacy_said_b;
                 }
 
                 /*
@@ -396,7 +485,7 @@ loop = r'''
                 }
 
                 good = 1u;
-                for (fill_i = 24U; fill_i < 64U; fill_i++)
+                for (fill_i = 28U; fill_i < 64U; fill_i++)
                 {
                     if (g_rxFrame[fill_i] != 0x5AU) { good = 0u; break; }
                 }
@@ -416,15 +505,97 @@ loop = r'''
                                    ((uint32_t)g_rxFrame[22] << 8)  |
                                     (uint32_t)g_rxFrame[23];
 
-                    if (*last != 0u && seq <= *last)
+                    peer_inc = ((uint32_t)g_rxFrame[24] << 24) |
+                               ((uint32_t)g_rxFrame[25] << 16) |
+                               ((uint32_t)g_rxFrame[26] << 8)  |
+                                (uint32_t)g_rxFrame[27];
+
+                    /*
+                     * ⭐ A LEGACY PEER HAS NO INCARNATION -- AND WE MUST NOT CONDEMN IT.
+                     *
+                     * A node that predates this field emits the old 0x5A fill from [24], so
+                     * its "incarnation" reads 0x5A5A5A5A: the same constant on every node and
+                     * every boot. It is not a nonce, it is the ABSENCE of one.
+                     *
+                     * For such a peer we CANNOT TELL A REPLAY FROM A REBOOT -- so we do not
+                     * pretend to. We count it, we check everything else, and we DECLINE to
+                     * render a freshness verdict, once, out loud.
+                     *
+                     * ⭐ A RED YOU CANNOT TRUST IS WORSE THAN NO RED. It gets the check
+                     *    deleted by the people it protects -- and this exact check just fired
+                     *    8,982 times at an honest peer in a live lab.
+                     *
+                     * This is also why NO FLAG DAY IS NEEDED: an upgraded node and a legacy
+                     * node interoperate, and the legacy node simply gets a weaker (and
+                     * honestly-labelled) guarantee until it upgrades.
+                     */
+                    if (peer_inc == 0x5A5A5A5Au)
                     {
-                        PRINTF("ENET-LAB3 CORRUPT: PAYLOAD-REPLAY peer 0x%04x seq "
-                               "%u <= last %u -- the RX path delivered a STALE BUFFER "
-                               "(a valid frame, just not a NEW one)\r\n",
-                               et, (unsigned)seq, (unsigned)*last);
+                        if (!*legacy_said)
+                        {
+                            *legacy_said = 1u;
+                            PRINTF("ENET-LAB3 rx: peer 0x%04x carries NO INCARNATION "
+                                   "(legacy body) -- counting it, but its freshness is "
+                                   "UNVERIFIABLE: a restart and a replay are the same "
+                                   "observation. Not condemning what I cannot judge.\r\n",
+                                   et);
+                        }
+                        *last = seq;
+                    }
+                    else if (*armed && peer_inc == *prev)
+                    {
+                        /*
+                         * A frame from the incarnation this peer REBOOTED OUT OF. It cannot
+                         * have crossed the wire now -- that boot is gone. This is a stale
+                         * buffer from before the restart, and it IS a real corruption.
+                         */
+                        PRINTF("ENET-LAB3 CORRUPT: PAYLOAD-REPLAY peer 0x%04x carries the "
+                               "incarnation it already REBOOTED OUT OF (0x%08x) -- a STALE "
+                               "BUFFER from a boot that no longer exists\r\n",
+                               et, (unsigned)peer_inc);
                         continue;
                     }
-                    *last = seq;
+                    else if (*inc == 0u)
+                    {
+                        /* FIRST CONTACT is not a reboot. Adopt the incarnation quietly and
+                         * establish the baseline; a reboot is a CHANGE, and we have nothing
+                         * to have changed from yet. (This was a real bug: inc starts at 0, so
+                         * the first valid frame from every peer tripped the REBOOTED branch
+                         * and imx91's very first frame was mis-announced.) */
+                        *inc = peer_inc;
+                        *last = seq;
+                    }
+                    else if (peer_inc != *inc)
+                    {
+                        /*
+                         * A NEW INCARNATION on a peer we ALREADY had one for: it REBOOTED.
+                         * Its counter starting over is honest and healthy. Reset our baseline
+                         * and remember the boot we came from, so a stale frame from it is
+                         * still caught above.
+                         */
+                        *prev = *inc;
+                        *inc = peer_inc;
+                        *last = seq;
+                        PRINTF("ENET-LAB3 rx: peer 0x%04x REBOOTED (incarnation 0x%08x, seq "
+                               "restarts at %u) -- resetting freshness. A PEER THAT RESTARTED "
+                               "IS NOT A PEER THAT REPLAYED.\r\n",
+                               et, (unsigned)peer_inc, (unsigned)seq);
+                    }
+                    else if (*last != 0u && seq <= *last)
+                    {
+                        /* Same incarnation, and the counter did not advance. THAT is a stale
+                         * buffer: a previously-valid frame, delivered again. */
+                        PRINTF("ENET-LAB3 CORRUPT: PAYLOAD-REPLAY peer 0x%04x seq "
+                               "%u <= last %u (same incarnation 0x%08x) -- the RX path "
+                               "delivered a STALE BUFFER (a valid frame, just not a NEW "
+                               "one)\r\n",
+                               et, (unsigned)seq, (unsigned)*last, (unsigned)peer_inc);
+                        continue;
+                    }
+                    else
+                    {
+                        *last = seq;
+                    }
                 }
 
                 if (is_a == 1u) {
