@@ -75,7 +75,20 @@ struct SDHCIState {
     uint16_t acmd12errsts; /* Auto CMD12 error status register */
     uint16_t hostctl2;     /* Host Control 2 */
     uint64_t admasysaddr;  /* ADMA System Address Register */
-    uint16_t vendor_spec;  /* Vendor specific register */
+    /*
+     * VENDOR-SPECIFIC (eSDHC/uSDHC VEND_SPEC @0xC0).
+     *
+     * WAS uint16_t FOR A 32-BIT REGISTER.  The i.MX reset value is 0x3000_7809, which
+     * does not fit in 16 bits -- WHICH IS WHY IT READ BACK WRONG.  Bits 28/29 were
+     * truncated on every write.  That truncation was a bug for EVERY platform, not
+     * just the i.MX ones.  (Found by 91emulator's reset-value audit; confirmed against
+     * the i.MX RT1180 RM independently -- VEND_SPEC resets to 0x30007809 there too.)
+     *
+     * vendor_spec_reset is a QDEV PROPERTY, DEFAULT 0, so generic SDHCI and
+     * FSL_ESDHC_BE/LE reset to 0 EXACTLY as before.  Only a machine that sets it gets
+     * the RM value.
+     */
+    uint32_t vendor_spec;
 
     /* Read-only registers */
     uint64_t capareg;      /* Capabilities Register */
@@ -94,6 +107,28 @@ struct SDHCIState {
     /* RO Host Controller Version Register always reads as 0x2401 */
 
     /* Configurable properties */
+
+    /*
+     * VEND_SPEC's reset value.  THIS MUST LIVE HERE, WITH THE OTHER PROPERTIES, AND
+     * NOT UP WITH THE REGISTERS -- because sdhci_reset() does
+     *
+     *     memset(&s->sdmasysad, 0, (uintptr_t)&s->capareg - (uintptr_t)&s->sdmasysad);
+     *
+     * and everything in that window is STATE that reset clears.  I first declared this
+     * next to `vendor_spec`, inside the window, so THE RESET FUNCTION ZEROED ITS OWN
+     * CONFIGURATION and then copied the zero it had just written.  The property was set
+     * correctly (0x30007809, verified at the SoC) and read back as 0 forever.
+     *
+     *   ⭐ A RESET THAT SPANS A RANGE CLEARS WHATEVER YOU PUT IN THE RANGE. CONFIGURATION
+     *      IS NOT STATE, AND A STRUCT THAT MIXES THEM WILL EVENTUALLY ERASE THE ONE WITH
+     *      THE OTHER.
+     *
+     * (The fields from `capareg` down are the ones the existing comment calls
+     * "not cleared and assumed to always preserve their value" -- that boundary is
+     * load-bearing, and it is enforced by nothing but the memset's arithmetic.)
+     */
+    uint32_t vendor_spec_reset;
+
     bool pending_insert_quirk; /* Quirk for Raspberry Pi card insert int */
     uint32_t quirks;
     uint8_t sd_spec_version;

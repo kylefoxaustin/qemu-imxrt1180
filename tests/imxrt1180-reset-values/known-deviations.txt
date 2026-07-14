@@ -523,8 +523,7 @@ USDHC1                     PROT_CTRL              # block not modelled; the catc
 USDHC1                     STROBE_DLL_STATUS      # block not modelled; the catch-all answers 0
 USDHC1                     SYS_CTRL               # block not modelled; the catch-all answers 0
 USDHC1                     TUNING_CTRL            # block not modelled; the catch-all answers 0
-USDHC1                     VEND_SPEC              # block not modelled; the catch-all answers 0
-USDHC1                     VEND_SPEC2             # block not modelled; the catch-all answers 0
+USDHC1                     VEND_SPEC2             # MODELLED BLOCK, register not implemented -- upstream sdhci.c has no case for ESDHC VEND_SPEC2 (@0xC8), so it falls to the default and answers 0. RM says 0x00019006. RETRIAGED: it was mislabelled 'block not modelled' -- USDHC IS modelled, and conflating an ABSENT model with a LYING one is what buried it. fix me
 USDHC1                     WTMK_LVL               # block not modelled; the catch-all answers 0
 USDHC2                     BLK_ATT                # block not modelled; the catch-all answers 0
 USDHC2                     CQCAP                  # block not modelled; the catch-all answers 0
@@ -538,8 +537,7 @@ USDHC2                     PROT_CTRL              # block not modelled; the catc
 USDHC2                     STROBE_DLL_STATUS      # block not modelled; the catch-all answers 0
 USDHC2                     SYS_CTRL               # block not modelled; the catch-all answers 0
 USDHC2                     TUNING_CTRL            # block not modelled; the catch-all answers 0
-USDHC2                     VEND_SPEC              # block not modelled; the catch-all answers 0
-USDHC2                     VEND_SPEC2             # block not modelled; the catch-all answers 0
+USDHC2                     VEND_SPEC2             # MODELLED BLOCK, register not implemented -- upstream sdhci.c has no case for ESDHC VEND_SPEC2 (@0xC8), so it falls to the default and answers 0. RM says 0x00019006. RETRIAGED: it was mislabelled 'block not modelled' -- USDHC IS modelled, and conflating an ABSENT model with a LYING one is what buried it. fix me
 USDHC2                     WTMK_LVL               # block not modelled; the catch-all answers 0
 WAKEUP_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_IG            # block not modelled; the catch-all answers 0
 WAKEUP_MIF_LN28FDSOI_SPLLRAM MIF_MLPL_PD_B          # block not modelled; the catch-all answers 0

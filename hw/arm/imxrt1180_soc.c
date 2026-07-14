@@ -973,6 +973,17 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     static const struct { hwaddr base; unsigned irq; } usdhc_cfg[IMXRT1180_NUM_USDHC] = {
         { 0x42850000, 86 }, { 0x42860000, 87 } };
     for (int i = 0; i < IMXRT1180_NUM_USDHC; i++) {
+        /*
+         * VEND_SPEC resets to 0x3000_7809 on this silicon (RT1180 RM; the reset-value
+         * gate reads it back at 0x4285_00C0 / 0x4286_00C0).  Upstream sdhci.c reset it
+         * to ZERO, and `fsl_esdhc` READ-MODIFY-WRITES it -- so the guest read our zero
+         * and wrote it back as its own configuration, walking away with the SOFT CLOCK
+         * ENABLES (bits 14:11) OFF.  Works here.  Fails on hardware.
+         *
+         * The property defaults to 0, so every other SDHCI platform is unchanged.
+         */
+        object_property_set_uint(OBJECT(&s->usdhc[i]), "vendor-spec-reset",
+                                 0x30007809, &error_abort);
         if (!sysbus_realize(SYS_BUS_DEVICE(&s->usdhc[i]), errp)) { return; }
         sysbus_mmio_map(SYS_BUS_DEVICE(&s->usdhc[i]), 0, usdhc_cfg[i].base);
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->usdhc[i]), 0,

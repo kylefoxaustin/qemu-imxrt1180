@@ -312,6 +312,22 @@ static void sdhci_reset(SDHCIState *s)
         s->norintstsen = 0x013f;
         s->errintstsen = 0x117f;
     }
+
+    /*
+     * VEND_SPEC is NOT zero on i.MX silicon.  Its reset value carries, among others,
+     * the SOFT CLOCK ENABLES (bits 14:11), which are ON out of reset -- and the driver
+     * READ-MODIFY-WRITES this register (FRC_SDCLK_ON).  With a zeroed VEND_SPEC the
+     * guest reads our zero and writes it back AS ITS OWN CONFIGURATION, walking away
+     * holding a VEND_SPEC with the clock gates OFF.  Works here.  Fails on silicon.
+     *
+     *   A REGISTER THE GUEST READ-MODIFY-WRITES IS THE ONE PLACE A ZERO RESET VALUE
+     *   SURVIVES INTO THE GUEST'S OWN STATE.  THE RMW REGISTERS ARE WHERE THE CLAIM
+     *   GETS LAUNDERED.   (91emulator / mcxn947qemu, and it is the same shape as
+     *   fsl-edma's CH_SBR.)
+     *
+     * Default 0 => every existing platform is byte-for-byte unchanged.
+     */
+    s->vendor_spec = s->vendor_spec_reset;
 }
 
 static void sdhci_poweron_reset(DeviceState *dev)
@@ -1464,6 +1480,52 @@ static bool sdhci_pending_insert_vmstate_needed(void *opaque)
     return s->pending_insert_state;
 }
 
+/*
+ * ============ THE PREDICATE, AND WHY THE OBVIOUS TWO ARE BOTH WRONG ============
+ *
+ * An OMITTED subsection leaves the field holding exactly what reset() put there.  So:
+ *
+ *   `.needed = s->vendor_spec != 0`            (91emulator's first cut)
+ *       The guest deliberately writes 0x00000000, the subsection is omitted, and the
+ *       destination reloads THE RESET VALUE.  ITS OWN STATE, SILENTLY REPLACED.
+ *       ⭐ "A ZERO IS NOT THE ABSENCE OF A CLAIM. IT IS A CLAIM." -- the dangerous-zeros
+ *          rule, one layer out, violated in the very patch that proves it.
+ *
+ *   `.needed = s->vendor_spec_reset != 0`      (93emulator's first cut)
+ *       Fixes that.  But vendor_spec_reset is 0 on i.MX6/7 -- AND THOSE PLATFORMS WRITE
+ *       THIS REGISTER AT RUNTIME (FRC_SDCLK_ON).  Their value is still lost.
+ *
+ * The question is not "is the value interesting" and not "did the platform opt in".
+ * It is: WHAT WILL THE DESTINATION REBUILD IF I SAY NOTHING?
+ *
+ *   ⭐ A SUBSECTION MAY BE OMITTED IFF THE FIELD ALREADY HOLDS WHAT RESET WOULD PUT
+ *      THERE.
+ *
+ * which fixes i.MX6/7 as well and leaves the generic-SDHCI wire format byte-for-byte
+ * unchanged (vendor_spec == vendor_spec_reset == 0 on an untouched generic device, so
+ * the subsection is genuinely never emitted).
+ *
+ * Two independent implementations of the same fix, diffed, found a bug neither author
+ * saw alone.  That is not duplicated work; that is the oracle.
+ */
+static bool sdhci_vendor_spec_vmstate_needed(void *opaque)
+{
+    SDHCIState *s = opaque;
+
+    return s->vendor_spec != s->vendor_spec_reset;
+}
+
+static const VMStateDescription sdhci_vendor_spec_vmstate = {
+    .name = "sdhci/vendor-spec",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = sdhci_vendor_spec_vmstate_needed,
+    .fields = (const VMStateField[]) {
+        VMSTATE_UINT32(vendor_spec, SDHCIState),
+        VMSTATE_END_OF_LIST()
+    },
+};
+
 static const VMStateDescription sdhci_pending_insert_vmstate = {
     .name = "sdhci/pending-insert",
     .version_id = 1,
@@ -1512,6 +1574,7 @@ const VMStateDescription sdhci_vmstate = {
     },
     .subsections = (const VMStateDescription * const []) {
         &sdhci_pending_insert_vmstate,
+        &sdhci_vendor_spec_vmstate,
         NULL
     },
 };
@@ -1528,6 +1591,8 @@ void sdhci_common_class_init(ObjectClass *klass, const void *data)
 /* --- qdev SysBus --- */
 
 static const Property sdhci_sysbus_properties[] = {
+    /* i.MX VEND_SPEC reset value (0 = every other platform, unchanged). */
+    DEFINE_PROP_UINT32("vendor-spec-reset", SDHCIState, vendor_spec_reset, 0),
     DEFINE_SDHCI_COMMON_PROPERTIES(SDHCIState),
     DEFINE_PROP_BOOL("pending-insert-quirk", SDHCIState, pending_insert_quirk,
                      false),
