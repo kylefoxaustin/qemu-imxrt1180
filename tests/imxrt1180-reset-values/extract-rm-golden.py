@@ -128,6 +128,18 @@ ARRAY_NAME  = re.compile(r'^.*\((\w+)\s*-\s*(\w+)\)$')
 NAME   = re.compile(r'^.*\(([A-Za-z0-9_]+)\)$')
 
 DROPPED_AMBIGUOUS_ARRAYS = []
+# THE MANUAL DECLINES TO ANSWER.  87 register-summary rows print "See section" in the
+# RESET column instead of a value -- because the reset DEPENDS ON THE INSTANCE, or is
+# spelled out only in a bit diagram.  The RESET regex correctly refuses them.
+#
+#   A REFUSAL IS NOT A CHECK.  (mcxn947qemu, 2026-07-13)
+#
+# Their refusal pile was hiding their SWD debug pins.  MINE WAS HIDING USBPHY CTRL --
+# the register that holds the PHY in SOFT RESET AND CLOCK-GATED out of reset.  With it
+# invisible, this model came up as A BOARD THAT HAD ALREADY BOOTED.
+# These are now COUNTED and NAMED, and the ones that matter are hand-read in
+# tests/imxrt1180-blindspots.
+DECLINED_ROWS = []
 
 
 def expand_array(first, last, lo, hi):
@@ -343,6 +355,9 @@ def parse_rm(path):
         m = SINGLE.match(lines[i])
         if m:
             nm = NAME.match(lines[i+1])
+            if nm and WIDTH.match(lines[i+2]) and ACCESS.match(lines[i+3]) \
+                  and lines[i+4].startswith("See section"):
+                DECLINED_ROWS.append((nm.group(1), int(m.group(1), 16)))
             if nm and WIDTH.match(lines[i+2]) and ACCESS.match(lines[i+3]) \
                   and RESET.match(lines[i+4]):
                 rows.append((nm.group(1), int(m.group(1), 16), int(lines[i+2]),
@@ -607,6 +622,11 @@ def main(rm_txt, out_json):
           % len(DROPPED_STRUCT_ARRAYS))
     print("  flat arrays unresolved  : %d   (count macro unknown -- DROPPED, not guessed)"
           % len(DROPPED_FLAT_ARRAYS))
+    print("  RM DECLINED to answer   : %d   ('See section' in the reset column -- REFUSED."
+          % len(DECLINED_ROWS))
+    print("                            A REFUSAL IS NOT A CHECK: these are hand-read in")
+    print("                            tests/imxrt1180-blindspots.  Mine hid USBPHY CTRL,")
+    print("                            which holds the PHY in reset out of reset.)")
     print("  CMSIS name collisions   : %d   (one name, two offsets -- BOTH KEPT; the RM row's"
           % len(COLLIDING_NAMES))
     print("                            own offset disambiguates. NOT overwritten: a silently")

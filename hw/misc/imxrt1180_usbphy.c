@@ -107,6 +107,30 @@ static const MemoryRegionOps imxrt1180_usbphy_ops = {
  * only the BASE needs seeding here.
  */
 static const struct { hwaddr off; uint32_t val; } usbphy_por[] = {
+    /*
+     * ================== THE PHY IS BORN HELD IN RESET AND GATED ==================
+     *
+     * CTRL @0x30 resets to 0xC000_0000: SFTRST (bit 31) AND CLKGATE (bit 30), both
+     * SET.  The silicon holds the USB PHY in soft reset with its clock gated off
+     * until firmware explicitly releases it -- which is exactly what USB_EhciPhyInit
+     * does, CTRL_CLR = SFTRST then CTRL_CLR = CLKGATE.
+     *
+     * WE CAME UP ALREADY RELEASED AND ALREADY UNGATED.
+     *
+     *   ⭐ BLOCKS ARE BORN HELD IN RESET.  A MODEL THAT SKIPS THAT IS NOT SIMPLER --
+     *      IT IS A MODEL OF A BOARD THAT HAS ALREADY BOOTED.
+     *      (mcxn947qemu, who found the identical thing in their LCDIF and their own
+     *      USBPHY the same evening, on a different chip, with no contact.)
+     *
+     * ⚠ AND THE RESET-VALUE GATE COULD NOT SEE THIS ONE.  The RM's summary row prints
+     * "See section" in the reset column instead of a value, so the extractor REFUSED
+     * it -- correctly -- and nobody ever went back for it.  87 rows are refused that
+     * way.  A REFUSAL IS NOT A CHECK.  Hand-read from the RM's bit diagram (§58.7.5:
+     * bit 31 SFTRST reset 1, bit 30 CLKGATE reset 1) and cross-checked against
+     * PERI_USBPHY.h's USBPHY_CTRL_SFTRST_MASK / _CLKGATE_MASK.
+     * Guarded by tests/imxrt1180-blindspots, because the gate cannot guard it.
+     */
+    { 0x030, 0xC0000000 },   /* CTRL  -- SFTRST | CLKGATE: HELD IN RESET, GATED   */
     { 0x000, 0x001E1C00 },   /* PWD                -- analog blocks POWERED DOWN   */
     { 0x010, 0x10080807 },   /* TX                                                  */
     { 0x050, 0x7F180000 },   /* DEBUG  (CMSIS: DEBUGr)                              */
