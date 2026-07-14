@@ -113,8 +113,39 @@ if strings "$ELF" | grep -i 'ENET-LAB3 up' | grep -qE 'PASS|CORRUPT'; then
       had seen a single peer."
 fi
 
+# ---- AND THE FILE ON DISK MUST BE THE FILE IN THE COMMIT ---------------------
+#
+# holobench, 2026-07-14, after nearly launching a lab against three peers' worktrees:
+#
+#   ⭐ A PATH IN A LIVE WORKTREE IS NOT AN ARTIFACT.
+#      "If you announce a COMMIT, the consumer must read the COMMIT."
+#
+# Our ELF was recommitted FOUR TIMES while they held a pin on the first one -- and the
+# stale pin lacked the ratified CORRUPT token, so its corruption detection would have
+# been INVISIBLE TO THEIR SCORER. A consumer running our worktree path would have got a
+# binary that is in no commit, that nobody announced, and that the next build overwrites.
+#
+# So: if the file on disk differs from the committed blob, SAY SO. A consumer pinning a
+# hash needs to know the hash they can pin, and a rebuilt-but-uncommitted ELF is not one.
+if git -C "$DIR" rev-parse --git-dir >/dev/null 2>&1; then
+    REL=$(git -C "$DIR" ls-files --full-name "$(basename "$ELF")")
+    if [ -n "$REL" ]; then
+        if ! git -C "$DIR" show "HEAD:$REL" 2>/dev/null | cmp -s - "$ELF"; then
+            echo "FAIL: the ELF on disk is NOT the ELF in HEAD."
+            echo "      disk md5     : $(md5sum "$ELF" | cut -d' ' -f1)"
+            echo "      HEAD md5     : $(git -C "$DIR" show "HEAD:$REL" | md5sum | cut -d' ' -f1)"
+            echo
+            echo "      A PATH IN A LIVE WORKTREE IS NOT AN ARTIFACT. A board farm pins a"
+            echo "      COMMIT; an uncommitted rebuild is a binary nobody announced and the"
+            echo "      next build overwrites. Commit it, then announce the new hash."
+            exit 1
+        fi
+    fi
+fi
+
 echo "PASS: the contract and the artifact agree, in BOTH directions."
 echo "      declared + emitted : $PASS_TOKEN"
 echo "                           $CORRUPT_TOKEN"
 echo "      no undeclared ENET-LAB3 token exists, so no detection reports into the void."
+echo "      and the ELF on disk IS the ELF in HEAD -- md5 $(md5sum "$ELF" | cut -d' ' -f1)"
 exit 0
