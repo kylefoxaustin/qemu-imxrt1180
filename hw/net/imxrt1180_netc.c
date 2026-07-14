@@ -91,6 +91,8 @@
 #define R_TBPIR     (ENETC0_SI0_OFF + 0x8018)   /* TX producer index (trigger) */
 #define R_TBCIR     (ENETC0_SI0_OFF + 0x801C)   /* TX consumer index */
 #define R_TBLENR    (ENETC0_SI0_OFF + 0x8020)   /* LENGTH field == #BDs */
+#define R_RBMR      (ENETC0_SI0_OFF + 0x8100)   /* RX ring mode; EN = bit 31 */
+#define RBMR_EN     (1u << 31)                  /* ENETC_SI_RBMR_EN_MASK */
 #define R_RBBSR     (ENETC0_SI0_OFF + 0x8108)
 #define R_RBCIR     (ENETC0_SI0_OFF + 0x810C)
 #define R_RBBAR0    (ENETC0_SI0_OFF + 0x8110)
@@ -188,6 +190,7 @@ static void netc_deliver_rx(IMXRT1180NETCState *s, const uint8_t *frame,
     uint64_t base = (uint64_t)netc_reg(s, R_RBBAR0) | ((uint64_t)netc_reg(s, R_RBBAR1) << 32);
     uint32_t rlen = netc_reg(s, R_RBLENR) & BDR_LEN_MASK;   /* #BDs */
     uint32_t pir = netc_reg(s, R_RBPIR) & 0xFFFF;
+    uint32_t cir;
     hwaddr bd;
     uint8_t sbd[8], wb[16];
     uint64_t buf;
@@ -195,6 +198,59 @@ static void netc_deliver_rx(IMXRT1180NETCState *s, const uint8_t *frame,
     if (rlen == 0) {
         return;
     }
+
+    /*
+     * IS THERE A FREE DESCRIPTOR?  THE MODEL NEVER ASKED, AND THAT WAS SILENT
+     * MEMORY CORRUPTION.
+     *
+     * The RX ring is a producer/consumer ring.  HW produces at RBPIR; SW frees a
+     * descriptor by re-posting standard.addr and then writing RBCIR ("Update the Rx
+     * consumer index to free idle BD" -- fsl_netc_endpoint.c:1253).  R_RBCIR was
+     * DEFINED IN THIS FILE AND NEVER READ, so there was no ring-full check at all.
+     *
+     * What that cost, measured: the 16-byte writeback below overwrites bytes 0..7 of
+     * the descriptor -- which are standard.addr, the buffer pointer the driver posted.
+     * So a descriptor that has been used once reads back addr == 0 until the driver
+     * re-arms it.  With an 8-BD ring, THE NINTH FRAME OF A BURST WRAPS ONTO A
+     * DESCRIPTOR THE GUEST HAS NOT RE-ARMED, reads addr = 0, and we DMA the frame
+     * STRAIGHT INTO GUEST ADDRESS ZERO -- while still stamping the descriptor READY,
+     * so the driver copies a stale buffer and believes it.
+     *
+     * And the burst is delivered by our OWN fix for the RX stall: the
+     * qemu_flush_queued_packets() below releases everything the socket queued while
+     * can_receive() was false, in one go, into a ring that had no way to say no.
+     * THE REPAIR AND THE TRIGGER WERE THE SAME COMMIT.
+     *
+     * Measured on the fleet's staggered 3-node L2 lab (holobench, 2026-07-13), where
+     * a node joins a segment that is ALREADY CARRYING TRAFFIC:
+     *
+     *     node booting into an EMPTY segment   ->  0 frames to address 0
+     *     node joining second                  ->  8
+     *     node joining LAST, 20s of live wire  -> 88     ... and it still printed PASS,
+     *                                                        reporting "peers" whose
+     *                                                        source MAC was ITS OWN.
+     *
+     * A synchronous lab holds that quantity at zero, so it is not merely blind to
+     * this -- it is blind BY CONSTRUCTION.
+     *
+     * Real silicon DROPS a frame it has no descriptor for (and bumps a discard
+     * counter).  It does not write into a descriptor the driver still owns.  So do
+     * we.  Dropping is also the honest choice against the alternative of applying
+     * backpressure here: a wire has no backpressure, and a model that is more
+     * forgiving than the silicon ships the bug downstream.
+     */
+    cir = netc_reg(s, R_RBCIR) & 0xFFFF;
+    if (cir >= rlen || ((pir + 1) % rlen) == cir) {
+        s->rx_ring_full_drops++;
+        if (s->rx_ring_full_drops == 1) {
+            qemu_log_mask(LOG_GUEST_ERROR,
+                          "imxrt1180-netc: RX ring full (pir=%u cir=%u len=%u) -- "
+                          "frame dropped. The guest is not consuming descriptors as "
+                          "fast as the wire delivers them.\n", pir, cir, rlen);
+        }
+        return;
+    }
+
     bd = base + (hwaddr)pir * 16;
     dma_memory_read(s->dma_as, bd, sbd, 8, MEMTXATTRS_UNSPECIFIED);
     buf = ldq_le_p(sbd);                         /* standard.addr (SW-posted) */
@@ -260,8 +316,31 @@ static void netc_do_tx(IMXRT1180NETCState *s)
 static bool netc_can_receive(NetClientState *nc)
 {
     IMXRT1180NETCState *s = qemu_get_nic_opaque(nc);
-    /* Ready once the RX ring is configured with at least one BD. */
-    return (netc_reg(s, R_RBLENR) & BDR_LEN_MASK) != 0;
+    /*
+     * READY MEANS "THE GUEST HAS ENABLED THE RING", NOT "THE GUEST HAS SIZED IT".
+     *
+     * This used to gate on RBLENR != 0, and that is TOO EARLY BY SEVERAL STEPS.
+     * The driver's ring bring-up is, in order (fsl_netc_hw_si.c:63-75, then
+     * fsl_netc_endpoint.c:163, then fsl_netc_hw_si.h:119):
+     *
+     *     RBBAR0/1 = ring base
+     *     RBPIR = 0 ; RBCIR = 0
+     *     RBLENR = len            <-- we used to declare ourselves READY here
+     *     RBMR   = mode bits
+     *     ... the EP layer now posts standard.addr into EVERY descriptor ...
+     *     RBMR |= EN              <-- the ring is ACTUALLY armed only here
+     *
+     * Gating on RBLENR meant we began delivering into a ring whose descriptors had
+     * NO BUFFER ADDRESS YET -- addr reads back 0 -- so we DMA'd frames straight into
+     * GUEST ADDRESS ZERO and stamped the descriptors READY over the driver's own
+     * half-finished setup. Measured on the fleet's staggered 3-node lab: a node
+     * joining a segment already carrying traffic took 88 such frames and still
+     * printed PASS, reporting "peers" whose source MAC was its own.
+     *
+     * EN is the guest's own statement that the buffers are posted. Believe that, and
+     * nothing else.
+     */
+    return (netc_reg(s, R_RBMR) & RBMR_EN) != 0;
 }
 
 static ssize_t netc_receive(NetClientState *nc, const uint8_t *buf, size_t size)
@@ -329,7 +408,21 @@ static void netc_write(void *opaque, hwaddr off, uint64_t val, unsigned size)
      * -- to expose it, and it presented as "two nodes are deaf and the third is
      * fine", which is exactly what a stalled queue looks like.
      */
-    if (off == R_RBLENR && (val & BDR_LEN_MASK) != 0) {
+    if (off == R_RBMR && (val & RBMR_EN)) {
+        netc_backing_write(s, off, val, size);
+        qemu_flush_queued_packets(qemu_get_queue(s->nic));
+        return;
+    }
+
+    /*
+     * The guest freed descriptors. Anything QEMU stalled because our ring was FULL
+     * can move now -- and if we do not say so, QEMU never retries on its own. This
+     * is the same lesson as the flush above, on the other end of the ring: a
+     * can_receive() that has ever returned false MUST be paired with a flush at
+     * every point where it could become true again, or the queue stays stalled
+     * forever and the node goes silently deaf.
+     */
+    if (off == R_RBCIR) {
         netc_backing_write(s, off, val, size);
         qemu_flush_queued_packets(qemu_get_queue(s->nic));
         return;

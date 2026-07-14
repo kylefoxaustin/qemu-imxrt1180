@@ -34,6 +34,7 @@ struct IMXRT1180NETCState {
     /* L2 Ethernet backend: TX egresses here (unless the PHY is in local
      * loopback), and inbound frames are delivered into the RX ring. */
     NICState *nic;
+    uint64_t rx_ring_full_drops;   /* frames the wire delivered with no free BD */
     NICConf conf;
 
     /* EMDIO / behavioural PHY responder */

@@ -58,13 +58,28 @@ HW="$SDK_ROOT/examples/_boards/evkmimxrt1180/driver_examples/netc/txrx_transfer/
 # ---------------------------------------------------------------- build ------
 # $1 = my ethertype, $2 = peer A, $3 = peer B, $4 = output elf
 build_node() {
-    local ME=$1 PA=$2 PB=$3 OUT=$4
+    local ME=$1 PA=$2 PB=$3 OUT=$4 MAC=${5:-54:27:8d:00:00:00}
     cp "$SRC" "$SRC.orig"; cp "$HW" "$HW.orig"
-    ME=$ME PA=$PA PB=$PB python3 - "$SRC" "$HW" <<'PY'
+    ME=$ME PA=$PA PB=$PB MAC=$MAC python3 - "$SRC" "$HW" <<'PY'
 import os, sys
 src, hw = sys.argv[1], sys.argv[2]
 me = int(os.environ["ME"], 16); pa = int(os.environ["PA"], 16); pb = int(os.environ["PB"], 16)
+mac = [int(x, 16) for x in os.environ.get("MAC", "54:27:8d:00:00:00").split(":")]
 t = open(src).read()
+
+# ⚠ EVERY STAND-IN IS THE SAME SDK EXAMPLE, AND THE EXAMPLE HARDCODES ONE MAC:
+#     static uint8_t g_macAddr[6] = {0x54, 0x27, 0x8d, 0x00, 0x00, 0x00};
+# and stamps it into every frame's SOURCE field. `-nic ...,mac=` tells the NIC MODEL
+# its address; it does NOT change the bytes the FIRMWARE writes. So three stand-ins
+# built from this example are THREE STATIONS WITH ONE MAC -- and a self-test that
+# looks at source addresses is then reading its own reflection.
+#
+# I published a corruption claim off exactly that reflection before checking here.
+# The frames were fine; my HARNESS had one MAC. Give each node its own.
+import re as _re
+t = _re.sub(r'static uint8_t g_macAddr\[6\] = \{[^}]*\};',
+            'static uint8_t g_macAddr[6] = {%s};' % ", ".join("0x%02X" % b for b in mac),
+            t, count=1)
 
 # our EtherType in the broadcast frame
 t = t.replace("    g_txFrame[12] = (length >> 8U) & 0xFFU;\n    g_txFrame[13] = length & 0xFFU;",
@@ -74,7 +89,8 @@ t = t.replace("    g_txFrame[12] = (length >> 8U) & 0xFFU;\n    g_txFrame[13] = 
 start = t.index("    while (txFrameNum < EXAMPLE_EP_TXFRAME_NUM)")
 end   = t.index("\n    }\n", start) + len("\n    }\n")
 loop = '''    {
-        uint32_t saw_a = 0, saw_b = 0, announced = 0;
+        uint32_t saw_a = 0, saw_b = 0, pass_seq = 0;
+        static const uint8_t MY_MAC[6] = { %s };
         PRINTF("ENET-LAB3 up: rt1180 ethertype 0x%%04x, need 0x%%04x + 0x%%04x\\r\\n",
                0x%04Xu, 0x%04Xu, 0x%04Xu);
 
@@ -98,6 +114,28 @@ loop = '''    {
                  * Counting it would "see a peer" that is ourselves. */
                 if (et == 0x%04Xu) { continue; }
 
+                /* RULE 1b: AND THE SAME DOOR, ON THE OTHER HINGE.
+                 *
+                 * I closed rule 1 against myself by EtherType and then never checked
+                 * the SOURCE ADDRESS. When the RX ring overran, the driver copied a
+                 * STALE buffer whose body was ours, and this node cheerfully reported
+                 *     "peer ethertype 0x88b7 src 54:27:8d:00:00:00"
+                 * -- a peer whose MAC was ITS OWN -- and PASSED. The assertion keyed on
+                 * EtherType and was structurally incapable of seeing that the frame
+                 * BODY was garbage.
+                 *
+                 * A FRAME THAT CLAIMS TO COME FROM ME DID NOT CROSS THE WIRE. Refuse it,
+                 * whatever its EtherType says. This is a real assertion: it FAILED
+                 * before the ring-full fix landed, and it is why the fix is verifiable. */
+                if (g_rxFrame[6]  == MY_MAC[0] && g_rxFrame[7]  == MY_MAC[1] &&
+                    g_rxFrame[8]  == MY_MAC[2] && g_rxFrame[9]  == MY_MAC[3] &&
+                    g_rxFrame[10] == MY_MAC[4] && g_rxFrame[11] == MY_MAC[5])
+                {
+                    PRINTF("ENET-LAB3 CORRUPT: frame claims src = MY OWN MAC "
+                           "(et 0x%%04x) -- RX path is lying\\r\\n", et);
+                    continue;
+                }
+
                 if (et == 0x%04Xu && !saw_a)
                 {
                     saw_a = 1;
@@ -114,17 +152,41 @@ loop = '''    {
                 }
             }
 
-            /* RULE 3: PASS only on BOTH. Announce once, then keep broadcasting
-             * so a peer that joins later still sees us. */
-            if (saw_a && saw_b && !announced)
+            /* RULE 3: PASS only on BOTH -- AND THEN RE-ARM, FOREVER.
+             *
+             * This used to latch (`announced = 1`, saw_a/saw_b never cleared). It
+             * printed PASS once and then STOPPED LOOKING -- and a satisfied assertion
+             * and an absent one print exactly the same thing: nothing.
+             *
+             * mcxn947qemu named the class and holobench measured it on us:
+             *   "A COLLAPSED oracle never COULD see the axis. An EXPIRED oracle
+             *    COULD, DID, and then STOPPED LOOKING."
+             * In the fleet's staggered lab, all three nodes PASSed at t+210 -- and
+             * from that instant two of the three were blind. The one node that
+             * re-armed was the one scheduled to DEPART at t+420, so after the
+             * departure ZERO assertions remained on a segment whose survivability
+             * was the entire point of the lab.
+             *
+             * ⭐ A RE-ARMING ASSERTION IS AN ORACLE THAT CANNOT EXPIRE. Its PASS line
+             * stops being a one-shot verdict and becomes a HEARTBEAT WITH THE WIRE IN
+             * THE LOOP -- and a heartbeat that STOPS is something a scorer can assert
+             * on POSITIVELY, instead of inferring health from silence.
+             *
+             * The sequence number makes it stronger still: "the wire absorbed the
+             * loss" becomes an assertion on A NUMBER GOING UP, never on the absence
+             * of a message. (mcxn's offer, taken.)
+             */
+            if (saw_a && saw_b)
             {
-                announced = 1;
-                PRINTF("ENET-LAB3 PASS: saw BOTH peers on the segment\\r\\n");
+                PRINTF("ENET-LAB3 PASS #%%u: saw BOTH peers on the segment\\r\\n",
+                       (unsigned)++pass_seq);
+                saw_a = 0;
+                saw_b = 0;          /* RE-ARM: go back to requiring BOTH, forever. */
             }
             for (volatile uint32_t d = 0; d < 400000U; d++) { }
         }
     }
-''' % (me, pa, pb, me, pa, pb)
+''' % (", ".join("0x%02X" % b for b in mac), me, pa, pb, me, pa, pb)
 t = t[:start] + loop + t[end:]
 open(src, "w").write(t)
 
@@ -147,7 +209,7 @@ QARGS="-M mimxrt1180-evk -display none -monitor none -semihosting-config enable=
 # ---------------------------------------------------------------- join -------
 if [ "$MODE" = "--join" ]; then
     echo ">> building the rt1180 node: ethertype 0x88B6"
-    build_node 0x88B6 0x88B5 0x88B7 /tmp/node-rt1180.elf || exit 1
+    build_node 0x88B6 0x88B5 0x88B7 /tmp/node-rt1180.elf 54:27:8d:00:00:00 || exit 1
     echo ">> joining the fleet segment: mcast=$MCAST as 0x88B6 (54:27:8d:00:00:00)"
     echo ">> broadcasting forever; Ctrl-C or let your peers finish."
     exec "$QEMU" $QARGS -kernel /tmp/node-rt1180.elf \
@@ -159,9 +221,9 @@ fi
 # fleet's REAL ethertypes and MACs, so the rehearsal is the real thing minus the
 # concurrency. If a real join then fails, the fault is the wire, not our logic.
 echo ">> self-check: 3 RT1180 stand-ins on mcast=$MCAST"
-build_node 0x88B6 0x88B5 0x88B7 /tmp/n-rt1180.elf || exit 1
-build_node 0x88B5 0x88B6 0x88B7 /tmp/n-mcx.elf    || exit 1
-build_node 0x88B7 0x88B5 0x88B6 /tmp/n-imx95.elf  || exit 1
+build_node 0x88B6 0x88B5 0x88B7 /tmp/n-rt1180.elf 54:27:8d:00:00:00 || exit 1
+build_node 0x88B5 0x88B6 0x88B7 /tmp/n-mcx.elf    02:4d:43:58:00:01 || exit 1
+build_node 0x88B7 0x88B5 0x88B6 /tmp/n-imx95.elf  02:49:4d:58:95:01 || exit 1
 
 O1=$(mktemp); O2=$(mktemp); O3=$(mktemp)
 trap 'rm -f "$O1" "$O2" "$O3"' EXIT
