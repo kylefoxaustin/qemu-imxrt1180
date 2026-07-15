@@ -242,11 +242,26 @@ static void netc_deliver_rx(IMXRT1180NETCState *s, const uint8_t *frame,
     cir = netc_reg(s, R_RBCIR) & 0xFFFF;
     if (cir >= rlen || ((pir + 1) % rlen) == cir) {
         s->rx_ring_full_drops++;
-        if (s->rx_ring_full_drops == 1) {
+        /*
+         * ONGOING, NOT FIRST-ONLY.  This used to log only on drop #1 -- so a startup
+         * transient consumed the one message, and a LATER burst (e.g. a peer rejoining a
+         * loaded segment while the ring is chronically full) dropped frames SILENTLY.
+         *
+         * holobench, 2026-07-15, on rt1180's 47s peer re-acquire: "does the node log RX
+         * ring full during the gap?"  With first-only logging the honest answer was "it
+         * couldn't tell you" -- the instrument was blind exactly when the finding needed
+         * it.  ⭐ A DROP COUNTER THAT ANNOUNCES ONCE CANNOT TESTIFY ABOUT A BURST.  So log
+         * the first, then periodically with the RUNNING TOTAL, so a sustained ring-full
+         * during a rejoin shows up as rising counts on the (-d guest_errors) log the lab
+         * can capture.  (mcxn947qemu is adding the on-the-wire version on their 1-deep
+         * ring; this is the same discipline on our side: let the subject testify.)
+         */
+        if (s->rx_ring_full_drops == 1 || (s->rx_ring_full_drops % 64u) == 0) {
             qemu_log_mask(LOG_GUEST_ERROR,
-                          "imxrt1180-netc: RX ring full (pir=%u cir=%u len=%u) -- "
-                          "frame dropped. The guest is not consuming descriptors as "
-                          "fast as the wire delivers them.\n", pir, cir, rlen);
+                          "imxrt1180-netc: RX ring full (pir=%u cir=%u len=%u) -- frame "
+                          "dropped (total %u). The guest is not consuming descriptors as "
+                          "fast as the wire delivers them.\n",
+                          pir, cir, rlen, (unsigned)s->rx_ring_full_drops);
         }
         return;
     }
