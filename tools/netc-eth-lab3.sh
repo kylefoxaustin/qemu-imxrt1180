@@ -109,6 +109,32 @@ loop = r'''
     #define MU_RSR   (*(volatile uint32_t *)(0x47540000u + 0x12Cu))
     #define MU_TR(n) (*(volatile uint32_t *)(0x47540000u + 0x200u + 4u * (n)))
     #define MU_RR(n) (*(volatile uint32_t *)(0x47540000u + 0x280u + 4u * (n)))
+    /*
+     * A GUEST-EMITTED TIMESTAMP, via ARM semihosting -- so holobench can bracket a
+     * SURVIVOR's departure from the node's OWN clock, not from arrival-stamps.
+     *
+     * holobench, after the unanimous run: "my timestamps are ARRIVAL-stamped (I stamp on
+     * READ, not guest-emit), so every survivor's first beat is identical -- I cannot make
+     * the survivor-departure claim." A guest t= is the one measurement its instrument
+     * cannot make. 91emulator already carries one (gettimeofday); ours makes the M33 a
+     * survivor candidate too.
+     *
+     * SYS_TIME (0x11) = Unix seconds (matches 91's absolute format, for cross-node
+     * alignment); SYS_CLOCK (0x10) = centiseconds since start (monotonic, sub-second).
+     * Anchor to SYS_TIME once at boot, add elapsed SYS_CLOCK -- all 32-bit, because
+     * base_time*100 would overflow uint32 (1.78e9 * 100 >> 4.29e9).
+     *
+     * ⚠ THE CAVEAT, OWED WITH THE NUMBER (91's, and holobench must not trust it blindly):
+     *   without -icount this tracks HOST wall-clock, so absolute stamps drift with host
+     *   load. TRUST THE GAP to bracket a departure (~beat / 100 ms resolution); do NOT
+     *   build a sub-100 ms timing claim on it. Same shape as our spin-loop confession --
+     *   we could not measure time at all before; now we can, but only to beat resolution
+     *   on a shared host.
+     */
+    #define SEMIHOST(op) ({ register long _r0 asm("r0") = (op);                    \
+                            register long _r1 asm("r1") = 0;                       \
+                            asm volatile("bkpt 0xAB" : "+r"(_r0) : "r"(_r1)        \
+                                         : "memory"); _r0; })
     {
         uint32_t saw_a = 0, saw_b = 0, pass_seq = 0;
         uint32_t tx_seq = 0, last_a = 0, last_b = 0;
@@ -122,6 +148,7 @@ loop = r'''
         uint32_t legacy_said_a = 0, legacy_said_b = 0;
         /* A THIRD, OBSERVED-BUT-NOT-REQUIRED PEER. See the beacon-range note below. */
         uint32_t obs_et = 0, obs_armed = 0, obs_last = 0, obs_said = 0;
+        long base_time = 0, base_clock = 0;   /* SYS_TIME/SYS_CLOCK sampled once at boot */
         static const uint8_t MY_MAC[6] = { @MAC@ };
 
         /*
@@ -205,6 +232,10 @@ loop = r'''
                 my_incarnation ^= 1u;   /* never collide with the LEGACY sentinel below */
             }
         }
+
+        /* Anchor the guest clock ONCE (back-to-back, so the two samples share an instant). */
+        base_time  = SEMIHOST(0x11);      /* Unix seconds */
+        base_clock = SEMIHOST(0x10);      /* centiseconds since start */
 
         /* BROADCAST FOREVER. A peer that is not here yet is not a failure. */
         for (;;)
@@ -674,12 +705,17 @@ loop = r'''
              */
             if (saw_a && saw_b)
             {
-                PRINTF("ENET-LAB3 PASS #%u: saw BOTH peers -- 0x%04x %s, 0x%04x %s "
-                       "(foreign frames ignored: %u)\r\n",
-                       (unsigned)++pass_seq,
-                       @PA@u, armed_a ? "VERIFIED" : "presence-only",
-                       @PB@u, armed_b ? "VERIFIED" : "presence-only",
-                       (unsigned)rx_foreign);
+                {
+                    uint32_t el_cs = (uint32_t)(SEMIHOST(0x10) - base_clock);
+                    uint32_t t_sec = (uint32_t)base_time + el_cs / 100u;
+                    uint32_t t_ms  = (el_cs % 100u) * 10u;
+                    PRINTF("ENET-LAB3 PASS #%u: t=%u.%03u saw BOTH peers -- "
+                           "0x%04x %s, 0x%04x %s (foreign frames ignored: %u)\r\n",
+                           (unsigned)++pass_seq, (unsigned)t_sec, (unsigned)t_ms,
+                           @PA@u, armed_a ? "VERIFIED" : "presence-only",
+                           @PB@u, armed_b ? "VERIFIED" : "presence-only",
+                           (unsigned)rx_foreign);
+                }
                 saw_a = 0;
                 saw_b = 0;          /* RE-ARM: go back to requiring BOTH, forever. */
             }

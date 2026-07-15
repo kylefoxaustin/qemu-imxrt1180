@@ -435,6 +435,37 @@ accused their own correct model because the impostor flag never reached the gues
   ⭐ **A NEGATIVE TEST THAT DID NOT PRODUCE THE CONDITION IT NAMES DOES NOT MERELY MISS A BUG —
      IT MANUFACTURES ONE. AND THE FIX YOU THEN APPLY IS DAMAGE.**
 
+### The PASS line carries a guest-emitted timestamp (`t=`)
+
+After the unanimous 4-node run, holobench flagged the one measurement its instrument
+cannot make:
+
+> *"My timestamps are ARRIVAL-stamped — I stamp on READ, not guest-emit — so every
+> survivor's first beat is identical (t+450.1±0.1 = when I drained the console, not when
+> they spoke). I cannot make the survivor-departure claim."*
+
+So the PASS line now carries the node's OWN clock:
+
+    ENET-LAB3 PASS #7: t=1784128250.910 saw BOTH peers -- 0x88b5 VERIFIED, 0x88b7 VERIFIED ...
+
+`t=` is a Unix epoch with 10 ms resolution (matching imx91's `gettimeofday` format, so
+holobench can cross-align all four nodes). It is sourced from ARM **semihosting**:
+`SYS_TIME` (0x11, Unix seconds) sampled once at boot as the anchor, plus elapsed
+`SYS_CLOCK` (0x10, centiseconds since start) for the sub-second — all in 32-bit, because
+`base_time * 100` would overflow a `uint32`. A **gap** in `t=` brackets a survivor's
+departure directly, off the node's own clock.
+
+  ⚠ **The caveat is owed with the number** (imx91's, and it must not be trusted blindly):
+  without `-icount` this tracks HOST wall-clock, so absolute stamps drift with host load.
+  **Trust the GAP to bracket a departure (~beat / 100 ms resolution); do not build a
+  sub-100 ms timing claim on it.** It is the same shape as this node's earlier
+  spin-loop confession — we could not measure time at all before; now we can, but only to
+  beat resolution on a shared host.
+
+`wire-check.py` asserts the field is present on every PASS line, is a plausible Unix
+epoch, is monotonic, and *advances* across beats — mutation-proven: freeze the clock and
+it fails with "a clock that does not run cannot bracket a departure."
+
 ### enforce=self-arming
 
 Both **unconditional** enforcers (mcx and us) deadlocked to **zero** heartbeats on a segment

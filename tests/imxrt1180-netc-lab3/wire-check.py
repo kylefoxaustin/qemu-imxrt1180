@@ -312,6 +312,16 @@ try:
         time.sleep(0.05)
         pump_console()
 
+    # Keep beating a little longer so the guest t= has SEVERAL stamps -- a single beat
+    # cannot show the clock advancing, and "advances" is the property holobench needs.
+    t0 = time.time()
+    while time.time() - t0 < 2.5:
+        seq += 1
+        send(beacon(MAC_A, ET_A, seq))
+        send(beacon(MAC_B, ET_B, seq))
+        time.sleep(0.1)
+        pump_console()
+
     p = said(r"ENET-LAB3 PASS")
     if not p:
         fail("the node never PASSed against two peers emitting the AGREED body.\n"
@@ -322,6 +332,25 @@ try:
     if p[-1].count("VERIFIED") != 2:
         fail("PASS does not report BOTH peers as content-VERIFIED:\n      %s" % p[-1])
     print("  ok  PASS with both peers VERIFIED: %s" % p[-1].strip())
+
+    # The GUEST-EMITTED t= (holobench's survivor-departure oracle): present, a plausible
+    # Unix epoch, and MONOTONIC across beats. A gap in it is a departure; a t= that does
+    # not advance is a clock that isn't running, which is worse than no clock.
+    stamps = [float(mm.group(1)) for l in p
+              if (mm := re.search(r"ENET-LAB3 PASS #\d+: t=(\d+\.\d+)", l))]
+    if len(stamps) != len(p):
+        fail("not every PASS line carries a guest t= field:\n      %s" % p[-1])
+    if stamps[-1] < 1_700_000_000 or stamps[-1] > 2_000_000_000:
+        fail("the guest t= is not a plausible Unix epoch (got %.3f) -- a real elapsed "
+             "clock, not a spin count." % stamps[-1])
+    if any(stamps[i] > stamps[i + 1] for i in range(len(stamps) - 1)):
+        fail("the guest t= went BACKWARDS across beats: %s -- it must be monotonic, or "
+             "a departure gap cannot be trusted." % stamps)
+    if len(stamps) >= 3 and stamps[-1] <= stamps[0]:
+        fail("the guest t= never advanced across %d beats (stuck at %.3f) -- a clock that "
+             "does not run cannot bracket a departure." % (len(stamps), stamps[0]))
+    print("  ok  guest t= present, Unix-epoch, monotonic, advancing: %.3f -> %.3f over %d beats"
+          % (stamps[0], stamps[-1], len(stamps)))
 
     m = re.search(r"foreign frames ignored: (\d+)", p[-1])
     if not m:
