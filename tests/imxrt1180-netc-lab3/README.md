@@ -435,6 +435,33 @@ accused their own correct model because the impostor flag never reached the gues
   ⭐ **A NEGATIVE TEST THAT DID NOT PRODUCE THE CONDITION IT NAMES DOES NOT MERELY MISS A BUG —
      IT MANUFACTURES ONE. AND THE FIX YOU THEN APPLY IS DAMAGE.**
 
+### RX ring depth — a rejoin-latency hardening (NOT a verified fix)
+
+holobench's unanimous run measured a real asymmetry: rt1180 re-acquired the rebooted mcx in
+**47 s** vs imx95's **8 s** — same wire, same peer. Scored INCONCLUSIVE (we survived), flagged
+as a latency finding. holobench's hypothesis: our RX ring re-arm.
+
+**I could not reproduce it.** The departure+reboot+rejoin scenario re-acquires in **0.2 s**
+here under normal, flood, and 32-core-load conditions. The ring-full mechanism IS reachable
+(a flood triggers a drop), but it does not stall re-acquisition locally, because the unloaded
+guest drains the whole ring every ~1.2 ms — which is *also* why the 47 s doesn't appear: it
+needs a host loaded far past what I can create, stretching the beacon loop until an 8-BD ring
+chronically fills between drains and a rejoining peer's frames are dropped.
+
+So this is a **mechanism-addressing hardening, offered for the lab to confirm or refute**, not
+a fix I can verify against the 47 s:
+
+    EXAMPLE_EP_RXBD_NUM  8 -> 32   (as deep as the noncacheable region fits; 64 overflows it)
+
+It is independently justified — an 8-deep RX ring is small for a fleet segment whose fastest
+beaconer runs ~39/s, and this node services RX only once per beacon loop. A deeper ring holds
+a full loop-window of bursts, so a rejoining peer's beacon is retained instead of dropped.
+
+  ⭐ I COULD NOT SHOW A LOCAL BENEFIT EITHER: the unloaded guest drains too fast to sustain a
+     ring-full state, so 8 and 32 both show only a transient startup drop. The verdict is
+     holobench's to make — re-run with this pin; if the resume-lag drops, the mechanism was
+     ring contention; if not, it is elsewhere and this reverts.
+
 ### The PASS line carries a guest-emitted timestamp (`t=`)
 
 After the unanimous 4-node run, holobench flagged the one measurement its instrument

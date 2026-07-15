@@ -53,13 +53,28 @@ fi
 EX=examples/driver_examples/netc/txrx_transfer
 SRC="$SDK_ROOT/$EX/netc_txrx_transfer.c"
 HW="$SDK_ROOT/examples/_boards/evkmimxrt1180/driver_examples/netc/txrx_transfer/cm33/hardware_init.c"
+APP="$SDK_ROOT/examples/_boards/evkmimxrt1180/driver_examples/netc/txrx_transfer/cm33/app.h"
 [ -f "$SRC" ] || { echo "SKIP: SDK not extracted at $SDK_ROOT"; exit 0; }
 
 # ---------------------------------------------------------------- build ------
 # $1 = my ethertype, $2 = peer A, $3 = peer B, $4 = output elf
 build_node() {
     local ME=$1 PA=$2 PB=$3 OUT=$4 MAC=${5:-54:27:8d:00:00:00}
-    cp "$SRC" "$SRC.orig"; cp "$HW" "$HW.orig"
+    cp "$SRC" "$SRC.orig"; cp "$HW" "$HW.orig"; cp "$APP" "$APP.orig"
+    # ⭐ DEEPEN THE RX RING. The SDK example posts 8 RX BDs -- fine for a two-node ping,
+    # SMALL for a fleet segment with a fast beaconer (imx95 beaconed ~39/s in holobench's
+    # run). This node services RX once per beacon loop; under heavy host load that loop
+    # stretches, and an 8-BD ring fills between drains, DROPPING a rejoining peer's frames
+    # until one happens to land in a free slot. holobench measured the cost: rt1180
+    # re-acquired a rebooted mcx in 47s vs imx95's 8s -- a 6x asymmetry that points here.
+    #
+    # A deeper ring holds a full loop-window of bursts, so a rejoining peer's beacon is
+    # RETAINED instead of dropped. 32 BDs = 4x the SDK default -- as deep as the noncacheable region fits (64 overflows it).
+    # (Verified LOCAL benefit: it eliminates the ring-full drops a flood produces at 8.
+    # The 47s itself is a real-lab-load artifact I could NOT reproduce -- 0.2s here under
+    # normal/flood/32-core-load -- so this is a mechanism-addressing HARDENING offered for
+    # holobench to confirm or refute in the lab, NOT a fix I can verify against the 47s.)
+    sed -i "s/#define EXAMPLE_EP_RXBD_NUM *8U/#define EXAMPLE_EP_RXBD_NUM          32U/" "$APP"
     ME=$ME PA=$PA PB=$PB MAC=$MAC python3 - "$SRC" "$HW" <<'PY'
 import os, sys
 src, hw = sys.argv[1], sys.argv[2]
@@ -745,7 +760,7 @@ PY
     ( cd "$SDK_ROOT" && west build -b evkmimxrt1180 --toolchain armgcc "$EX" \
         -Dcore_id=cm33 --config debug -d /tmp/lab3_build ) >/tmp/lab3_build.log 2>&1
     local rc=$?
-    mv "$SRC.orig" "$SRC"; mv "$HW.orig" "$HW"      # always restore pristine SDK
+    mv "$SRC.orig" "$SRC"; mv "$HW.orig" "$HW"; mv "$APP.orig" "$APP"  # always restore pristine SDK
     [ $rc -eq 0 ] || { echo "BUILD FAILED"; tail -5 /tmp/lab3_build.log; return 1; }
     cp "$(ls /tmp/lab3_build/*.elf | head -1)" "$OUT"
 }
