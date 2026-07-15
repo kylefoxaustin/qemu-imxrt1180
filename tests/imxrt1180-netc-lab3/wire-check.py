@@ -481,6 +481,23 @@ try:
             pump3()
         time.sleep(1.0)
         pump3()
+
+        # ...and now an OBSERVED legacy peer (imx91, 0x88B8), while q3 is STILL ALIVE.
+        # (This used to run AFTER the finally killed q3, so it sent to a dead node and the
+        # observed line never appeared -- the same dead-node ordering bug I keep making.)
+        seq3b = seq3
+        con3b = []
+        t0 = time.time()
+        while time.time() - t0 < 4:
+            seq3b += 1
+            rx3.sendto(beacon(MAC_B, ET_B, seq3b), (G3, P3))              # keep the good peer alive
+            rx3.sendto(legacy_beacon(MAC_91, ET_91, seq3b), (G3, P3))     # observed peer, legacy
+            time.sleep(0.05)
+            while select.select([q3.stdout], [], [], 0)[0]:
+                ln = q3.stdout.readline()
+                if not ln:
+                    break
+                con3b.append(ln.rstrip())
     finally:
         q3.terminate()
         try:
@@ -495,11 +512,29 @@ try:
              "passed anyway:\n        %s\n\n"
              "      That is the masking bug: a green that hides a node still on the old body.\n"
              "      A ratified cutover must be able to go RED." % passes3[-1].strip())
-    if not [l for l in con3 if "LEGACY body" in l and "0x88b5" in l]:
-        fail("the node did not announce that 0x88b5 is on the legacy body. It must say why\n"
-             "      the segment is red, or a legacy peer is indistinguishable from a crash.")
-    print("  ok  legacy peer NOT counted, no PASS, and the node said why: %s"
-          % [l for l in con3 if "LEGACY body" in l][0].strip()[:72])
+    req_legacy = [l for l in con3 if "0x88b5" in l and "LEGACY body" in l]
+    if not req_legacy:
+        fail("the node did not announce that required peer 0x88b5 is on the legacy body.\n"
+             "      It must say why the segment is red, or a legacy peer is indistinguishable\n"
+             "      from a crash.")
+    if "REQUIRED peer" not in req_legacy[0] or "stays RED" not in req_legacy[0]:
+        fail("a REQUIRED legacy peer must say it HOLDS THE SEGMENT RED. Got:\n      %s"
+             % req_legacy[0].strip())
+    print("  ok  required legacy peer holds red, no PASS: %s" % req_legacy[0].strip()[:72])
+
+    # An OBSERVED legacy peer (imx91, 0x88B8) must be NOTED but must NOT claim to hold red --
+    # it was never required, so saying "segment stays red" about it would be a lie. (The
+    # frames were sent above, inside the try, while q3 was alive.)
+    obs_legacy = [l for l in con3b if "0x88b8" in l and "LEGACY body" in l]
+    if not obs_legacy:
+        fail("the node never noted the OBSERVED legacy peer 0x88b8 -- the condition this\n"
+             "      check names was not produced, so it proves nothing. (con3b tail:\n        %s)"
+             % "\n        ".join(con3b[-6:]))
+    if "stays RED" in obs_legacy[0] or "REQUIRED" in obs_legacy[0]:
+        fail("an OBSERVED legacy peer (0x88b8) wrongly claims to hold the segment red:\n"
+             "      %s\n      Only a REQUIRED legacy peer holds red." % obs_legacy[0].strip())
+    print("  ok  observed legacy peer noted, does NOT claim red: %s"
+          % obs_legacy[0].strip()[:72])
 
     # ═══ PHASE 6 ═══ a REPLAY (stale buffer) must be caught.
     before = len(said(r"ENET-LAB3 CORRUPT"))

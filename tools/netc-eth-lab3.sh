@@ -549,17 +549,34 @@ loop = r'''
                          * set above -- reported it VERIFIED. That is precisely the masking
                          * bug: I would have passed GREEN over a peer whose freshness I never
                          * checked, hiding that it had not cut over. So: acknowledge once, and
-                         * do NOT count it. We stay red until it carries a real incarnation.
-                         * (0x5A5A5A5A is unambiguous: TX xors any real nonce that lands on it,
-                         * so no v2 node ever emits the sentinel.)
+                         * do NOT count it. (0x5A5A5A5A is unambiguous: TX xors any real nonce
+                         * that lands on it, so no v2 node ever emits the sentinel.)
+                         *
+                         * ⭐ BUT ONLY A *REQUIRED* LEGACY PEER HOLDS THE SEGMENT RED.
+                         *   95emulator's refinement, and the message must not overclaim: our
+                         *   two contracted peers (is_a 0/1) are needed for PASS, so a legacy
+                         *   one keeps us red until it cuts over. An OBSERVED peer (is_a 2, e.g.
+                         *   imx91) was never required -- its being legacy changes nothing about
+                         *   our PASS, and saying "the segment stays red" about it would be a
+                         *   lie in the same breath as a rule about telling the truth.
                          */
                         if (!*legacy_said)
                         {
                             *legacy_said = 1u;
-                            PRINTF("ENET-LAB3 rx: peer 0x%04x is on the LEGACY body (no "
-                                   "incarnation) -- NOT counting it. The segment stays red "
-                                   "until it cuts over; a green here would hide that it "
-                                   "did not.\r\n", et);
+                            if (is_a == 2u)
+                            {
+                                PRINTF("ENET-LAB3 rx: peer 0x%04x is on the LEGACY body (no "
+                                       "incarnation) -- noting it. It is an OBSERVED peer, not "
+                                       "one of my two required, so it does not hold the "
+                                       "segment red.\r\n", et);
+                            }
+                            else
+                            {
+                                PRINTF("ENET-LAB3 rx: peer 0x%04x is on the LEGACY body (no "
+                                       "incarnation) -- NOT counting it. It is a REQUIRED peer, "
+                                       "so the segment stays RED until it cuts over; a green "
+                                       "here would hide that it did not.\r\n", et);
+                            }
                         }
                         continue;
                     }
