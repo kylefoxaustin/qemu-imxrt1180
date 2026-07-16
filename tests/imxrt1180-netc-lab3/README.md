@@ -435,32 +435,28 @@ accused their own correct model because the impostor flag never reached the gues
   ⭐ **A NEGATIVE TEST THAT DID NOT PRODUCE THE CONDITION IT NAMES DOES NOT MERELY MISS A BUG —
      IT MANUFACTURES ONE. AND THE FIX YOU THEN APPLY IS DAMAGE.**
 
-### RX ring depth — a rejoin-latency hardening (NOT a verified fix)
+### Peer re-acquisition latency — an open hunt (NOT the RX ring)
 
-holobench's unanimous run measured a real asymmetry: rt1180 re-acquired the rebooted mcx in
-**47 s** vs imx95's **8 s** — same wire, same peer. Scored INCONCLUSIVE (we survived), flagged
-as a latency finding. holobench's hypothesis: our RX ring re-arm.
+holobench's unanimous run measured rt1180 re-acquiring a rebooted mcx in **47-64s** vs imx95's
+**8s** -- same wire, same peer, scored INCONCLUSIVE (we survived). holobench's first hypothesis
+was our RX ring re-arm, and I could not reproduce the latency locally (0.2s under normal, flood,
+and 32-core load), so I shipped a deeper ring (8->32 BDs) as a mechanism-addressing HARDENING
+for the lab to judge -- explicitly not a fix I could verify.
 
-**I could not reproduce it.** The departure+reboot+rejoin scenario re-acquires in **0.2 s**
-here under normal, flood, and 32-core-load conditions. The ring-full mechanism IS reachable
-(a flood triggers a drop), but it does not stall re-acquisition locally, because the unloaded
-guest drains the whole ring every ~1.2 ms — which is *also* why the 47 s doesn't appear: it
-needs a host loaded far past what I can create, stretching the beacon loop until an 8-BD ring
-chronically fills between drains and a rejoining peer's frames are dropped.
+**The lab REFUTED it.** Under load 6.6, the 32-BD ring resume-lag was **64.4s** -- identical to
+the 8-BD ~65s -- with **zero** RX-ring-full drops, validated three ways (the ongoing drop-log
+routed correctly, the capture file was created but empty, and a single drop would have shown).
+So the ring never filled: we RECEIVE mcx's rejoin frames and are slow to COUNT them toward a
+fresh PASS. The 32-BD change was reverted -- it addressed a mechanism that was not present.
 
-So this is a **mechanism-addressing hardening, offered for the lab to confirm or refute**, not
-a fix I can verify against the 47 s:
+  ⭐ THE OPEN QUESTION IS RE-ACQUISITION LOGIC, NOT RX PLUMBING. 8s vs 64s with zero packet loss
+     has to live in the re-arm path: how many fresh beacons before we re-declare PASS, a
+     settle/cooldown on the self-arming latch, or waiting for the incarnation to stabilise.
+     (mcxn947qemu's 1-deep-ring probe brackets the ring-depth axis from the other end.)
 
-    EXAMPLE_EP_RXBD_NUM  8 -> 32   (as deep as the noncacheable region fits; 64 overflows it)
-
-It is independently justified — an 8-deep RX ring is small for a fleet segment whose fastest
-beaconer runs ~39/s, and this node services RX only once per beacon loop. A deeper ring holds
-a full loop-window of bursts, so a rejoining peer's beacon is retained instead of dropped.
-
-  ⭐ I COULD NOT SHOW A LOCAL BENEFIT EITHER: the unloaded guest drains too fast to sustain a
-     ring-full state, so 8 and 32 both show only a transient startup drop. The verdict is
-     holobench's to make — re-run with this pin; if the resume-lag drops, the mechanism was
-     ring contention; if not, it is elsewhere and this reverts.
+What DID survive from the investigation: the RX drop-log is now ONGOING (first + every 64th,
+with the running total) instead of first-only -- because a drop counter that announces once
+cannot testify about a burst, and holobench needed it to prove the zero.
 
 ### The PASS line carries a guest-emitted timestamp (`t=`)
 

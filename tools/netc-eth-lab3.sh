@@ -61,7 +61,17 @@ APP="$SDK_ROOT/examples/_boards/evkmimxrt1180/driver_examples/netc/txrx_transfer
 build_node() {
     local ME=$1 PA=$2 PB=$3 OUT=$4 MAC=${5:-54:27:8d:00:00:00}
     cp "$SRC" "$SRC.orig"; cp "$HW" "$HW.orig"; cp "$APP" "$APP.orig"
-    # ⭐ DEEPEN THE RX RING. The SDK example posts 8 RX BDs -- fine for a two-node ping,
+    # ⭐ THE RX RING STAYS AT THE SDK DEFAULT (8 BDs). I deepened it to 32 as a rejoin-latency
+    # HARDENING on holobench's ring-contention hypothesis -- and holobench's instrumented run
+    # REFUTED it: 32-BD resume-lag 64.4s == 8-BD ~65s (unchanged), with ZERO ring-full drops,
+    # validated three ways. The RX ring never filled; we receive the rejoin frames and are slow
+    # to COUNT them. So the deepen was reverted -- it addressed a mechanism that was not there.
+    # (The ONGOING drop-log in hw/net/imxrt1180_netc.c stays: it is what let holobench prove the
+    # zero. A finding read from the subject survives a bug in the observer.) The 47s->64s
+    # re-acquire lives in the re-acquisition LOGIC, not the RX path -- a separate hunt.
+    #
+    # --- the original hardening rationale, kept for the record (it did not hold) ---
+    # The SDK example posts 8 RX BDs -- fine for a two-node ping,
     # SMALL for a fleet segment with a fast beaconer (imx95 beaconed ~39/s in holobench's
     # run). This node services RX once per beacon loop; under heavy host load that loop
     # stretches, and an 8-BD ring fills between drains, DROPPING a rejoining peer's frames
@@ -74,7 +84,7 @@ build_node() {
     # The 47s itself is a real-lab-load artifact I could NOT reproduce -- 0.2s here under
     # normal/flood/32-core-load -- so this is a mechanism-addressing HARDENING offered for
     # holobench to confirm or refute in the lab, NOT a fix I can verify against the 47s.)
-    sed -i "s/#define EXAMPLE_EP_RXBD_NUM *8U/#define EXAMPLE_EP_RXBD_NUM          32U/" "$APP"
+    sed -i "s/#define EXAMPLE_EP_RXBD_NUM *8U/#define EXAMPLE_EP_RXBD_NUM          8U/" "$APP"
     ME=$ME PA=$PA PB=$PB MAC=$MAC python3 - "$SRC" "$HW" <<'PY'
 import os, sys
 src, hw = sys.argv[1], sys.argv[2]
