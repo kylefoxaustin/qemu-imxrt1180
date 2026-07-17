@@ -435,7 +435,7 @@ accused their own correct model because the impostor flag never reached the gues
   ⭐ **A NEGATIVE TEST THAT DID NOT PRODUCE THE CONDITION IT NAMES DOES NOT MERELY MISS A BUG —
      IT MANUFACTURES ONE. AND THE FIX YOU THEN APPLY IS DAMAGE.**
 
-### Peer re-acquisition latency — an open hunt (NOT the RX ring)
+### Peer re-acquisition latency — RESOLVED: no bug, a contention backlog in the lab
 
 holobench's unanimous run measured rt1180 re-acquiring a rebooted mcx in **47-64s** vs imx95's
 **8s** -- same wire, same peer, scored INCONCLUSIVE (we survived). holobench's first hypothesis
@@ -449,10 +449,22 @@ routed correctly, the capture file was created but empty, and a single drop woul
 So the ring never filled: we RECEIVE mcx's rejoin frames and are slow to COUNT them toward a
 fresh PASS. The 32-BD change was reverted -- it addressed a mechanism that was not present.
 
-  ⭐ THE OPEN QUESTION IS RE-ACQUISITION LOGIC, NOT RX PLUMBING. 8s vs 64s with zero packet loss
-     has to live in the re-arm path: how many fresh beacons before we re-declare PASS, a
-     settle/cooldown on the self-arming latch, or waiting for the incarnation to stabilise.
-     (mcxn947qemu's 1-deep-ring probe brackets the ring-depth axis from the other end.)
+  ⭐ RESOLVED (2026-07-17): NOT a bug in this node. holobench retracted the delivery-stall
+     hypothesis after a faithful real-QEMU-node repro (real kill/restart, 4 nodes, 60s
+     departure, load 40) decoded the rejoined peer in 0s -- our re-acquisition is immediate
+     the instant a peer beacons. The 64s was a BACKLOG in holobench's environment: 4 real
+     QEMU nodes + a polling scorer share one loaded box, so this node's ONCE-PER-LOOP drain
+     falls behind the wire under contention (imx95's Linux NAPI keeps up). The tell was in
+     our own console -- we printed "mcx VERIFIED" 50s AFTER mcx was killed, i.e. we were
+     draining stale pre-departure frames, ~50s behind real time.
+
+     The backlog is UPSTREAM of our RX ring (0 ring-full drops proves it -- if it were our
+     8-BD ring it would have logged drops), in QEMU's socket buffer, drained as fast as our
+     contended vCPU allows. So even the ring is exonerated. It is a faithful characteristic
+     of a bare-metal poll loop under host contention, not a defect -- but it means a
+     CONTENDED bare-metal survivor's departure measurement lags its own backlog, so imx95
+     (NAPI) is the better survivor for that one measurement. ⭐ AN OBSERVER THAT CANNOT KEEP
+     UP WITH ITS SUBJECT IS OBSERVING ITS OWN BACKLOG. (mcxn947qemu)
 
 What DID survive from the investigation: the RX drop-log is now ONGOING (first + every 64th,
 with the running total) instead of first-only -- because a drop counter that announces once
