@@ -169,8 +169,13 @@ list. Model the first thing it blocks on, connect its IRQ via
 Broad peripheral coverage (see `PERIPHERALS.md` for the per-block table and the
 honest gaps). Working today:
 
-- **Real NXP SDK firmware runs** — 33/47 `driver_examples` byte-exact against the
+- **Real NXP SDK firmware runs** — 34/47 `driver_examples` byte-exact against the
   unmodified `fsl_*` drivers.
+- **Audio streaming**: the stock `sai/edma_transfer` demo runs end-to-end — AUDIO
+  PLL + WM8962 codec + SAI1-master + eDMA stream the SDK's `music[]` sine to a wav,
+  a mathematically-exact 1 kHz tone at 48 kHz.
+- **DMA request lines**: SAI/LPSPI/LPI2C/LPADC/eFlexPWM all drive the eDMA hardware
+  request path (every trigger shape, both controllers), each gate mutation-proven.
 - **FOC frontier**: eFlexPWM + EQDC + LPADC + PWM→XBAR→ADC sync + a calibrated dq
   PMSM plant. Value-verified against first-principles goldens (phase current
   matches Ohm's law to one ADC count).
@@ -181,7 +186,8 @@ honest gaps). Working today:
 - **B2B**: UART and Ethernet transports live.
 
 Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is
-`0x88B6` on mcast `230.0.0.9:31337`); NETC L2 switch path; ASRC/audio; LPADC A/B
+`0x88B6` on mcast `230.0.0.9:31337`); NETC L2 switch path; the ASRC sample-rate-
+converter data path (its Audio-PLL + codec blockers are now done); LPADC A/B
 side mux (blocks the stock `mc_pmsm` FOC demo).
 
 ## Fleet

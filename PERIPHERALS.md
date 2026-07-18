@@ -372,11 +372,19 @@ enumeration.
 ## SDK driver_example sweep (real NXP firmware — the fidelity bar)
 
 Built 47 representative `examples/driver_examples/*` from source (west/armgcc,
-`--config debug`/RAM) and ran each on the model. **33 ran correctly** against the
+`--config debug`/RAM) and ran each on the model. **34 ran correctly** against the
 unmodified `fsl_*` drivers, covering every modelled peripheral: eDMA3/4, EQDC,
 FlexCAN, FlexIO, GPT, I3C, LPADC, LPI2C, LPIT, LPSPI, LPTMR, LPUART,
 PDM, RGPIO, RTWDOG, S3MU, SAI, SEMC, SINC, SPDIF, TPM, eFlexPWM. Harness:
 `tools/sdk-run.sh`.
+
+**2026-07-18: `sai/edma_transfer` now runs end-to-end** (was blocked on the audio
+subsystem). The stock demo brings up the AUDIO PLL, `CODEC_Init`s the WM8962 over
+I2C, and streams the SDK's `music[]` sine through SAI1-master + eDMA. Rendered to a
+wav it is a **mathematically exact 1 kHz sine at 48 kHz** (95% non-zero, full-scale
+peak) — real audio out of unmodified NXP firmware, the oracle looking at the
+SAMPLES, not the guest's "finished!" print. Needed all of: SAI TX+eDMA request
+(roadmap #1), the WM8962 codec, and the Audio PLL (the CCM row).
 
 **Correction (2026-07-11):** an earlier version of this list also named *FlexSPI*.
 That was wrong for the serial-NOR path and is retracted. `flexspi/nor/polling_transfer`
@@ -399,11 +407,12 @@ Known gaps (honest — firmware ran and reported these):
   (20/20 frames, byte-exact). NOT yet modelled: the L2 switch path (SW0_*, FDB),
   multiple/virtual Station Interfaces, and the PTP 1588 timer — follow-on work
   toward the full TSN stack (see `ref-rt1180-tsn-stack`).
-- **asrc** (assert): needs the Audio-PLL clock tree brought up (SAI1 root reads
-  576 kHz vs the 1.536 MHz the driver requires; `AUDIO_PLL.CTRL0/NUMER/DENOM`
-  read 0 — the boot config leaves the audio PLL down in the RAM build) **plus**
-  the ASRC sample-rate-converter data path and the WM8962 codec. An audio
-  subsystem, not a point fix — not faked.
+- **asrc** (assert): the two shared blockers are now DONE — the **Audio PLL** is
+  modelled (`AUDIO_PLL.CTRL0/NUMER/DENOM` compute a real frequency; the CCM row) and
+  the **WM8962 codec** answers I2C, which together already unblocked `sai/edma_transfer`
+  (above). What remains for `asrc` specifically is the **ASRC sample-rate-converter
+  data path** itself (a distinct block, not modelled) — a real data path, not a
+  point fix, so still deferred rather than faked.
 - **cache** (self-test fail — *documented QEMU architectural limitation, WONTFIX*):
   the XCACHE example demonstrates cache *incoherence* — CPU caches a value, eDMA
   overwrites physical RAM behind it, and the test proves the CPU read the stale
