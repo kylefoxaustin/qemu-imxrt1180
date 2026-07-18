@@ -98,8 +98,10 @@
 
 /* TCSR/RCSR bit masks (shared layout for the two CSR registers). */
 #define CSR_TE      (1u << 31)  /* transmitter/receiver enable */
-#define CSR_FRF     (1u << 16)  /* FIFO request flag        */
-#define CSR_FWF     (1u << 17)  /* FIFO warning flag        */
+#define CSR_FRDE    (1u << 0)   /* FIFO Request DMA Enable (pairs with FRF) */
+#define CSR_FWDE    (1u << 1)   /* FIFO Warning DMA Enable (pairs with FWF) */
+#define CSR_FRF     (1u << 16)  /* FIFO request flag (reached watermark) */
+#define CSR_FWF     (1u << 17)  /* FIFO warning flag (FIFO empty)        */
 #define CSR_FEF     (1u << 18)  /* FIFO error (underrun/overrun) flag */
 #define CSR_SEF     (1u << 19)  /* sync error flag          */
 #define CSR_WSF     (1u << 20)  /* word start flag          */
@@ -202,8 +204,26 @@ static uint32_t imxrt1180_sai_tx_hz(IMXRT1180SAIState *s, uint32_t *nchan,
     return bclk / (words * bits);
 }
 
-/* Drain the TX FIFO into the audio backend.  This is the only place samples
- * leave the model, and it is the reason the wav file has anything in it. */
+static void imxrt1180_sai_update_irq(IMXRT1180SAIState *s);
+
+/*
+ * Drain the TX FIFO into the audio backend.  This is the only place samples
+ * leave the model, and it is the reason the wav file has anything in it.
+ *
+ * ⭐ audio_be_write() MAY ACCEPT FEWER BYTES THAN OFFERED, and the number it
+ * accepts is NOT bounded by the `free_bytes` the callback was handed -- that is
+ * the mixeng buffer's free space, not a promise about the voice's write path.
+ * This code used to advance tx_rptr/tx_count for every sample it COPIED and then
+ * ignore the return value, so any sample the backend declined was gone from the
+ * FIFO forever.  It stayed hidden only because the OLD (wrong) FRF kept the FIFO
+ * near-full, so the drain size happened to match what the backend took; once FRF
+ * was corrected the FIFO ran at the watermark, the drain size no longer matched,
+ * and 456 of 4096 samples vanished -- byte-exactly, every run.
+ *
+ * So: COMMIT ONLY WHAT WAS ACCEPTED.  A sample the backend did not take stays in
+ * the FIFO for the next callback -- which is exactly "the codec has not consumed
+ * it yet", the honest model of a full downstream.
+ */
 static void imxrt1180_sai_audio_cb(void *opaque, int free_bytes)
 {
     IMXRT1180SAIState *s = IMXRT1180_SAI(opaque);
@@ -215,19 +235,25 @@ static void imxrt1180_sai_audio_cb(void *opaque, int free_bytes)
         return;
     }
 
+    /* PEEK up to a callback's worth -- do NOT advance the read pointer yet. */
     while (n < ARRAY_SIZE(buf) && (int)((n + 1) * sizeof(int16_t)) <= free_bytes &&
-           s->tx_count > 0) {
+           n < s->tx_count) {
         /*
          * A 32-bit FIFO word carries one word of audio.  For the 16-bit case the
          * SDK writes the sample right-justified, so the low half IS the sample.
          */
-        buf[n++] = (int16_t)(s->tx_fifo[s->tx_rptr] & 0xFFFFu);
-        s->tx_rptr = (s->tx_rptr + 1u) % IMXRT1180_SAI_FIFO_MAX;
-        s->tx_count--;
+        buf[n] = (int16_t)(s->tx_fifo[(s->tx_rptr + n) % IMXRT1180_SAI_FIFO_MAX]
+                           & 0xFFFFu);
+        n++;
     }
 
     if (n) {
-        audio_be_write(s->audio_be, s->voice, buf, n * sizeof(int16_t));
+        int wrote = audio_be_write(s->audio_be, s->voice, buf, n * sizeof(int16_t));
+        size_t accepted = (wrote > 0) ? (size_t)wrote / sizeof(int16_t) : 0;
+
+        /* COMMIT only the samples the backend actually took. */
+        s->tx_rptr = (s->tx_rptr + accepted) % IMXRT1180_SAI_FIFO_MAX;
+        s->tx_count -= accepted;
     } else if (free_bytes > 0) {
         /*
          * The transmitter is enabled, the codec wants a sample, and the FIFO is
@@ -236,9 +262,14 @@ static void imxrt1180_sai_audio_cb(void *opaque, int free_bytes)
          */
         s->regs[SAI_TCSR >> 2] |= CSR_FEF;
     }
-}
 
-static void imxrt1180_sai_update_irq(IMXRT1180SAIState *s);
+    /*
+     * The FIFO just drained: FRF/FWF and the TX DMA request must be re-evaluated
+     * so a DMA-driven stream re-arms and refills.  Without this the level-held
+     * request line, having fallen when the FIFO filled, would never rise again.
+     */
+    imxrt1180_sai_update_irq(s);
+}
 
 /* (Re)open the audio voice whenever the rate the guest programmed changes. */
 static void imxrt1180_sai_tx_update(IMXRT1180SAIState *s)
@@ -288,23 +319,47 @@ static void imxrt1180_sai_update_irq(IMXRT1180SAIState *s)
     uint32_t rcsr = s->regs[SAI_RCSR >> 2];
     uint32_t watermark = TCR1_TFW(s->regs[SAI_TCR1 >> 2]);
     uint32_t tflags = 0;
+    bool dma_tx = false;
 
     if (tcsr & CSR_EN) {
         /*
-         * FWF: the FIFO is at or below its watermark -- i.e. it WANTS DATA.
-         * FRF: the FIFO has room at all.
+         * ⭐ CORRECTED 2026-07-17: FRF and FWF were SWAPPED-AND-WRONG.  The old code
+         * had FRF = "has room at all" (tx_count < depth) and FWF = "<= watermark".
+         * Neither matches the silicon, and FWF held what is actually FRF's meaning.
          *
-         * These used to be asserted unconditionally whenever TE was set, because
-         * the FIFO was imaginary and "always had space".  A DMA request line keyed
-         * on FRF would then be asserted forever, and a driver polling FWF would
-         * never learn that it had got ahead of the codec.
+         * Authoritative meaning, from the MIMXRT1189 SDK (fsl_sai.h enum comments:
+         * FRIE "means reached watermark", FWIE "means the FIFO is empty") and cross-
+         * checked against the sai_edma driver, whose per-request burst is exactly
+         * FIFO_depth - watermark -- i.e. the request fires at the watermark and the
+         * DMA refills back to full:
+         *
+         *   FRF (Request) -- the FIFO has drained TO/below the watermark: the normal
+         *                    refill trigger.  This is what the DMA (FRDE) keys on and
+         *                    what the SDK's polling player (SAI_WriteBlocking waits on
+         *                    FWF; the driver_example polls FRF) uses for a slot.
+         *   FWF (Warning) -- the FIFO is EMPTY: underrun is imminent.
+         *
+         * A DMA line keyed on the OLD FRF would have fired with the FIFO one slot
+         * short of full and then written FIFO_depth-watermark words -- an overrun.
+         * See the retraction note in PERIPHERALS.md.
          */
-        if (s->tx_count < s->fifo_depth) {
+        if (s->tx_count <= watermark) {
             tflags |= CSR_FRF;
         }
-        if (s->tx_count <= watermark) {
+        if (s->tx_count == 0) {
             tflags |= CSR_FWF;
         }
+
+        /*
+         * TX DMA request line.  Asserted while a DMA-enable bit is set AND its paired
+         * FIFO condition holds; the eDMA services one minor loop per assertion and
+         * the line falls of its own accord as those TDR writes push tx_count past the
+         * threshold -- the same "a minor loop lowers its own request" handshake the
+         * eDMA relies on for RX (see imxrt1180_edma.c).  The SDK sai_edma driver uses
+         * FRDE; FWDE is modelled too because the register exposes both.
+         */
+        dma_tx = ((tcsr & CSR_FRDE) && (s->tx_count <= watermark)) ||
+                 ((tcsr & CSR_FWDE) && (s->tx_count == 0));
     }
     tflags |= tcsr & CSR_STICKY_FLAGS;
 
@@ -313,6 +368,7 @@ static void imxrt1180_sai_update_irq(IMXRT1180SAIState *s)
     bool rx = (((rflags >> 16) & 0x1Fu) & ((rcsr >> CSR_IE_TO_FLAG_SHIFT) & 0x1Fu)) != 0;
 
     qemu_set_irq(s->irq, tx || rx);
+    qemu_set_irq(s->dma_tx_req, dma_tx);
 }
 
 static uint64_t imxrt1180_sai_read(void *opaque, hwaddr off, unsigned size)
@@ -331,10 +387,11 @@ static uint64_t imxrt1180_sai_read(void *opaque, hwaddr off, unsigned size)
         v &= ~(CSR_SR | CSR_FR);
         v &= ~(CSR_FRF | CSR_FWF);
         if (v & CSR_TE) {
-            if (s->tx_count < s->fifo_depth) {
+            /* FRF = drained to watermark; FWF = empty. See update_irq. */
+            if (s->tx_count <= watermark) {
                 v |= CSR_FRF;
             }
-            if (s->tx_count <= watermark) {
+            if (s->tx_count == 0) {
                 v |= CSR_FWF;
             }
         }
@@ -458,6 +515,7 @@ static void imxrt1180_sai_reset(DeviceState *dev)
     memset(s->regs, 0, sizeof(s->regs));
     s->tx_count = s->tx_rptr = s->tx_wptr = 0;
     s->voice_hz = 0;
+    qemu_set_irq(s->dma_tx_req, false);
     if (s->audio_be && s->voice) {
         audio_be_set_active_out(s->audio_be, s->voice, false);
     }
@@ -486,6 +544,7 @@ static void imxrt1180_sai_realize(DeviceState *dev, Error **errp)
                           TYPE_IMXRT1180_SAI, IMXRT1180_SAI_SIZE);
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
     sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq);
+    qdev_init_gpio_out_named(dev, &s->dma_tx_req, "dma-tx-req", 1);
 
     /*
      * No audiodev is not an error -- it is the common case, and it must not be a

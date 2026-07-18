@@ -50,6 +50,7 @@ struct IMXRT1180SAIState {
     /*< public >*/
     MemoryRegion iomem;
     qemu_irq irq;
+    qemu_irq dma_tx_req;    /* TX FIFO -> eDMA hardware request line */
     uint32_t regs[IMXRT1180_SAI_SIZE / 4];
 
     /* --- properties: what THIS instance of the silicon is --- */

@@ -58,8 +58,8 @@ it."*) So, explicitly:
 | **LPSPI** (controller mode) | 1..4 | 0x44360000, 0x44370000, 0x42550000, 0x42560000 | ✅ functional | full-duplex SPI master (TCR frame/PCS/CONT, TDR→SSIBus→RDR) with per-CS lines; validated vs a serial-flash JEDEC-ID read; IRQ (16/17/65/66) |
 | **LPIT** (periodic timer) | 1..3 | 0x442F0000, 0x424C0000, 0x42CC0000 | ✅ functional | 4-channel ptimer-backed 32-bit periodic down-counter; TVAL/CVAL + MSR.TIF W1C + MIER IRQ (15/64/149); validated (periodic IRQ + counter) |
 | **FlexCAN** (CAN/CAN-FD) | 1..3 | 0x443A0000, 0x425B0000, 0x445B0000 | ✅ functional | MCR freeze/disable/soft-reset handshakes; 96 message buffers (TX/RX CODE); real frames on a QEMU can-bus + internal loopback; IFLAG/IMASK IRQ (8/51/191); adapted from the MCX FlexCAN |
-| **eDMA** (enhanced DMA) | eDMA3 (32ch), eDMA4 (64ch) | 0x44000000, 0x42000000 | ✅ functional | **Verified against the real `fsl_edma` driver: 9 of 9 stock NXP eDMA `driver_examples` pass, data-checked** (`memory_to_memory`, `..._transfer`, `memset`, `channel_link`, `wrap_transfer`, `interleave_transfer`, `ping_pong_transfer`, `scatter_gather`, and eDMA3's `memory_to_memory`). **Channel geometry from the CMSIS header**: DMA3 `CH[n]` @ `+0x10000 + n*0x10000` (`PERI_DMA.h`), DMA4 `TCD[n]` @ `+0x10000 + n*0x8000` (`PERI_DMA4.h`). **A service request moves ONE MINOR LOOP (NBYTES)** and decrements CITER — and `TCD_CSR[START]`, a peripheral request line, and a channel link are all the SAME event (RM 5.4: software START "follows the same basic flow as peripheral requests"). START is auto-cleared on execution. **Peripheral requests**: `CH_CSR[ERQ]` + `CH_MUX[SRC]` (8-bit, 256 lines), serviced from a **bottom half** — never inline, or the DMA's write back into the requesting peripheral is a re-entrant MMIO access QEMU **drops silently** while the channel still reports DONE. Real sources today: **LPUART1/2 Tx+Rx** (`SRC` 16–19). **Channel linking**: minor-loop (`CITER[ELINK]`/`LINKCH`, and CITER is only **9 bits** when ELINK is set) and major-loop (`TCD_CSR[MAJORELINK]`/`MAJORLINKCH`). **Scatter-gather**: `TCD_CSR[ESG]` fetches the next TCD from `TCD_DLAST_SGA` (which is a POINTER when ESG is set, an address adjustment otherwise). `TCD_CSR[DREQ]` auto-clears ERQ at major completion. Per-ch IRQ (eDMA3 95+, eDMA4 grouped `128 + (ch%32)/2`, matching `DMA4_CH0_CH1_CH32_CH33_IRQn`). Also see `tests/imxrt1180-edma` (CITER>1) and `tests/imxrt1180-dmareq` (peripheral-triggered, over a real wire) |
-| **SAI** (I2S audio) | 1..4 | 0x443B0000, 0x42BB0000, 0x42BC0000, 0x42BD0000 | ◐ bring-up | TCSR/RCSR SR+FR resets self-clear, TX FIFO advertises space (FWF), RX empty; init handshake settles; no audio streaming (flagged); IRQ 45/198/199/154; adapted from the MCX SAI |
+| **eDMA** (enhanced DMA) | eDMA3 (32ch), eDMA4 (64ch) | 0x44000000, 0x42000000 | ✅ functional | **Verified against the real `fsl_edma` driver: 9 of 9 stock NXP eDMA `driver_examples` pass, data-checked** (`memory_to_memory`, `..._transfer`, `memset`, `channel_link`, `wrap_transfer`, `interleave_transfer`, `ping_pong_transfer`, `scatter_gather`, and eDMA3's `memory_to_memory`). **Channel geometry from the CMSIS header**: DMA3 `CH[n]` @ `+0x10000 + n*0x10000` (`PERI_DMA.h`), DMA4 `TCD[n]` @ `+0x10000 + n*0x8000` (`PERI_DMA4.h`). **A service request moves ONE MINOR LOOP (NBYTES)** and decrements CITER — and `TCD_CSR[START]`, a peripheral request line, and a channel link are all the SAME event (RM 5.4: software START "follows the same basic flow as peripheral requests"). START is auto-cleared on execution. **Peripheral requests**: `CH_CSR[ERQ]` + `CH_MUX[SRC]` (8-bit, 256 lines), serviced from a **bottom half** — never inline, or the DMA's write back into the requesting peripheral is a re-entrant MMIO access QEMU **drops silently** while the channel still reports DONE. Real sources today: **LPUART1/2 Tx+Rx** (`SRC` 16–19) and **SAI1–4 TX** (`SRC` 21 on eDMA3, 180/182/184 on eDMA4). **Channel linking**: minor-loop (`CITER[ELINK]`/`LINKCH`, and CITER is only **9 bits** when ELINK is set) and major-loop (`TCD_CSR[MAJORELINK]`/`MAJORLINKCH`). **Scatter-gather**: `TCD_CSR[ESG]` fetches the next TCD from `TCD_DLAST_SGA` (which is a POINTER when ESG is set, an address adjustment otherwise). `TCD_CSR[DREQ]` auto-clears ERQ at major completion. Per-ch IRQ (eDMA3 95+, eDMA4 grouped `128 + (ch%32)/2`, matching `DMA4_CH0_CH1_CH32_CH33_IRQn`). Also see `tests/imxrt1180-edma` (CITER>1) and `tests/imxrt1180-dmareq` (peripheral-triggered, over a real wire) |
+| **SAI** (I2S audio) | 1..4 | 0x443B0000, 0x42BB0000, 0x42BC0000, 0x42BD0000 | ✅ TX real (PIO+DMA) | **Real TX path**: TDR words land in a per-instance FIFO (PARAM-sized: SAI1=16, SAI2–4=32), clock out at the rate the guest's OWN registers describe (BCLK/frame, master-mode only — a bit-clock SLAVE returns rate 0, not a fabricated 48 kHz), and reach QEMU's audio backend. **Value-verified byte-exact** to a wav at two rates, PIO (`tests/imxrt1180-sai`) and **eDMA-driven** (`tests/imxrt1180-sai-dma`). **TX FIFO→eDMA request line** (`SRC` 21/180/182/184), gated by `TCSR[FRDE]`/`[FWDE]`. **FRF/FWF corrected 2026-07-17** (they were swapped-and-wrong — FRF="reached watermark", FWF="empty"; see retraction below). Underrun→FEF; overrun→FEF. RX path not modelled (RFR reads empty). IRQ 45/198/199/154 |
 | **SRC + BLK_CTRL_S_AONMIX** | 1 | 0x44460000 / 0x444F0000 | ✅ functional | M7 boot-vector (M7_CFG) + release (SCR.BT_RELEASE_M7), bottom-half start |
 | **FlexSPI** (controller) | 1, 2 | 0x425E0000, 0x445E0000 | ● functional | LUT-driven IP command engine over SSI + AHB/XIP window; real `m25p80` NOR on FlexSPI1 (16 MiB, `-drive if=mtd`). Storage-write-verified: erase→program→read-back byte-exact, and program-without-erase correctly only clears bits. FlexSPI2 has no flash on the EVK, so its AHB window is deliberately unmapped |
 | **RGPIO** | 1..6 | 0x47400000, 0x4381/2/3/4/5 0000 | ✅ functional | PDOR/PSOR/PCOR/PTOR/PDDR/PDIR + per-pin qemu_irq out |
@@ -230,19 +230,62 @@ printed *"example finish"* over a destination buffer of `1 2 3 4 **0 0 0 0**`: h
 transfer silently missing. **The first version of the sweep that "verified" this fix
 grepped for the word `finish` and scored it PASS.**
 
+### ⚠️ Retraction: the SAI's FRF/FWF flags were swapped-and-wrong, and fixing them exposed a second bug that ate samples
+
+**2026-07-17**, while adding the SAI TX→eDMA request line (which is keyed on
+`TCSR[FRDE]`+FRF). The model computed the two TX FIFO flags like this:
+
+| flag | model said | the silicon says (SDK `fsl_sai.h`: FRIE "reached watermark", FWIE "the FIFO is empty"; and `sai_edma`'s per-request burst = `FIFO_depth − watermark`) |
+|---|---|---|
+| **FRF** (Request) | `tx_count < depth` — "has room at all" | `tx_count <= watermark` — drained to the refill point |
+| **FWF** (Warning) | `tx_count <= watermark` | `tx_count == 0` — empty, underrun imminent |
+
+Neither matched, and FWF was holding **FRF's** meaning. A DMA line keyed on the
+OLD FRF would fire with the FIFO one slot short of full and then burst
+`depth − watermark` words — a guaranteed overrun. The flags are confirmed three
+independent ways (the two enum comments, the driver's burst size, and the blocking
+writer polling FWF); FRF and FWF are now `<= watermark` and `== 0`.
+
+**The fix exposed a second, older bug it had been masking.** `audio_cb` drained
+`n` samples from the FIFO, advanced the read pointer for all `n`, and then
+**ignored `audio_be_write()`'s return value** — which is *not* bounded by the
+`free_bytes` the callback is handed. With the wrong FRF the FIFO ran near-full and
+the drain size happened to match what the backend accepted, so it never showed.
+With FRF corrected the FIFO ran at the watermark, the sizes diverged, and **456 of
+4096 samples vanished — byte-exactly, every run** (`IN=4096, OUT=3640`). Now the
+code commits only the samples the backend accepted; the rest stay in the FIFO,
+which is the honest model of a codec that has not consumed them yet.
+
+> ⭐ A number that is only right because a *different* bug keeps its input in the
+> one range where it agrees is not a right number — it is two wrongs holding still.
+> Only the second operating point (here, the corrected watermark) pulled them apart.
+
+Both are value-caught, not flag-caught: the wav is byte-exact at two rates, PIO and
+DMA. And the new request line's gate is proven to refuse:
+
+| mutation applied to the model | `tests/imxrt1180-sai-dma` says |
+|---|---|
+| SAI asserts its TX request from the FIFO alone, **ignoring `TCSR[FRDE]`** | **`FAIL` ✔ caught** ("NEG: eDMA moved words with TCSR[FRDE] CLEAR") |
+
 ### Which peripherals drive a DMA request line
 
 The eDMA's peripheral-request path exists and is verified (see the eDMA row), but
 a request path is only real for the peripherals that actually **assert a line**.
-Today that is **LPUART1 and LPUART2 only** (`CH_MUX[SRC]` 16–19).
+Today that is **LPUART1/2** (`CH_MUX[SRC]` 16–19) and **SAI1–4 TX** (`SRC` 21 on
+eDMA3; 180/182/184 on eDMA4 — the low byte of `kDmaNRequestMuxSaiKTx` in
+`PERI_DMA4.h`). The SAI asserts its TX line while `TCSR[FRDE]`+FRF (or
+`TCSR[FWDE]`+FWF) hold, and the line falls of its own accord as the serviced TDR
+writes push the FIFO past the watermark — value-verified end-to-end by
+`tests/imxrt1180-sai-dma` (2048 samples mem→eDMA→SAI FIFO→wav, byte-exact, at two
+rates, CPU never touching TDR; the FRDE gate proven to refuse by mutation).
 
 Every other modelled block that is a DMA source on real silicon is **PIO-only
-here**: `LPSPI1/2` (SRC 11–14), `LPI2C1/2` (7–10), `SAI1–4`, `FlexCAN`, `LPTMR1`
-(15), `LPADC`, `eFlexPWM`, `RGPIO`. Their register models are correct and their
-tests pass, and a driver that moves data through them **by CPU** works — but a
-driver that configures eDMA and waits for it will **wait forever**, because
-nothing ever asks. That is a hang, not a silent wrong answer, so it is honest;
-it is still a gap.
+here**: `LPSPI1/2` (SRC 11–14), `LPI2C1/2` (7–10), **SAI1–4 RX** (RX FIFO not yet
+modelled), `FlexCAN`, `LPTMR1` (15), `LPADC`, `eFlexPWM`, `RGPIO`. Their register
+models are correct and their tests pass, and a driver that moves data through them
+**by CPU** works — but a driver that configures eDMA and waits for it will **wait
+forever**, because nothing ever asks. That is a hang, not a silent wrong answer,
+so it is honest; it is still a gap.
 
 > **This is how the gap was missed for so long, and it is worth naming.** The
 > eDMA row said "TCD-driven mem-to-mem … START triggers" and the SAI row named
@@ -259,7 +302,7 @@ it is still a gap.
 
 | Needed for | Block | Base | Status |
 |-----------|-------|------|--------|
-| sai | **audio codec + SAI↔eDMA streaming** (the eDMA request path now EXISTS — see the eDMA row — but SAI does not yet drive its FIFO request line; only LPUART1/2 do) | — | the stock `sai` demo is a codec loopback (SAI1 + DMA3 ch0/1 muxed to SAI1 Tx/Rx + a WM8962-class I2C codec). Needs the SAI FIFO→eDMA hardware-request handshake *and* a codec model; the demo's assert is codec-dependent, so it is deferred rather than faked |
+| sai | **audio codec** (the SAI now DRIVES its TX FIFO→eDMA request line — `tests/imxrt1180-sai-dma` — so the TX-DMA half is done; RX FIFO + request line and a codec model remain) | — | the stock `sai` demo is a codec loopback (SAI1 + DMA3 ch0/1 muxed to SAI1 Tx/Rx + a WM8962-class I2C codec). TX-by-DMA works; still needs the SAI **RX** FIFO→eDMA path *and* a codec model; the demo's assert is codec-dependent, so it is deferred rather than faked |
 | usb_device_dfu | **USB host enumeration** | 0x42C80000 | controller inits + runs; no host attached, so the device does not enumerate (bridging to QEMU's USB host framework is future work) |
 | multicore_trigger | **boot-ROM AHAB container parse** | 0x38001000 | `BOARD_GetCore1ImageAddrSize` walks an AHAB container (tag 0x87) at FlexSPI+0x1000 for the CM7 image; our loader places the plain cm33 `.bin` in code-TCM and never populates that container. Needs boot-ROM container loading + the paired M7 image (the demo ships only the cm33 blob) — not faked |
 | motor-control frontier | ✅ **done** | — | eFlexPWM + EQDC + LPADC + PWM→XBAR→ADC sync + a calibrated dq PMSM plant: a FOC loop closes in emulation. Stretch: saturation/thermal effects + a time-varying load-torque profile |

@@ -86,8 +86,8 @@
 #define SEL_DIV_ADDR   (*(volatile uint32_t *)0x20001004u)
 #define SEL_MAGIC      0x53414931u   /* "SAI1" */
 
-#define CSR_FRF (1u << 16)   /* FIFO has room                    */
-#define CSR_FWF (1u << 17)   /* FIFO at/below watermark          */
+#define CSR_FRF (1u << 16)   /* FIFO request: drained to watermark */
+#define CSR_FWF (1u << 17)   /* FIFO warning: FIFO empty           */
 #define CSR_FEF (1u << 18)   /* FIFO error: over/underrun        */
 #define CSR_SR  (1u << 24)
 #define CSR_FR  (1u << 25)

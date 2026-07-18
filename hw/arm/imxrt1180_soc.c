@@ -812,6 +812,26 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
                            qdev_get_gpio_in(m33, sai_cfg[i].irq));
     }
 
+    /*
+     * SAI TX FIFO -> eDMA hardware request lines.  SRC numbers are the low byte of
+     * the kDmaNRequestMuxSaiKTx enums in PERI_DMA4.h (the high byte, 0x100/0x200, is
+     * the controller tag DMA_CH_MUX_SOURCE() masks off before it reaches CH_MUX[SRC]):
+     *
+     *     SAI1 Tx = 21  on eDMA3 -- SAI1 sits in the 0x443xxxxx AON window by eDMA3
+     *     SAI2 Tx = 180, SAI3 Tx = 182, SAI4 Tx = 184  on eDMA4
+     *
+     * So SAI1 wires to edma[0] (eDMA3) and SAI2..4 to edma[1] (eDMA4) -- the same
+     * split the CMSIS request-mux enum encodes in its 0x100/0x200 tag.
+     */
+    static const struct { unsigned edma; unsigned src; } sai_tx_dma[IMXRT1180_NUM_SAI] = {
+        { 0, 21 }, { 1, 180 }, { 1, 182 }, { 1, 184 },
+    };
+    for (int i = 0; i < IMXRT1180_NUM_SAI; i++) {
+        qdev_connect_gpio_out_named(DEVICE(&s->sai[i]), "dma-tx-req", 0,
+            qdev_get_gpio_in_named(DEVICE(&s->edma[sai_tx_dma[i].edma]),
+                                   "dma-req", sai_tx_dma[i].src));
+    }
+
     /* USBPHY1..2 — USB 2.0 HS PHY PLL readiness (lock reported once powered). */
     static const hwaddr usbphy_base[IMXRT1180_NUM_USBPHY] = {
         IMXRT1180_USBPHY1_BASE,
