@@ -39,6 +39,14 @@
 #define MCR_RTF 0x100
 #define MCR_RRF 0x200
 
+/* MDER (DMA Enable, PERI_LPI2C.h): TDDE bit 0, RDDE bit 1. */
+#define MDER_TDDE 0x1
+#define MDER_RDDE 0x2
+
+/* MFCR (FIFO Control, PERI_LPI2C.h): TXWATER 2:0, RXWATER 18:16. */
+#define MFCR_TXWATER(v) ((v) & 0x7u)
+#define MFCR_RXWATER(v) (((v) >> 16) & 0x7u)
+
 /* MSR bits. */
 #define MSR_TDF  0x1
 #define MSR_RDF  0x2
@@ -167,6 +175,29 @@ static void lpi2c_update_irq(IMXRT1180LPI2CState *s)
     qemu_set_irq(s->irq, (lpi2c_msr(s) & s->mier & MSR_INT_MASK) != 0);
 }
 
+/*
+ * Drive the eDMA hardware-request lines -- same handshake as LPSPI/LPUART/SAI.
+ *
+ * TX: the transmit path is a COMMAND FIFO executed synchronously on the MTDR
+ * write, so its level is always 0 and the TX request reduces to the enable bit
+ * while the module is on (the SDK's lpi2c_edma feeds command words this way).
+ *
+ * RX: the RX FIFO is real, so the RX request is a genuine watermark gate; a
+ * receive command pushes bytes, the line rises, and the serviced MRDR reads drop
+ * it.  The SDK leaves RXWATER = 0 (a request per received byte); a non-zero
+ * watermark is honoured.
+ */
+static void lpi2c_update_dma(IMXRT1180LPI2CState *s)
+{
+    bool men = s->mcr & MCR_MEN;
+    bool tx = men && (s->mder & MDER_TDDE);
+    bool rx = men && (s->mder & MDER_RDDE) &&
+              (s->rx_count > MFCR_RXWATER(s->mfcr));
+
+    qemu_set_irq(s->dma_tx_req, tx);
+    qemu_set_irq(s->dma_rx_req, rx);
+}
+
 static void lpi2c_rx_push(IMXRT1180LPI2CState *s, uint8_t byte)
 {
     if (s->rx_count < IMXRT1180_LPI2C_FIFO) {
@@ -223,6 +254,7 @@ static void lpi2c_command(IMXRT1180LPI2CState *s, uint32_t val)
         break;
     }
     lpi2c_update_irq(s);
+    lpi2c_update_dma(s);          /* a receive command may raise the RX request */
 }
 
 static uint64_t imxrt1180_lpi2c_read(void *opaque, hwaddr offset, unsigned size)
@@ -268,6 +300,7 @@ static uint64_t imxrt1180_lpi2c_read(void *opaque, hwaddr offset, unsigned size)
             s->rx_head = (s->rx_head + 1) % IMXRT1180_LPI2C_FIFO;
             s->rx_count--;
             lpi2c_update_irq(s);
+            lpi2c_update_dma(s);   /* draining the FIFO may lower the RX request */
         }
         return d;
     }
@@ -297,6 +330,7 @@ static void imxrt1180_lpi2c_write(void *opaque, hwaddr offset,
         }
         /* RTF (tx FIFO reset) is a no-op: our TX FIFO is always drained. */
         lpi2c_update_irq(s);
+        lpi2c_update_dma(s);       /* MEN and RX-FIFO-reset both move the lines */
         break;
     case LPI2C_MSR:
         s->msr_sticky &= ~(v & MSR_STICKY_MASK);   /* W1C */
@@ -308,6 +342,7 @@ static void imxrt1180_lpi2c_write(void *opaque, hwaddr offset,
         break;
     case LPI2C_MDER:
         s->mder = v;
+        lpi2c_update_dma(s);       /* TDDE/RDDE just changed */
         break;
     case LPI2C_MCFGR0 ... LPI2C_MCFGR3:
         s->mcfgr[(offset - LPI2C_MCFGR0) / 4] = v;
@@ -323,6 +358,7 @@ static void imxrt1180_lpi2c_write(void *opaque, hwaddr offset,
         break;
     case LPI2C_MFCR:
         s->mfcr = v;
+        lpi2c_update_dma(s);       /* RXWATER may have moved */
         break;
     case LPI2C_MTDR:
         if (s->mcr & MCR_MEN) {
@@ -356,6 +392,8 @@ static void imxrt1180_lpi2c_reset(DeviceState *dev)
     s->rx_head = s->rx_count = 0;
     s->active = false;
     qemu_set_irq(s->irq, 0);
+    qemu_set_irq(s->dma_tx_req, 0);
+    qemu_set_irq(s->dma_rx_req, 0);
 }
 
 static void imxrt1180_lpi2c_realize(DeviceState *dev, Error **errp)
@@ -366,6 +404,8 @@ static void imxrt1180_lpi2c_realize(DeviceState *dev, Error **errp)
                           TYPE_IMXRT1180_LPI2C, 0x1000);
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
     sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq);
+    qdev_init_gpio_out_named(dev, &s->dma_tx_req, "dma-tx-req", 1);
+    qdev_init_gpio_out_named(dev, &s->dma_rx_req, "dma-rx-req", 1);
     /*
      * NAME THE BUS AFTER THE INSTANCE.  Every LPI2C used to create a bus called
      * "i2c", so `-device tmp105` (with no bus=) attached to whichever one QEMU

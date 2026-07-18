@@ -25,6 +25,8 @@ struct IMXRT1180LPI2CState {
     /*< public >*/
     MemoryRegion iomem;
     qemu_irq irq;
+    qemu_irq dma_tx_req;           /* command FIFO -> eDMA hardware request line */
+    qemu_irq dma_rx_req;           /* RX FIFO -> eDMA hardware request line */
     I2CBus *bus;
 
     uint32_t mcr;                 /* Control */
