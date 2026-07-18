@@ -973,6 +973,35 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         }
     }
 
+    /*
+     * The higher LPSPI/LPI2C instances are eDMA4 sources (0x200-tagged in
+     * PERI_DMA4.h).  Same per-instance request logic as instances 1/2 above -- only
+     * the controller (eDMA4) and SRC differ.  The CMSIS header enumerates EXACTLY
+     * these; LPI2C4/5 have no request-mux entry and are not DMA sources on silicon,
+     * so they are (correctly) absent here.  s->lpspi[2..5]=LPSPI3..6,
+     * s->lpi2c[2]=LPI2C3, s->lpi2c[5]=LPI2C6.
+     */
+    static const struct { unsigned idx, tx, rx; } lpspi_e4[] = {
+        { 2, 12, 13 }, { 3, 14, 15 }, { 4, 167, 168 }, { 5, 169, 170 },
+    };
+    for (unsigned k = 0; k < ARRAY_SIZE(lpspi_e4); k++) {
+        DeviceState *sp = DEVICE(&s->lpspi[lpspi_e4[k].idx]);
+        qdev_connect_gpio_out_named(sp, "dma-tx-req", 0,
+            qdev_get_gpio_in_named(edma4, "dma-req", lpspi_e4[k].tx));
+        qdev_connect_gpio_out_named(sp, "dma-rx-req", 0,
+            qdev_get_gpio_in_named(edma4, "dma-req", lpspi_e4[k].rx));
+    }
+    static const struct { unsigned idx, tx, rx; } lpi2c_e4[] = {
+        { 2, 8, 9 }, { 5, 165, 166 },
+    };
+    for (unsigned k = 0; k < ARRAY_SIZE(lpi2c_e4); k++) {
+        DeviceState *ip = DEVICE(&s->lpi2c[lpi2c_e4[k].idx]);
+        qdev_connect_gpio_out_named(ip, "dma-tx-req", 0,
+            qdev_get_gpio_in_named(edma4, "dma-req", lpi2c_e4[k].tx));
+        qdev_connect_gpio_out_named(ip, "dma-rx-req", 0,
+            qdev_get_gpio_in_named(edma4, "dma-req", lpi2c_e4[k].rx));
+    }
+
     /* XBAR1 — signal crossbar (carries the eFlexPWM edge to the ADC). */
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->xbar1), errp)) {
         return;
