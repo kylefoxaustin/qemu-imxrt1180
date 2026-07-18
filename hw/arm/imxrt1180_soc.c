@@ -959,6 +959,20 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         }
     }
 
+    /*
+     * eFlexPWM1..4 per-submodule value-DMA request lines -> eDMA4.  On each reload,
+     * a submodule with DMAEN[VALDE] set asks the eDMA to refresh its VALx registers.
+     * SRC = low byte of kDma4RequestMuxPwmnWritek in PERI_DMA4.h (all 0x200 => eDMA4):
+     * PWM1 SM0..3 = 62..65, PWM2 = 70..73, PWM3 = 78..81, PWM4 = 86..89.
+     */
+    static const unsigned pwm_dma_src0[IMXRT1180_NUM_PWM] = { 62, 70, 78, 86 };
+    for (int i = 0; i < IMXRT1180_NUM_PWM; i++) {
+        for (int sm = 0; sm < IMXRT1180_PWM_NSM; sm++) {
+            qdev_connect_gpio_out_named(DEVICE(&s->pwm[i]), "dma-req", sm,
+                qdev_get_gpio_in_named(edma4, "dma-req", pwm_dma_src0[i] + sm));
+        }
+    }
+
     /* XBAR1 — signal crossbar (carries the eFlexPWM edge to the ADC). */
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->xbar1), errp)) {
         return;

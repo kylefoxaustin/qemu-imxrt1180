@@ -51,6 +51,7 @@
 #define R_STS       0x24
 #define R_INTEN     0x26
 #define R_DMAEN     0x28
+#define DMAEN_VALDE 0x0200      /* Value Registers DMA Enable (PERI_PWM.h bit 9) */
 #define R_TCTRL     0x2A        /* output trigger control (OUT_TRIG_EN[5:0]) */
 #define TCTRL_OUT_TRIG_EN 0x003F
 
@@ -162,6 +163,21 @@ static void pwm_sm_tick(void *opaque)
     pwm_update_irq(s, sm);
 
     /*
+     * Value-DMA request.  On silicon the reload is the value-DMA trigger: with
+     * DMAEN[VALDE] set, each reload asks the eDMA to refresh the (double-buffered)
+     * VALx registers for the next period.  Unlike the FIFO peripherals there is no
+     * fill level -- the request is the reload event itself -- so we assert the line
+     * HERE and let it fall when a VALx write lands (below), which is the eDMA's own
+     * minor-loop write clearing the request it was serving.  A qemu_irq_pulse would
+     * be gone before the eDMA's bottom half runs, so this must be a real level that
+     * the serviced write lowers.  (A CPU VALx write also lowers it -- an accepted
+     * approximation: "VALx was refreshed", by whoever did it.)
+     */
+    if (*smreg(s, sm, R_DMAEN) & DMAEN_VALDE) {
+        qemu_set_irq(s->dma_req[sm], 1);
+    }
+
+    /*
      * Output trigger: if any VALx compare is selected as a trigger source
      * (TCTRL.OUT_TRIG_EN), emit a pulse once per PWM period.  Routed through the
      * XBAR to the ADC for synchronised sampling.  (The exact intra-period
@@ -232,6 +248,10 @@ static void imxrt1180_pwm_write(void *opaque, hwaddr offset,
         for (int i = 0; i < 6; i++) {
             if (reg == val_off[i]) {
                 s->buf_val[sm][i] = v;       /* buffered until LDOK */
+                /* The value-DMA request (asserted at reload) is satisfied the
+                 * moment a VALx word is written -- the eDMA's own minor-loop write
+                 * lowers the line it was serving, one minor loop per reload. */
+                qemu_set_irq(s->dma_req[sm], 0);
                 return;
             }
         }
@@ -355,6 +375,7 @@ static void imxrt1180_pwm_reset(DeviceState *dev)
         ptimer_stop(s->timer[sm]);
         ptimer_transaction_commit(s->timer[sm]);
         qemu_set_irq(s->irq_sm[sm], 0);
+        qemu_set_irq(s->dma_req[sm], 0);
     }
     qemu_set_irq(s->irq_fault, 0);
 }
@@ -378,6 +399,7 @@ static void imxrt1180_pwm_realize(DeviceState *dev, Error **errp)
     }
     sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq_fault);
     qdev_init_gpio_out_named(dev, s->out_trig, "pwm-trig", IMXRT1180_PWM_NSM);
+    qdev_init_gpio_out_named(dev, s->dma_req, "dma-req", IMXRT1180_PWM_NSM);
 }
 
 static const VMStateDescription vmstate_imxrt1180_pwm = {
