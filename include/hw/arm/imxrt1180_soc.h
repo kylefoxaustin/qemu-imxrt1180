@@ -220,6 +220,11 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
  */
 #define IMXRT1180_CM7_TCM_BASE       0x303C0000
 #define IMXRT1180_CM7_TCM_SIZE       0x00080000
+/* The M7 sees its TCM split as ITCM @ local 0x0 and DTCM @ local 0x20000000
+ * (where cm7 SDK images link); the 512 KiB cm7_tcm is halved between them. */
+#define IMXRT1180_M7_ITCM_BASE       0x00000000
+#define IMXRT1180_M7_DTCM_BASE       0x20000000
+#define IMXRT1180_M7_TCM_HALF        0x00040000  /* 256 KiB each */
 
 /* Per-core architectural configuration (M33 and M7 differ). */
 typedef struct IMXRT1180CoreConfig {
@@ -282,6 +287,12 @@ struct IMXRT1180State {
     IMXRT1180MSGINTRState msgintr[6];                     /* message-interrupt routers */
     SDHCIState           usdhc[IMXRT1180_NUM_USDHC];      /* SD/MMC host (imx-usdhc)*/
     MemoryRegion         cm7_tcm;              /* M7 TCM (system view @0x303C…)*/
+    /* The M7's LOCAL view of its own TCM (ITCM @0x0, DTCM @0x20000000) + a
+     * background alias of the full SoC map.  Only in cpu_mem[M7]; M33 unaffected. */
+    MemoryRegion         m7_itcm;
+    MemoryRegion         m7_dtcm;
+    MemoryRegion         m7_bg;
+    bool                 boot_cm7;   /* boot the M7 (cm7 image) instead of the M33 */
 
     /* On-chip memories (CM33 view).  RAM-backed during bring-up. */
     MemoryRegion code_tcm;   /* ITCM  @ 0x0FFE0000 */

@@ -26,6 +26,7 @@
 #include "system/address-spaces.h" /* address_space_memory */
 #include "exec/memattrs.h"         /* MEMTXATTRS_UNSPECIFIED */
 #include "target/arm/cpu.h"        /* ARMCPU init_svtor */
+#include "hw/core/cpu.h"           /* cpu_reset / CPU() */
 #include "elf.h"                   /* EM_ARM / ELFDATA2LSB */
 #include "qom/object.h"
 
@@ -75,6 +76,25 @@ static bool imxrt1180_vt_plausible(hwaddr vt)
 static void imxrt1180_load_segment(IMXRT1180State *soc, uint32_t paddr,
                                    const uint8_t *data, uint32_t filesz)
 {
+    /*
+     * cm7 image: its segments are linked to the M7's LOCAL ITCM (0x0..) and DTCM
+     * (0x20000000..), not in the shared system view -- translate them to the two
+     * halves of the M7 TCM (global 0x303C0000) so the M7's per-core view finds them
+     * at local 0x0 / 0x20000000.
+     */
+    if (soc->boot_cm7) {
+        if (paddr < IMXRT1180_M7_TCM_HALF) {
+            paddr = IMXRT1180_CM7_TCM_BASE + paddr;
+        } else if (paddr >= IMXRT1180_M7_DTCM_BASE &&
+                   paddr < IMXRT1180_M7_DTCM_BASE + IMXRT1180_M7_TCM_HALF) {
+            paddr = IMXRT1180_CM7_TCM_BASE + IMXRT1180_M7_TCM_HALF +
+                    (paddr - IMXRT1180_M7_DTCM_BASE);
+        }
+        address_space_write(&address_space_memory, paddr, MEMTXATTRS_UNSPECIFIED,
+                            data, filesz);
+        return;
+    }
+
     struct { hwaddr base; } xip[] = {
         { IMXRT1180_FLEXSPI1_BASE },        /* non-secure XIP window */
         { IMXRT1180_FLEXSPI1_S_BASE },      /* secure alias of it    */
@@ -133,6 +153,12 @@ static uint32_t imxrt1180_load_elf_direct(IMXRT1180State *soc,
     return ldl_le_p(&eh->e_entry);
 }
 
+/* Re-read the M7's reset vector once its TCM image is in place (see boot_cm7). */
+static void imxrt1180_cm7_reset(void *opaque)
+{
+    cpu_reset(CPU(opaque));
+}
+
 /*
  * Load the firmware and pick the M33 boot vector.  armv7m_load_kernel ignores
  * the ELF entry, so approximate the boot ROM's VTOR set: SDK debug/RAM images
@@ -151,6 +177,24 @@ static void imxrt1180_load_and_boot(IMXRT1180State *soc, ARMCPU *m33,
     };
     bool is_elf;
     uint32_t entry = imxrt1180_load_elf_direct(soc, filename, &is_elf);
+
+    if (soc->boot_cm7) {
+        /*
+         * The cm7 image now lives in the M7 TCM.  The M7 has no TrustZone, so it
+         * resets with env->v7m.secure == 0 and reads its vector from
+         * vecbase[NS] == init_nsvtor, which defaults to 0 -- and the M7's per-core
+         * view maps 0x0 to its local ITCM (the first half of cm7_tcm), exactly
+         * where the cm7 vector table landed.  So no vector seeding is needed.
+         *
+         * But the image was written to cm7_tcm AFTER the M7's realize-time reset
+         * (which read an empty table), and QEMU's machine reset re-reads the vector
+         * only for the boot core arm_load_kernel registered.  Register the M7 the
+         * same way so it re-reads its now-populated vector at machine reset.
+         */
+        qemu_register_reset(imxrt1180_cm7_reset,
+                            soc->armv7m[IMXRT1180_CPU_M7].cpu);
+        return;
+    }
 
     if (!is_elf) {
         /*
@@ -214,6 +258,43 @@ static void imxrt1180_load_and_boot(IMXRT1180State *soc, ARMCPU *m33,
     imxrt1180_set_boot(m33, IMXRT1180_CODE_TCM_BASE);   /* fallback (raw .bin) */
 }
 
+/*
+ * A cm7 SDK image links code into the M7's local ITCM (0x0..), so it has a
+ * loadable segment below the M33 code TCM (0x0FFE0000) -- which no cm33 image ever
+ * has.  Detect that BEFORE the SoC realizes, so we can boot the M7 (power the M7,
+ * hold the M33) and load the image into the M7 TCM.
+ */
+static bool imxrt1180_kernel_is_cm7(const char *filename)
+{
+    g_autofree gchar *data = NULL;
+    gsize len = 0;
+
+    if (!g_file_get_contents(filename, &data, &len, NULL) ||
+        len < sizeof(Elf32_Ehdr)) {
+        return false;
+    }
+    const Elf32_Ehdr *eh = (const Elf32_Ehdr *)data;
+    if (memcmp(eh->e_ident, ELFMAG, SELFMAG) != 0 ||
+        eh->e_ident[EI_CLASS] != ELFCLASS32 ||
+        eh->e_ident[EI_DATA] != ELFDATA2LSB) {
+        return false;
+    }
+    uint32_t phoff     = ldl_le_p(&eh->e_phoff);
+    uint16_t phnum     = lduw_le_p(&eh->e_phnum);
+    uint16_t phentsize = lduw_le_p(&eh->e_phentsize);
+    for (uint16_t i = 0; i < phnum; i++) {
+        if ((gsize)phoff + (i + 1) * phentsize > len) {
+            break;
+        }
+        const Elf32_Phdr *ph = (const Elf32_Phdr *)(data + phoff + i * phentsize);
+        if (ldl_le_p(&ph->p_type) == PT_LOAD && ldl_le_p(&ph->p_filesz) &&
+            ldl_le_p(&ph->p_paddr) < IMXRT1180_M7_TCM_HALF) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static void mimxrt1180_evk_init(MachineState *machine)
 {
     IMXRT1180State *soc;
@@ -233,6 +314,12 @@ static void mimxrt1180_evk_init(MachineState *machine)
 
     dev = DEVICE(soc);
     qdev_prop_set_string(dev, "part", "MIMXRT1189");
+    /* Decide the boot core BEFORE realize (it sets the CPUs' power state): a cm7
+     * image boots the M7, everything else the M33. */
+    if (machine->kernel_filename &&
+        imxrt1180_kernel_is_cm7(machine->kernel_filename)) {
+        qdev_prop_set_bit(dev, "boot-cm7", true);
+    }
     qdev_connect_clock_in(dev, "sysclk", sysclk);
     qdev_connect_clock_in(dev, "refclk", refclk);
     sysbus_realize(SYS_BUS_DEVICE(soc), &error_fatal);

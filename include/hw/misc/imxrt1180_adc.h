@@ -40,15 +40,24 @@ struct IMXRT1180ADCState {
 
     uint32_t regs[IMXRT1180_ADC_SIZE / 4];
     IMXRT1180ADCFifo fifo[IMXRT1180_ADC_NFIFO];
-    uint16_t channel_input[32];   /* per-channel sample code (driven by a plant) */
+    /*
+     * Per-channel sample code driven by a plant, indexed [side][channel]: side 0
+     * is the A-side mux, side 1 the B-side.  A DualSingleEndBothSide command
+     * converts BOTH sides of a channel number at once (A -> FIFO0, B -> FIFO1),
+     * which is how mc_pmsm reads Ia on A5 and Ib on B5 in a single command.
+     */
+    uint16_t channel_input[2][32];
 };
 
+#define IMXRT1180_ADC_SIDE_A 0
+#define IMXRT1180_ADC_SIDE_B 1
+
 /*
- * Set the sample code a channel returns on its next conversion.  A virtual-motor
- * plant calls this to inject phase-current samples; unset channels read back the
- * neutral mid-scale placeholder.
+ * Set the sample code a channel's A-side (side 0) or B-side (side 1) mux returns
+ * on its next conversion.  A virtual-motor plant calls this to inject phase-current
+ * samples; unset (side,channel) pairs read back the neutral mid-scale placeholder.
  */
 void imxrt1180_adc_set_channel_input(IMXRT1180ADCState *s, unsigned ch,
-                                     uint16_t code);
+                                     unsigned side, uint16_t code);
 
 #endif /* HW_MISC_IMXRT1180_ADC_H */

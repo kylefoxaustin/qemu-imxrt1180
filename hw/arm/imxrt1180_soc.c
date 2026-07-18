@@ -186,15 +186,31 @@ static void imxrt1180_adc_trig_fanout(void *opaque, int line, int level)
     }
 }
 
-/* Create a register-backed readiness block (see imxrt1180_periphrdy). */
-static void imxrt1180_add_rdy(IMXRT1180State *s, const char *name, hwaddr base,
-                              uint32_t size)
+/*
+ * Create a register-backed readiness block (see imxrt1180_periphrdy).  With
+ * rdy_mask != 0 the register at rdy_off reads back with those bits forced set --
+ * for status registers whose "settled/ready" bit a virtual block satisfies
+ * immediately (e.g. DCDC REG0[STS_DC_OK]: the emulated regulator is always
+ * settled, exactly as VREF reports its reference stable).
+ */
+static void imxrt1180_add_rdy_bit(IMXRT1180State *s, const char *name,
+                                  hwaddr base, uint32_t size,
+                                  uint32_t rdy_off, uint32_t rdy_mask)
 {
     DeviceState *d = qdev_new(TYPE_IMXRT1180_PERIPHRDY);
     qdev_prop_set_uint32(d, "mmsize", size);
+    if (rdy_mask) {
+        qdev_prop_set_uint32(d, "rdy-off", rdy_off);
+        qdev_prop_set_uint32(d, "rdy-mask", rdy_mask);
+    }
     object_property_add_child(OBJECT(s), name, OBJECT(d));
     sysbus_realize_and_unref(SYS_BUS_DEVICE(d), &error_fatal);
     sysbus_mmio_map(SYS_BUS_DEVICE(d), 0, base);
+}
+static void imxrt1180_add_rdy(IMXRT1180State *s, const char *name, hwaddr base,
+                              uint32_t size)
+{
+    imxrt1180_add_rdy_bit(s, name, base, size, 0, 0);
 }
 
 
@@ -337,6 +353,16 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
      * map.  cpu0 (M33) is the boot core; cpu1 (M7) is released by the M33 and
      * is wired in a later step (num_cpus == 1 for the MVP).
      */
+    /*
+     * The M7 TCM (system view @0x303C0000) -- created before the CPU loop so the
+     * M7's per-core view can alias its halves at local 0x0 / 0x20000000 while the
+     * container is built (before the M7 CPU realizes).
+     */
+    memory_region_init_ram(&s->cm7_tcm, OBJECT(dev), "imxrt1180.cm7-tcm",
+                           IMXRT1180_CM7_TCM_SIZE, &error_fatal);
+    memory_region_add_subregion(system_memory, IMXRT1180_CM7_TCM_BASE,
+                                &s->cm7_tcm);
+
     ncpu = cfg->num_cpus ? cfg->num_cpus : 1;
     if (ncpu > IMXRT1180_MAX_CPUS) {
         ncpu = IMXRT1180_MAX_CPUS;
@@ -349,23 +375,52 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         object_initialize_child(OBJECT(dev), cname, &s->armv7m[i], TYPE_ARMV7M);
         cpudev = DEVICE(&s->armv7m[i]);
 
-        memory_region_init_alias(&s->cpu_mem[i], OBJECT(dev), view,
-                                 system_memory, 0, UINT64_MAX);
+        if (i == IMXRT1180_CPU_M7) {
+            /*
+             * The M7 gets its OWN view: the full SoC map as a background, with its
+             * local ITCM @0x0 and DTCM @0x20000000 (the two halves of cm7_tcm)
+             * overlaid on top -- where cm7 SDK images link.  Built only for the M7
+             * (held in reset by default), so the M33 and its tests are untouched.
+             */
+            memory_region_init(&s->cpu_mem[i], OBJECT(dev), view, UINT64_MAX);
+            memory_region_init_alias(&s->m7_bg, OBJECT(dev), "imxrt1180-m7-bg",
+                                     system_memory, 0, UINT64_MAX);
+            memory_region_add_subregion_overlap(&s->cpu_mem[i], 0, &s->m7_bg, 0);
+            memory_region_init_alias(&s->m7_itcm, OBJECT(dev), "imxrt1180-m7-itcm",
+                                     &s->cm7_tcm, 0, IMXRT1180_M7_TCM_HALF);
+            memory_region_add_subregion_overlap(&s->cpu_mem[i],
+                                    IMXRT1180_M7_ITCM_BASE, &s->m7_itcm, 1);
+            memory_region_init_alias(&s->m7_dtcm, OBJECT(dev), "imxrt1180-m7-dtcm",
+                                     &s->cm7_tcm, IMXRT1180_M7_TCM_HALF,
+                                     IMXRT1180_M7_TCM_HALF);
+            memory_region_add_subregion_overlap(&s->cpu_mem[i],
+                                    IMXRT1180_M7_DTCM_BASE, &s->m7_dtcm, 1);
+        } else {
+            memory_region_init_alias(&s->cpu_mem[i], OBJECT(dev), view,
+                                     system_memory, 0, UINT64_MAX);
+        }
 
         qdev_prop_set_uint32(cpudev, "num-irq",       cfg->num_irq);
         qdev_prop_set_uint8 (cpudev, "num-prio-bits", cfg->core[i].num_prio_bits);
         qdev_prop_set_string(cpudev, "cpu-type",      cfg->core[i].cpu_type);
         qdev_prop_set_bit   (cpudev, "enable-bitband", false);
         /*
-         * Reset reads the vector table (initial SP + reset PC) from init-svtor.
-         * The SDK's default CM33 debug/RAM images link their vector table to
-         * the code TCM (0x0FFE0000); FlexSPI-NOR XIP boot (0x28000000) needs the
-         * boot-ROM container parse and is a follow-on.  Point reset at code TCM
-         * so the stock SDK images boot directly.
+         * Reset reads the vector table (initial SP + reset PC) from a vecbase.
+         * The M33 is secure and reads vecbase[S] == init_svtor, pointed at its
+         * code TCM (0x0FFE0000) where SDK debug/RAM images link.  The M7 has no
+         * TrustZone, so it resets with env->v7m.secure == 0 and reads
+         * vecbase[NS] == init_nsvtor (default 0) -- its per-core view maps 0x0 to
+         * its local ITCM, exactly where a cm7 image's vector table lands, so it
+         * needs no init-svtor (which is M_SECURITY-gated and unsettable here).
+         * Only the boot core runs; the other is held (on silicon the M33 releases
+         * the M7 via SRC/BLK_CTRL, but a standalone cm7 image has no M33 to do so).
          */
-        qdev_prop_set_uint32(cpudev, "init-svtor",    IMXRT1180_CODE_TCM_BASE);
-        if (i > 0) {
-            qdev_prop_set_bit(cpudev, "start-powered-off", true);
+        {
+            unsigned boot = s->boot_cm7 ? IMXRT1180_CPU_M7 : IMXRT1180_CPU_M33;
+            if (i != IMXRT1180_CPU_M7) {
+                qdev_prop_set_uint32(cpudev, "init-svtor", IMXRT1180_CODE_TCM_BASE);
+            }
+            qdev_prop_set_bit(cpudev, "start-powered-off", i != boot);
         }
         qdev_connect_clock_in(cpudev, "cpuclk", s->sysclk);
         qdev_connect_clock_in(cpudev, "refclk", s->refclk);
@@ -574,12 +629,8 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         sysbus_mmio_map(SYS_BUS_DEVICE(&s->rgpio[i]), 0, rgpio_base[i]);
     }
 
-    /* Cortex-M7 TCM in the system (M33) view — the M33 loads/clears the M7
-     * image here; a system-view M7 boot image lives in this window. */
-    memory_region_init_ram(&s->cm7_tcm, OBJECT(dev), "imxrt1180.cm7-tcm",
-                           IMXRT1180_CM7_TCM_SIZE, &error_fatal);
-    memory_region_add_subregion(system_memory, IMXRT1180_CM7_TCM_BASE,
-                                &s->cm7_tcm);
+    /* (cm7_tcm is created before the CPU loop above, so the M7 per-core view can
+     * alias its halves.) */
 
     /* SRC + BLK_CTRL_S_AONMIX — the M33 releases the M7 through these. */
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->src), errp)) {
@@ -1158,10 +1209,19 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     }
     imxrt1180_add_rdy(s, "flexio1", 0x425C0000, 0x1000);  /* flexible I/O engine */
     imxrt1180_add_rdy(s, "flexio2", 0x425D0000, 0x1000);
+    /*
+     * DCDC buck regulator (0x44520000).  fsl_dcdc's boot/setpoint helpers spin on
+     * REG0[STS_DC_OK] (bit 31) waiting for the converter to settle -- an infinite
+     * loop against an unmodelled block.  The virtual regulator is always settled,
+     * so force STS_DC_OK; other REG* fields are register-backed.
+     */
+    imxrt1180_add_rdy_bit(s, "dcdc", 0x44520000, 0x1000,
+                          0 /* REG0 */, 0x80000000 /* STS_DC_OK */);
 }
 
 static const Property imxrt1180_soc_properties[] = {
     DEFINE_PROP_STRING("part", IMXRT1180State, part),
+    DEFINE_PROP_BOOL("boot-cm7", IMXRT1180State, boot_cm7, false),
 };
 
 static void imxrt1180_soc_class_init(ObjectClass *oc, const void *data)

@@ -161,14 +161,26 @@ static void motor_step(void *opaque)
     double ic = -0.5 * ialpha - SQRT3_2 * ibeta;
 
     if (s->adc_a) {
-        imxrt1180_adc_set_channel_input(s->adc_a, CH_PHASE_A, current_to_code(ia));
-        imxrt1180_adc_set_channel_input(s->adc_a, CH_PHASE_B, current_to_code(ib));
-        /* The bus voltage the plant actually drives the phases with. */
-        imxrt1180_adc_set_channel_input(s->adc_a, CH_UDCB,
-                                        voltage_to_code(M_VBUS));
+        uint16_t code_ia = current_to_code(ia);
+        uint16_t code_ib = current_to_code(ib);
+        uint16_t code_ud = voltage_to_code(M_VBUS);   /* bus V the plant applies */
+        /* A-side single-ended mapping (the hand-written M33 FOC test reads these:
+         * Ia on ch5, Ib on ch6, UDCB on ch4). */
+        imxrt1180_adc_set_channel_input(s->adc_a, CH_PHASE_A, IMXRT1180_ADC_SIDE_A, code_ia);
+        imxrt1180_adc_set_channel_input(s->adc_a, CH_PHASE_B, IMXRT1180_ADC_SIDE_A, code_ib);
+        imxrt1180_adc_set_channel_input(s->adc_a, CH_UDCB,    IMXRT1180_ADC_SIDE_A, code_ud);
+        /*
+         * The stock mc_pmsm cm7 demo reads Ia/Ib as the A/B sides of ONE channel
+         * (ADC1 CMD1 = DualSingleEndBothSide on ch5: A5=Ia -> RESFIFO[0],
+         * B5=Ib -> RESFIFO[1]) and UDCB on B4.  Drive those B-side muxes too.
+         */
+        imxrt1180_adc_set_channel_input(s->adc_a, CH_PHASE_A, IMXRT1180_ADC_SIDE_B, code_ib);
+        imxrt1180_adc_set_channel_input(s->adc_a, CH_UDCB,    IMXRT1180_ADC_SIDE_B, code_ud);
     }
     if (s->adc_c) {
-        imxrt1180_adc_set_channel_input(s->adc_c, CH_PHASE_C, current_to_code(ic));
+        /* mc_pmsm: ADC2 CMD1 = DualSingleEndBothSide on ch2, A2 = Ic -> RESFIFO[0]. */
+        imxrt1180_adc_set_channel_input(s->adc_c, CH_PHASE_C, IMXRT1180_ADC_SIDE_A,
+                                        current_to_code(ic));
     }
 
     /* Encoder position from the mechanical angle. */

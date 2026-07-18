@@ -178,7 +178,15 @@ honest gaps). Working today:
   request path (every trigger shape, both controllers), each gate mutation-proven.
 - **FOC frontier**: eFlexPWM + EQDC + LPADC + PWM→XBAR→ADC sync + a calibrated dq
   PMSM plant. Value-verified against first-principles goldens (phase current
-  matches Ohm's law to one ADC count).
+  matches Ohm's law to one ADC count). The LPADC models the **A/B-side dual
+  conversion** (`DualSingleEndBothSide`: A-side→RESFIFO0, B-side→RESFIFO1) the
+  `mc_pmsm` demo reads Ia/Ib with; the plant drives both mux sides (`tests/
+  imxrt1180-adc-ab`, mutation-proven).
+- **Cortex-M7 boot**: opt-in `boot-cm7` (auto-detected from a cm7 ELF) boots the
+  M7 with its own per-core view (ITCM@0x0 + DTCM@0x20000000 + SoC background),
+  holding the M33. The **stock cm7 `mc_pmsm/pmsm_enc` FOC demo boots and runs its
+  control loop** — DCDC/FBB/LPADC-cal unblocked, real LPADC VERID (`0x02002C1B`).
+  M33 machine + tests untouched (`tests/imxrt1180-cm7boot`, mutation-proven).
 - **Ethernet (NETC/ENETC)**: real L2 over a QEMU socket netdev; 1180↔1180 verified
   byte-exact.
 - **FlexSPI NOR**: `rom_device` XIP window + a real `m25p80`; storage-write-verified
@@ -187,8 +195,9 @@ honest gaps). Working today:
 
 Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is
 `0x88B6` on mcast `230.0.0.9:31337`); NETC L2 switch path; the ASRC sample-rate-
-converter data path (its Audio-PLL + codec blockers are now done); LPADC A/B
-side mux (blocks the stock `mc_pmsm` FOC demo).
+converter data path (its Audio-PLL + codec blockers are now done). The cm7 FOC
+demo boots and runs; closing the loop against the plant on the M7 (it idles
+awaiting a FreeMASTER "run" command over LPUART1) is the next step.
 
 ## Fleet
 

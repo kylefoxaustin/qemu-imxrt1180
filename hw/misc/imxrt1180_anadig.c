@@ -32,6 +32,8 @@
 #define ANADIG_AUDIO_PLL_BASE 0x4280
 #define ANADIG_AUDIO_PLL_END  0x42C0
 #define PLL_STABLE       0x20000000u   /* *_PLL_CTRL   bit 29                */
+#define PMU_BIAS_CTRL2_WB_EN 0x01000000u /* PMU_BIAS_CTRL2 @0x4610 bit 24    */
+#define PMU_BIAS_CTRL2_WB_OK 0x04000000u /* PMU_BIAS_CTRL2 @0x4610 bit 26    */
 
 /* Per-PFD (n=0..3, 8 bits each): STABLE = 0x40<<(n*8), CLKGATE = 0x80<<(n*8). */
 static uint32_t anadig_pfd_status(uint32_t v)
@@ -75,6 +77,14 @@ static uint32_t imxrt1180_anadig_status(hwaddr offset, uint32_t v)
          * before it (re)asserts POWERUP), assuming the boot ROM already brought
          * the PLL up.  Instant lock. */
         return v | PLL_STABLE;
+    case 0x4610:                   /* PMU_BIAS_CTRL2: body-bias network */
+        /* PMU_EnableFBB() enables the well-bias network (WB_EN, bit 24) then
+         * spins on WB_OK (bit 26).  The virtual bias network settles instantly,
+         * so report WB_OK whenever WB_EN is set (as the PLLs report lock). */
+        if (v & PMU_BIAS_CTRL2_WB_EN) {
+            v |= PMU_BIAS_CTRL2_WB_OK;
+        }
+        return v;
     default:                       /* PFD regs handled in read (relock state) */
         return v;
     }

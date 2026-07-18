@@ -52,6 +52,7 @@
 #define CTRL_ADCEN     0x00000001
 #define CTRL_RST       0x00000002
 #define CTRL_CAL_REQ   0x00000008
+#define CTRL_CALOFS    0x00000010
 #define CTRL_RSTFIFO0  0x00000100
 #define CTRL_RSTFIFO1  0x00000200
 /* STAT bits. */
@@ -74,6 +75,16 @@
 #define TCTRL_TCMD_MASK  0x0F000000
 #define FCTRL_FWMARK_SHIFT 16
 #define FCTRL_FWMARK_MASK  0x000F0000
+#define CMDL_ADCH_MASK   0x0000001F   /* A-side channel                        */
+#define CMDL_CTYPE_SHIFT 5
+#define CMDL_CTYPE_MASK  0x00000060   /* 0=SingleA 1=SingleB 2=Diff 3=DualBoth */
+#define CMDL_ALTB_ADCH_SHIFT 16
+#define CMDL_ALTB_ADCH_MASK  0x001F0000   /* alternate B-side channel          */
+#define CMDL_ALTBEN      0x00200000   /* use ALTB_ADCH for the B side          */
+#define CTYPE_SINGLE_A   0
+#define CTYPE_SINGLE_B   1
+#define CTYPE_DIFF       2
+#define CTYPE_DUAL_BOTH  3
 #define CMDH_LOOP_SHIFT  16
 #define CMDH_LOOP_MASK   0x000F0000
 #define CMDH_NEXT_SHIFT  24
@@ -82,6 +93,7 @@
 #define RESFIFO_TSRC_SHIFT 16
 #define RESFIFO_LOOPCNT_SHIFT 20
 #define GCR_RDY          0x01000000
+#define GCC_RDY          0x01000000    /* GCC[n] gain-coefficient ready (bit 24) */
 
 /* Un-energised mid-scale placeholder (no analog front-end / no plant). */
 #define ADC_RESULT_PLACEHOLDER 0x8000
@@ -153,6 +165,31 @@ static uint32_t adc_fifo_pop(IMXRT1180ADCState *s, int f)
     return v;
 }
 
+/*
+ * One (side, channel) sample: the plant's injected code, or the neutral
+ * placeholder (logged once) when nothing drives that side of the channel.
+ */
+static uint16_t adc_sample(IMXRT1180ADCState *s, unsigned side, unsigned ch)
+{
+    uint16_t code = s->channel_input[side][ch & 0x1F];
+    if (code == ADC_RESULT_PLACEHOLDER && !s->no_afe_logged) {
+        s->no_afe_logged = true;
+        qemu_log_mask(LOG_UNIMP, "%s: no plant drives channel %u (%c-side) -- result "
+            "is a fixed mid-scale placeholder (flagged)\n", __func__, ch,
+            side == IMXRT1180_ADC_SIDE_A ? 'A' : 'B');
+    }
+    return code;
+}
+
+static void adc_push_result(IMXRT1180ADCState *s, int fifo, int t, unsigned loop,
+                            uint16_t code)
+{
+    uint32_t entry = RESFIFO_VALID |
+                     ((uint32_t)t << RESFIFO_TSRC_SHIFT) |
+                     ((uint32_t)loop << RESFIFO_LOOPCNT_SHIFT) | code;
+    adc_fifo_push(s, fifo, entry);
+}
+
 /* Run the command chain for trigger source t. */
 static void adc_run_trigger(IMXRT1180ADCState *s, int t)
 {
@@ -167,19 +204,39 @@ static void adc_run_trigger(IMXRT1180ADCState *s, int t)
         uint32_t cmdh = REG(s, R_CMD0 + 8 * (cmd - 1) + 4);
         unsigned loops = ((cmdh & CMDH_LOOP_MASK) >> CMDH_LOOP_SHIFT) + 1;
 
-        unsigned ch = REG(s, R_CMD0 + 8 * (cmd - 1)) & 0x1F;   /* CMDL.ADCH */
-        uint16_t sample = s->channel_input[ch];                /* plant, or 0x8000 */
-        if (sample == ADC_RESULT_PLACEHOLDER && !s->no_afe_logged) {
-            s->no_afe_logged = true;
-            qemu_log_mask(LOG_UNIMP, "%s: no plant drives channel %u -- result is "
-                "a fixed mid-scale placeholder (flagged)\n", __func__, ch);
-        }
+        uint32_t cmdl  = REG(s, R_CMD0 + 8 * (cmd - 1));
+        unsigned ctype = (cmdl & CMDL_CTYPE_MASK) >> CMDL_CTYPE_SHIFT;
+        unsigned cha   = cmdl & CMDL_ADCH_MASK;                 /* A-side channel */
+        unsigned chb   = (cmdl & CMDL_ALTBEN)                   /* B-side channel */
+                         ? (cmdl & CMDL_ALTB_ADCH_MASK) >> CMDL_ALTB_ADCH_SHIFT
+                         : cha;
         for (unsigned l = 0; l < loops; l++) {
-            uint32_t entry = RESFIFO_VALID |
-                             ((uint32_t)t << RESFIFO_TSRC_SHIFT) |
-                             ((uint32_t)l << RESFIFO_LOOPCNT_SHIFT) |
-                             sample;
-            adc_fifo_push(s, 0, entry);   /* single-ended results -> FIFO0 */
+            /*
+             * Result FIFO routing by CTYPE: an A-side conversion lands in FIFO0,
+             * a B-side conversion in FIFO1.  A DualSingleEndBothSide command
+             * converts both sides at once and pushes ONE result to EACH FIFO --
+             * how mc_pmsm reads Ia (A-side -> RESFIFO[0]) and Ib (B-side ->
+             * RESFIFO[1]) from a single command.  A differential command yields
+             * A-B as one FIFO0 result.
+             */
+            switch (ctype) {
+            case CTYPE_SINGLE_B:
+                adc_push_result(s, 1, t, l, adc_sample(s, IMXRT1180_ADC_SIDE_B, chb));
+                break;
+            case CTYPE_DIFF:
+                adc_push_result(s, 0, t, l,
+                    (uint16_t)((int32_t)adc_sample(s, IMXRT1180_ADC_SIDE_A, cha) -
+                               (int32_t)adc_sample(s, IMXRT1180_ADC_SIDE_B, chb)));
+                break;
+            case CTYPE_DUAL_BOTH:
+                adc_push_result(s, 0, t, l, adc_sample(s, IMXRT1180_ADC_SIDE_A, cha));
+                adc_push_result(s, 1, t, l, adc_sample(s, IMXRT1180_ADC_SIDE_B, chb));
+                break;
+            case CTYPE_SINGLE_A:
+            default:
+                adc_push_result(s, 0, t, l, adc_sample(s, IMXRT1180_ADC_SIDE_A, cha));
+                break;
+            }
         }
         cmd = (cmdh & CMDH_NEXT_MASK) >> CMDH_NEXT_SHIFT;   /* 0 = end of chain */
     }
@@ -209,7 +266,18 @@ static uint64_t imxrt1180_adc_read(void *opaque, hwaddr offset, unsigned size)
     }
 
     if (offset == R_VERID) {
-        return 0x02090000;               /* LPADC v2.9 */
+        /*
+         * RM 80.6.2 register summary: VERID resets to 0x0200_2C1B (v2.0).  The
+         * FEATURE bits are load-bearing: NUM_SEC (bit 11) advertises two
+         * simultaneous single-ended conversions and DIFFEN (bit 1) differential
+         * support -- LPADC_SetConvCommandConfig asserts on both before it will
+         * accept the FOC demo's kLPADC_SampleChannelDualSingleEndBothSide (A/B)
+         * command.  A zero-feature VERID (the old 0x02090000) trips that assert.
+         */
+        return 0x02002C1B;
+    }
+    if (offset == R_PARAM) {
+        return 0x0F041008;               /* RM 80.6.3: PARAM reset value */
     }
     if (offset >= R_RESFIFO0 && offset < R_RESFIFO0 + 4 * IMXRT1180_ADC_NFIFO) {
         int f = (offset - R_RESFIFO0) / 4;
@@ -252,10 +320,22 @@ static void imxrt1180_adc_write(void *opaque, hwaddr offset,
         if (v & CTRL_RSTFIFO1) {
             s->fifo[1].head = s->fifo[1].count = 0;
         }
-        if (v & CTRL_CAL_REQ) {                   /* calibration completes now */
+        if (v & CTRL_CAL_REQ) {                   /* auto-calibration completes now */
             REG(s, R_STAT) |= STAT_CAL_RDY;
             REG(s, R_GCR0)     = GCR_RDY | 0x10000;   /* unity gain, ready */
             REG(s, R_GCR0 + 4) = GCR_RDY | 0x10000;
+            /* GCC[n] is the hardware-produced gain coefficient LPADC_Finish-
+             * AutoCalibration polls for RDY then reads: gain = 131072/(131072 -
+             * GAIN_CAL).  A zero GAIN_CAL yields exactly unity, so a virtual ADC
+             * with no gain error reports RDY with GAIN_CAL = 0. */
+            REG(s, R_GCC0)     = GCC_RDY;
+            REG(s, R_GCC0 + 4) = GCC_RDY;
+        }
+        if (v & CTRL_CALOFS) {                     /* offset calibration completes now */
+            /* LPADC_DoOffsetCalibration sets CTRL[CALOFS] then spins on
+             * STAT[CAL_RDY]; the virtual ADC has nothing to trim, so report
+             * ready immediately (as CAL_REQ does for the gain calibration). */
+            REG(s, R_STAT) |= STAT_CAL_RDY;
         }
         /* Store CTRL with the self-clearing bits masked off. */
         REG(s, R_CTRL) = v & ~(CTRL_RST | CTRL_RSTFIFO0 | CTRL_RSTFIFO1 |
@@ -337,8 +417,10 @@ static void imxrt1180_adc_reset(DeviceState *dev)
     for (int f = 0; f < IMXRT1180_ADC_NFIFO; f++) {
         s->fifo[f].head = s->fifo[f].count = 0;
     }
-    for (int c = 0; c < 32; c++) {
-        s->channel_input[c] = ADC_RESULT_PLACEHOLDER;   /* neutral until a plant */
+    for (int side = 0; side < 2; side++) {
+        for (int c = 0; c < 32; c++) {
+            s->channel_input[side][c] = ADC_RESULT_PLACEHOLDER; /* neutral until a plant */
+        }
     }
     s->no_afe_logged = false;
     qemu_set_irq(s->irq, 0);
@@ -348,10 +430,10 @@ static void imxrt1180_adc_reset(DeviceState *dev)
 }
 
 void imxrt1180_adc_set_channel_input(IMXRT1180ADCState *s, unsigned ch,
-                                     uint16_t code)
+                                     unsigned side, uint16_t code)
 {
-    if (ch < 32) {
-        s->channel_input[ch] = code;
+    if (ch < 32 && side < 2) {
+        s->channel_input[side][ch] = code;
     }
 }
 
@@ -384,13 +466,13 @@ static const VMStateDescription vmstate_imxrt1180_adc_fifo = {
 
 static const VMStateDescription vmstate_imxrt1180_adc = {
     .name = TYPE_IMXRT1180_ADC,
-    .version_id = 1,
-    .minimum_version_id = 1,
+    .version_id = 2,
+    .minimum_version_id = 2,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32_ARRAY(regs, IMXRT1180ADCState, IMXRT1180_ADC_SIZE / 4),
         VMSTATE_STRUCT_ARRAY(fifo, IMXRT1180ADCState, IMXRT1180_ADC_NFIFO, 1,
                              vmstate_imxrt1180_adc_fifo, IMXRT1180ADCFifo),
-        VMSTATE_UINT16_ARRAY(channel_input, IMXRT1180ADCState, 32),
+        VMSTATE_UINT16_2DARRAY(channel_input, IMXRT1180ADCState, 2, 32),
         VMSTATE_BOOL(no_afe_logged, IMXRT1180ADCState),
         VMSTATE_END_OF_LIST()
     },
