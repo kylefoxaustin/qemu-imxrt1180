@@ -41,6 +41,14 @@
 #define CR_RTF 0x100
 #define CR_RRF 0x200
 
+/* DER (DMA Enable, PERI_LPSPI.h): TDDE bit 0, RDDE bit 1. */
+#define DER_TDDE 0x1
+#define DER_RDDE 0x2
+
+/* FCR (FIFO Control, PERI_LPSPI.h): TXWATER 3:0, RXWATER 19:16. */
+#define FCR_TXWATER(v) ((v) & 0xFu)
+#define FCR_RXWATER(v) (((v) >> 16) & 0xFu)
+
 /* SR bits. */
 
 /*
@@ -118,6 +126,33 @@ static void lpspi_update_irq(IMXRT1180LPSPIState *s)
     qemu_set_irq(s->irq, (lpspi_sr(s) & s->ier & SR_INT_MASK) != 0);
 }
 
+/*
+ * Drive the eDMA hardware-request lines.  Same handshake the LPUART/SAI use: the
+ * line is a level, re-evaluated wherever the FIFO level or a DMA-enable bit
+ * changes, and the eDMA services one minor loop per assertion.
+ *
+ * TX: no TX FIFO is modelled (transfers run synchronously on the TDR write, so the
+ * TX level is always 0 -- at or below any watermark).  The TX request therefore
+ * reduces to the enable bit while the module is on, exactly as it does for the
+ * synchronous-TX LPUART.  (Were a TX FIFO modelled, the condition would be
+ * tx_count <= FCR_TXWATER; the SDK sets TXWATER = fifoSize-1, which the empty FIFO
+ * always satisfies -- same observable.)
+ *
+ * RX: the RX FIFO is real, so this is a genuine watermark gate.  The SDK's
+ * lpspi_edma leaves RXWATER = 0, i.e. "a request per received word"; a driver that
+ * sets a non-zero RX watermark is honoured too.
+ */
+static void lpspi_update_dma(IMXRT1180LPSPIState *s)
+{
+    bool men = s->cr & CR_MEN;
+    bool tx = men && (s->der & DER_TDDE);
+    bool rx = men && (s->der & DER_RDDE) &&
+              (s->rx_count > FCR_RXWATER(s->fcr));
+
+    qemu_set_irq(s->dma_tx_req, tx);
+    qemu_set_irq(s->dma_rx_req, rx);
+}
+
 static void lpspi_set_cs(IMXRT1180LPSPIState *s, int pcs, bool select)
 {
     /* CS lines are active-low by default; assert = drive 0. */
@@ -162,6 +197,7 @@ static void lpspi_transfer(IMXRT1180LPSPIState *s, uint32_t tx)
         s->sr_sticky |= SR_TCF;
     }
     lpspi_update_irq(s);
+    lpspi_update_dma(s);          /* a received word may raise the RX request */
 }
 
 static uint64_t imxrt1180_lpspi_read(void *opaque, hwaddr offset, unsigned size)
@@ -209,6 +245,7 @@ static uint64_t imxrt1180_lpspi_read(void *opaque, hwaddr offset, unsigned size)
             s->rx_head = (s->rx_head + 1) % IMXRT1180_LPSPI_FIFO;
             s->rx_count--;
             lpspi_update_irq(s);
+            lpspi_update_dma(s);   /* draining the FIFO may lower the RX request */
         }
         return d;
     }
@@ -236,6 +273,7 @@ static void imxrt1180_lpspi_write(void *opaque, hwaddr offset,
             s->rx_head = s->rx_count = 0;
         }
         lpspi_update_irq(s);
+        lpspi_update_dma(s);       /* MEN and RX-FIFO-reset both move the lines */
         break;
     case LPSPI_SR:
         s->sr_sticky &= ~(v & SR_STICKY_MASK);
@@ -247,6 +285,7 @@ static void imxrt1180_lpspi_write(void *opaque, hwaddr offset,
         break;
     case LPSPI_DER:
         s->der = v;
+        lpspi_update_dma(s);       /* TDDE/RDDE just changed */
         break;
     case LPSPI_CFGR0:
     case LPSPI_CFGR1:
@@ -264,6 +303,7 @@ static void imxrt1180_lpspi_write(void *opaque, hwaddr offset,
         break;
     case LPSPI_FCR:
         s->fcr = v;
+        lpspi_update_dma(s);       /* RXWATER may have moved */
         break;
     case LPSPI_TCR:
         s->tcr = v;
@@ -307,6 +347,8 @@ static void imxrt1180_lpspi_reset(DeviceState *dev)
         qemu_set_irq(s->cs_lines[i], 1);   /* deassert (active-low) */
     }
     qemu_set_irq(s->irq, 0);
+    qemu_set_irq(s->dma_tx_req, 0);
+    qemu_set_irq(s->dma_rx_req, 0);
 }
 
 static void imxrt1180_lpspi_realize(DeviceState *dev, Error **errp)
@@ -317,6 +359,8 @@ static void imxrt1180_lpspi_realize(DeviceState *dev, Error **errp)
                           TYPE_IMXRT1180_LPSPI, 0x1000);
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
     sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq);
+    qdev_init_gpio_out_named(dev, &s->dma_tx_req, "dma-tx-req", 1);
+    qdev_init_gpio_out_named(dev, &s->dma_rx_req, "dma-rx-req", 1);
     for (int i = 0; i < IMXRT1180_LPSPI_NUMCS; i++) {
         sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->cs_lines[i]);
     }

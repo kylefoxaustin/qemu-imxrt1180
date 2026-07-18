@@ -832,6 +832,22 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
                                    "dma-req", sai_tx_dma[i].src));
     }
 
+    /*
+     * LPSPI1/2 Tx+Rx DMA request lines -> eDMA3.  SRC = low byte of
+     * kDma3RequestMuxLPSPIkTx/Rx in PERI_DMA4.h: LPSPI1 Tx/Rx = 11/12,
+     * LPSPI2 Tx/Rx = 13/14 (all 0x100-tagged => eDMA3, in the AON window next to
+     * it).  LPSPI3–6 are eDMA4 sources and remain PIO-only for now.
+     */
+    static const struct { const char *line; unsigned src; } lpspi_dma[] = {
+        { "dma-tx-req", 11 }, { "dma-rx-req", 12 },   /* LPSPI1 */
+        { "dma-tx-req", 13 }, { "dma-rx-req", 14 },   /* LPSPI2 */
+    };
+    for (int i = 0; i < 4; i++) {
+        DeviceState *sp = DEVICE(&s->lpspi[i < 2 ? 0 : 1]);
+        qdev_connect_gpio_out_named(sp, lpspi_dma[i].line, 0,
+            qdev_get_gpio_in_named(edma3, "dma-req", lpspi_dma[i].src));
+    }
+
     /* USBPHY1..2 — USB 2.0 HS PHY PLL readiness (lock reported once powered). */
     static const hwaddr usbphy_base[IMXRT1180_NUM_USBPHY] = {
         IMXRT1180_USBPHY1_BASE,

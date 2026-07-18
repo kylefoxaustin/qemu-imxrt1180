@@ -27,6 +27,8 @@ struct IMXRT1180LPSPIState {
     /*< public >*/
     MemoryRegion iomem;
     qemu_irq irq;
+    qemu_irq dma_tx_req;           /* TX -> eDMA hardware request line */
+    qemu_irq dma_rx_req;           /* RX FIFO -> eDMA hardware request line */
     qemu_irq cs_lines[IMXRT1180_LPSPI_NUMCS];
     SSIBus *bus;
 
