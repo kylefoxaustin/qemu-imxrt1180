@@ -65,6 +65,9 @@
 /* IE bits. */
 #define IE_FWMIE0      0x00000001
 #define IE_FWMIE1      0x00000004
+/* DE bits (PERI_ADC.h): FIFO-watermark DMA enables. */
+#define DE_FWMDE0      0x00000001
+#define DE_FWMDE1      0x00000002
 /* TCTRL / FCTRL / CMD / RESFIFO fields. */
 #define TCTRL_HTEN     0x00000001
 #define TCTRL_TCMD_SHIFT 24
@@ -106,6 +109,25 @@ static void adc_update_irq(IMXRT1180ADCState *s)
     bool active = ((stat & STAT_RDY0) && (ie & IE_FWMIE0)) ||
                   ((stat & STAT_RDY1) && (ie & IE_FWMIE1));
     qemu_set_irq(s->irq, active);
+}
+
+/*
+ * Drive the eDMA result-FIFO request lines.  The trigger is conversion-driven, not
+ * FIFO-space-driven: a request rises when a result FIFO fills ABOVE its watermark
+ * (the same level event as STAT.RDYn), gated by DE.FWMDEn and CTRL.ADCEN -- and it
+ * falls when the serviced RESFIFO reads drain the FIFO back to/below the watermark.
+ * The SDK's lpadc_edma example sets DE.FWMDE0 and points the eDMA at RESFIFO0.
+ */
+static void adc_update_dma(IMXRT1180ADCState *s)
+{
+    bool en = REG(s, R_CTRL) & CTRL_ADCEN;
+    uint32_t de = REG(s, R_DE);
+
+    for (int f = 0; f < IMXRT1180_ADC_NFIFO; f++) {
+        bool req = en && (de & (DE_FWMDE0 << f)) &&
+                   (s->fifo[f].count > fctrl_fwmark(s, f));
+        qemu_set_irq(s->dma_req[f], req);
+    }
 }
 
 static void adc_fifo_push(IMXRT1180ADCState *s, int f, uint32_t entry)
@@ -163,6 +185,7 @@ static void adc_run_trigger(IMXRT1180ADCState *s, int t)
     }
     REG(s, R_STAT) |= STAT_TCOMP_INT;
     adc_update_irq(s);
+    adc_update_dma(s);          /* results pushed -> a FIFO may cross its watermark */
 }
 
 static void adc_hw_trigger(void *opaque, int line, int level)
@@ -192,6 +215,7 @@ static uint64_t imxrt1180_adc_read(void *opaque, hwaddr offset, unsigned size)
         int f = (offset - R_RESFIFO0) / 4;
         uint32_t v = adc_fifo_pop(s, f);
         adc_update_irq(s);
+        adc_update_dma(s);      /* draining RESFIFO may lower the request line */
         return v;
     }
     if (offset >= R_FCTRL0 && offset < R_FCTRL0 + 4 * IMXRT1180_ADC_NFIFO) {
@@ -237,10 +261,15 @@ static void imxrt1180_adc_write(void *opaque, hwaddr offset,
         REG(s, R_CTRL) = v & ~(CTRL_RST | CTRL_RSTFIFO0 | CTRL_RSTFIFO1 |
                                CTRL_CAL_REQ);
         adc_update_irq(s);
+        adc_update_dma(s);       /* ADCEN and FIFO resets both move the lines */
         return;
     case R_STAT:
         REG(s, R_STAT) &= ~(v & STAT_WFLAGS);     /* W1C */
         adc_update_irq(s);
+        return;
+    case R_DE:
+        REG(s, R_DE) = v;
+        adc_update_dma(s);       /* FWMDE0/1 just changed */
         return;
     case R_SWTRIG:
         for (int t = 0; t < IMXRT1180_ADC_NTRIG; t++) {
@@ -255,6 +284,11 @@ static void imxrt1180_adc_write(void *opaque, hwaddr offset,
         return;
     default:
         REG(s, offset) = v;
+        if (offset >= R_FCTRL0 && offset < R_FCTRL0 + 4 * IMXRT1180_ADC_NFIFO) {
+            /* A watermark change moves both STAT.RDYn and the DMA request level. */
+            adc_update_irq(s);
+            adc_update_dma(s);
+        }
         return;
     }
 }
@@ -308,6 +342,9 @@ static void imxrt1180_adc_reset(DeviceState *dev)
     }
     s->no_afe_logged = false;
     qemu_set_irq(s->irq, 0);
+    for (int f = 0; f < IMXRT1180_ADC_NFIFO; f++) {
+        qemu_set_irq(s->dma_req[f], 0);
+    }
 }
 
 void imxrt1180_adc_set_channel_input(IMXRT1180ADCState *s, unsigned ch,
@@ -326,6 +363,8 @@ static void imxrt1180_adc_realize(DeviceState *dev, Error **errp)
                           TYPE_IMXRT1180_ADC, IMXRT1180_ADC_SIZE);
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
     sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq);
+    /* Result-FIFO eDMA request lines, one per FIFO (indexed by FIFO number). */
+    qdev_init_gpio_out_named(dev, s->dma_req, "dma-req", IMXRT1180_ADC_NFIFO);
     /* Hardware trigger inputs (wired from the XBAR / eFlexPWM edges). */
     qdev_init_gpio_in_named(dev, adc_hw_trigger, "adc-trig",
                             IMXRT1180_ADC_NTRIG);

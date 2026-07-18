@@ -34,6 +34,7 @@ struct IMXRT1180ADCState {
     /*< public >*/
     MemoryRegion iomem;
     qemu_irq irq;
+    qemu_irq dma_req[IMXRT1180_ADC_NFIFO];   /* result-FIFO -> eDMA request lines */
     qemu_irq trig_in[IMXRT1180_ADC_NTRIG];   /* HW trigger inputs (from XBAR) */
     bool no_afe_logged;                      /* one-shot "no analog input" flag */
 

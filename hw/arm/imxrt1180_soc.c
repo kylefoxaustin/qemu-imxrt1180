@@ -940,6 +940,25 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
                            qdev_get_gpio_in(m33, adc_cfg[i].irq));
     }
 
+    /*
+     * LPADC result-FIFO DMA request lines -> eDMA4 (NOT eDMA3 like the LPUART/
+     * LPSPI/LPI2C sources).  SRC = low byte of kDma4RequestMuxADCnRequestk in
+     * PERI_DMA4.h (all 0x200-tagged => eDMA4 = edma[1]):
+     *   ADC1 Request0/1 (FIFO0/1) = 57 / 220;  ADC2 = 158 / 221.
+     * FIFO0 (single-ended results) is the one the SDK's lpadc_edma example uses.
+     */
+    DeviceState *edma4 = DEVICE(&s->edma[1]);
+    static const unsigned adc_dma_src[IMXRT1180_NUM_ADC][IMXRT1180_ADC_NFIFO] = {
+        { 57, 220 },    /* ADC1: FIFO0, FIFO1 */
+        { 158, 221 },   /* ADC2: FIFO0, FIFO1 */
+    };
+    for (int i = 0; i < IMXRT1180_NUM_ADC; i++) {
+        for (int f = 0; f < IMXRT1180_ADC_NFIFO; f++) {
+            qdev_connect_gpio_out_named(DEVICE(&s->adc[i]), "dma-req", f,
+                qdev_get_gpio_in_named(edma4, "dma-req", adc_dma_src[i][f]));
+        }
+    }
+
     /* XBAR1 — signal crossbar (carries the eFlexPWM edge to the ADC). */
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->xbar1), errp)) {
         return;
