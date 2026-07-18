@@ -26,6 +26,11 @@
  * permanently forcing the bit set would hang that loop.
  */
 #define OSC_24M_STABLE   0x40000000u   /* OSC_24M_CTRL @0x4320, bit 30       */
+
+/* AUDIO_PLL fractional-PLL block (PLL_Type: CTRL0/SPREAD/NUMERATOR/DENOMINATOR,
+ * each a 16-byte RW/SET/CLR/TOG group).  AUDIO_PLL_BASE 0x4448_4280 = ANADIG+0x4280. */
+#define ANADIG_AUDIO_PLL_BASE 0x4280
+#define ANADIG_AUDIO_PLL_END  0x42C0
 #define PLL_STABLE       0x20000000u   /* *_PLL_CTRL   bit 29                */
 
 /* Per-PFD (n=0..3, 8 bits each): STABLE = 0x40<<(n*8), CLKGATE = 0x80<<(n*8). */
@@ -98,6 +103,14 @@ static uint64_t imxrt1180_anadig_read(void *opaque, hwaddr offset, unsigned size
         return 0;
     }
 
+    /*
+     * The AUDIO_PLL fractional-PLL block (0x4280..0x42BF) is a PLL_Type: each 32-bit
+     * register is a 16-byte RW/SET/CLR/TOG group.  Any alias reads back the RW value.
+     */
+    if (offset >= ANADIG_AUDIO_PLL_BASE && offset < ANADIG_AUDIO_PLL_END) {
+        return s->regs[(offset & ~0xFull) / 4];
+    }
+
     pfd = anadig_pfd_index(offset);
     if (pfd >= 0) {
         uint32_t v = s->regs[offset / 4];
@@ -121,6 +134,21 @@ static void imxrt1180_anadig_write(void *opaque, hwaddr offset,
     if (offset + 4 > IMXRT1180_ANADIG_SIZE) {
         qemu_log_mask(LOG_GUEST_ERROR, "%s: OOB write @0x%" HWADDR_PRIx "\n",
                       __func__, offset);
+        return;
+    }
+    /*
+     * AUDIO_PLL block: apply RW/SET/CLR/TOG to the group's RW register.  The audio
+     * PLL config driver (ANATOP_PllConfigure) sets DIV_SELECT/POST_DIV_SEL through
+     * the CTRL0.CLR then CTRL0.SET aliases, so a generic store would drop them.
+     */
+    if (offset >= ANADIG_AUDIO_PLL_BASE && offset < ANADIG_AUDIO_PLL_END) {
+        uint32_t *rw = &s->regs[(offset & ~0xFull) / 4];
+        switch (offset & 0xF) {
+        case 0x0: *rw = value;                    break;   /* RW  */
+        case 0x4: *rw |= value;                   break;   /* SET */
+        case 0x8: *rw &= ~(uint32_t)value;        break;   /* CLR */
+        case 0xC: *rw ^= value;                   break;   /* TOG */
+        }
         return;
     }
     s->regs[offset / 4] = value;

@@ -209,6 +209,15 @@ static const IMXRT1180ClkSrc ccm_root_mux[IMXRT1180_CCM_NROOT][4] = {
 #define ARM_PLL_DIV_SELECT_MASK  0xFFu
 #define ARM_PLL_POST_DIV_SHIFT   13
 #define ARM_PLL_POST_DIV_MASK    0x7u
+
+/* AUDIO_PLL (PLL_Type at ANADIG+0x4280): CTRL0.RW, NUMERATOR.RW @+0x20,
+ * DENOMINATOR.RW @+0x30.  CTRL0[DIV_SELECT] 6:0, [POST_DIV_SEL] 27:25. */
+#define ANADIG_AUDIO_PLL_CTRL0   0x4280
+#define ANADIG_AUDIO_PLL_NUMER   0x42A0
+#define ANADIG_AUDIO_PLL_DENOM   0x42B0
+#define AUDIO_PLL_DIV_SELECT_MASK 0x7Fu
+#define AUDIO_PLL_POST_DIV_SHIFT  25
+#define AUDIO_PLL_POST_DIV_MASK   0x7u
 #define PFD_FRAC_MASK            0x3Fu
 
 static uint32_t anadig_reg(IMXRT1180CCMState *s, hwaddr off)
@@ -233,6 +242,30 @@ static uint32_t ccm_arm_pll_hz(IMXRT1180CCMState *s)
     uint32_t post = (ctrl >> ARM_PLL_POST_DIV_SHIFT) & ARM_PLL_POST_DIV_MASK;
 
     return (uint32_t)(((uint64_t)XTAL_FREQ / (2ull << (post + 1))) * div_select);
+}
+
+/*
+ * CLOCK_GetAudioPllFreq: XTAL * (DIV_SELECT + NUMERATOR/DENOMINATOR) / 2^POST_DIV_SEL.
+ * The fields are the AUDIO_PLL PLL_Type registers the guest programmed (via the
+ * CTRL0 SET/CLR aliases + NUMERATOR/DENOMINATOR .RW).  Unconfigured => 0, not a
+ * guess: a plausible audio clock is how a fabricated 6 MHz once reached a baud-rate
+ * calc (see PERIPHERALS.md).
+ */
+static uint32_t ccm_audio_pll_hz(IMXRT1180CCMState *s)
+{
+    uint32_t ctrl0 = anadig_reg(s, ANADIG_AUDIO_PLL_CTRL0);
+    uint32_t numer = anadig_reg(s, ANADIG_AUDIO_PLL_NUMER);
+    uint32_t denom = anadig_reg(s, ANADIG_AUDIO_PLL_DENOM);
+    uint32_t div   = ctrl0 & AUDIO_PLL_DIV_SELECT_MASK;
+    uint32_t post  = (ctrl0 >> AUDIO_PLL_POST_DIV_SHIFT) & AUDIO_PLL_POST_DIV_MASK;
+
+    if (!div || !denom) {
+        return 0;                       /* PLL not programmed -> no frequency */
+    }
+    /* XTAL*(div + numer/denom): integer part + fractional part, then post-divide. */
+    uint64_t hz = (uint64_t)XTAL_FREQ * div +
+                  (uint64_t)XTAL_FREQ * numer / denom;
+    return (uint32_t)(hz >> post);
 }
 
 static uint32_t ccm_src_hz(IMXRT1180CCMState *s, IMXRT1180ClkSrc src)
@@ -260,14 +293,7 @@ static uint32_t ccm_src_hz(IMXRT1180CCMState *s, IMXRT1180ClkSrc src)
                           src - CLK_SYS_PLL3_PFD0);
 
     case CLK_AUDIO_PLL:
-        /* The audio PLL's fractional divider is not modelled.  Return 0 -- a
-         * REFUSAL, not a number.  Callers must not divide by it, and no timer in
-         * this machine selects it.  Answering "some plausible MHz" here is how the
-         * fabricated 6 MHz got in.  ("Decline what you cannot produce"; the audio
-         * path is honestly-open work, see PERIPHERALS.md.) */
-        qemu_log_mask(LOG_UNIMP, "%s: AUDIO_PLL frequency not modelled; "
-                      "reporting 0 (no frequency), not a guess\n", __func__);
-        return 0;
+        return ccm_audio_pll_hz(s);
     }
     return 0;
 }
