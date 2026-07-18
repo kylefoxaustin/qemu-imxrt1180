@@ -22,6 +22,7 @@
 #include "hw/ssi/ssi.h"             /* SSI_GPIO_CS */
 #include "system/blockdev.h"        /* drive_get, blk_by_legacy_dinfo */
 #include "hw/sensor/fxls8974.h"     /* TYPE_FXLS8974 */
+#include "hw/audio/wm8962.h"        /* TYPE_WM8962 */
 #include "hw/misc/imxrt1180_periphrdy.h"
 #include "system/address-spaces.h"   /* get_system_memory() */
 #include "system/system.h"           /* serial_hd() */
@@ -654,6 +655,8 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
 
     /* EVK on-board FXLS8974CF accelerometer (U115) on LPI2C2 at 0x19. */
     i2c_slave_create_simple(s->lpi2c[1].bus, TYPE_FXLS8974, 0x19);
+    /* EVK on-board WM8962 audio codec (control plane) on LPI2C2 at 0x1A. */
+    i2c_slave_create_simple(s->lpi2c[1].bus, TYPE_WM8962, 0x1A);
 
     /* LPSPI1..4 (controller mode); each exposes an SSI bus for device models. */
     static const struct { hwaddr base; unsigned irq; } lpspi_cfg[] = {

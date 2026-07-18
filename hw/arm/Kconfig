@@ -844,6 +844,7 @@ config IMXRT1180_SOC
     select IMXRT1180_GPT
     select IMXRT1180_LPTMR
     select FXLS8974
+    select WM8962
     select IMXRT1180_NETC
     select IMXRT1180_MSGINTR
 

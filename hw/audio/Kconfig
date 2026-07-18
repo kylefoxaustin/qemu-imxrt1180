@@ -42,6 +42,10 @@ config WM8750
     bool
     depends on I2C
 
+config WM8962
+    bool
+    depends on I2C
+
 config PL041
     bool
 
