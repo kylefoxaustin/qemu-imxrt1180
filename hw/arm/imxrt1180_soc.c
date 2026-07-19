@@ -774,7 +774,16 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
      * exposes one qemu_irq per channel; grouped channels connect to the same
      * NVIC input (the NVIC ORs them).
      */
-    DeviceState *m33 = DEVICE(&s->armv7m[IMXRT1180_CPU_M33]);
+    /*
+     * The peripheral interrupts below route to the BOOT core's NVIC: the M33 in
+     * the normal case, the M7 when a cm7 image is booted (the M33 is held then, so
+     * its NVIC would never service them -- the FOC demo's TMR1 slow loop and ADC1
+     * fast loop both live on whichever core actually runs).  On silicon an IRQ
+     * steering block chooses per-interrupt; the boot core is the faithful default
+     * for a single-core-active bring-up.
+     */
+    DeviceState *m33 = DEVICE(&s->armv7m[s->boot_cm7 ? IMXRT1180_CPU_M7
+                                                     : IMXRT1180_CPU_M33]);
     /*
      * Channel-block geometry differs BETWEEN THE TWO INSTANCES and is not a
      * detail: PERI_DMA.h  (DMA3) puts CH[n] at base + 0x10000 + n * 0x10000, and
