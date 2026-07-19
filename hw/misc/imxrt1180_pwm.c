@@ -288,8 +288,17 @@ static void imxrt1180_pwm_write(void *opaque, hwaddr offset,
                 }
             }
         }
-        /* Store MCTRL with LDOK auto-cleared (load completes immediately). */
-        s->regs[R_MCTRL / 2] = (v & ~MCTRL_LDOK);
+        /*
+         * Store MCTRL with the LDOK *and* CLDOK strobes cleared -- both are
+         * write-only request bits that read back 0 on silicon (LDOK's load
+         * completes immediately here; CLDOK is a one-shot clear).  Persisting
+         * CLDOK breaks the SDK's read-modify-write commit: fsl/mc_pmsm write
+         * CLDOK(0xF) then `MCTRL = (MCTRL & ~LDOK) | LDOK(0xF)`, and a stored
+         * CLDOK comes back in that second RMW so the write carries CLDOK|LDOK
+         * together -- which the guard below reads as "clear requested, do not
+         * commit", and the VAL/INIT buffers never load (period 0, no output).
+         */
+        s->regs[R_MCTRL / 2] = (v & ~(MCTRL_LDOK | MCTRL_CLDOK));
 
         for (unsigned sm = 0; sm < IMXRT1180_PWM_NSM; sm++) {
             uint16_t bit = 1u << (sm + MCTRL_RUN_SHIFT);
