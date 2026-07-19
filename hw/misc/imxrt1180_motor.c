@@ -41,7 +41,18 @@
 
 #define M_CPR      4096       /* encoder counts per revolution       */
 #define M_ADC_MID  0x8000
-#define M_CUR_FS   (0x7000 / M_IMAX)  /* ADC code span per amp (+/-Imax) */
+/*
+ * ADC code span per amp.  The mc_pmsm driver reads a phase current as
+ *     I = ((raw*12/11 - offset) << 1) / 32768 * M1_I_MAX
+ * (offset is the 0-current calibration = MID*12/11; <<1 is the sign-halved-range
+ * recovery; the frac16 full scale 32768 maps to M1_I_MAX).  Inverting, the code
+ * the converter must present for a current i is
+ *     raw = MID + i * 32768 / (2 * (12/11) * M1_I_MAX)
+ * i.e. M_CUR_FS = 1820 cts/A, NOT 0x7000/I_MAX = 3475.  The old span read ~1.9x
+ * high through the driver's decode and tripped its over-current fault at startup.
+ * (tests/imxrt1180-motor and -adc-ab carry the matching goldens.)
+ */
+#define M_CUR_FS   (32768.0 / (2.0 * (12.0 / 11.0) * M_IMAX))
 
 #define M_RATE_DEFAULT 50000u    /* physics steps/s (fast dq dynamics)  */
 

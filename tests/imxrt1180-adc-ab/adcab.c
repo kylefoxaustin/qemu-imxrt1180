@@ -15,8 +15,9 @@
  *   |i| = 2.7713 A
  *   ia = |i| cos(150 deg) = -2.400 A   (A-side ch5 -> RESFIFO[0])
  *   ib = |i| cos( 30 deg) = +2.400 A   (B-side ch5 -> RESFIFO[1])
- * Current-sense scaling (M1_I_MAX = 8.25 A over +/-0x7000): 2.400 A = 8341 counts.
- * So Ia = 0x8000 - 8341, Ib = 0x8000 + 8341 -- equal magnitude, OPPOSITE sign,
+ * Current-sense scaling: the mc_pmsm driver decodes 32768/(2*(12/11)*8.25) = 1820
+ * counts/A, so 2.400 A = 4369 counts.  Ia = 0x8000 - 4369, Ib = 0x8000 + 4369 --
+ * equal magnitude, OPPOSITE sign,
  * neither the un-driven mid-scale placeholder.  Rs/Pp/I_MAX are datasheet facts,
  * independent of the plant's code.
  *
@@ -61,7 +62,7 @@
 /* CMDL: A-side channel in ADCH[4:0], CTYPE[6:5]=3 => DualSingleEndBothSide. */
 #define CMDL_DUAL_CH(ch) ((uint32_t)((ch) & 0x1F) | (3u << 5))
 
-#define I_EXPECT_DI 8341            /* |2.400 A| in ADC counts (M1_I_MAX scale) */
+#define I_EXPECT_DI 4369            /* |2.400 A| in ADC counts (mc_pmsm scale) */
 #define I_TOL       (I_EXPECT_DI / 20)   /* +/-5% */
 
 static long sh(long op, void *arg)

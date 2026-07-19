@@ -115,19 +115,21 @@ static uint32_t read_phaseB(void)
  *   the stator is purely resistive and Ohm's law fixes the current:
  *                               |i| = |v|/Rs = 1.4965 / 0.54 = 2.7713 A
  *   inverse Clarke, phase B:    ib = (sqrt(3)/2) * i_beta = 2.400 A
- *   current-sense scaling (M1_I_MAX = 8.25 A over +/-0x7000):
- *                               di = 2.400 * (0x7000 / 8.25) = 8341 counts
+ *   current-sense scaling: the mc_pmsm driver decodes a phase current as
+ *                          I = ((raw*12/11 - offset) << 1)/32768 * M1_I_MAX, so
+ *                          the code span per amp is 32768/(2*(12/11)*8.25) = 1820,
+ *                          and di = 2.400 * 1820 = 4369 counts.
  *
  * Rs, Pp and I_MAX are motor/board datasheet facts (MCUXpresso M1 motor), NOT
  * model internals -- so this expectation is independent of the thing it checks.
- * Measured: 8340 (0.01%).  The rotor also settles at EQDC 256 = 4096*22.5/360,
- * the mechanical angle of an electrical 90 deg at Pp=4: predicted, then observed.
+ * The rotor also settles at EQDC 256 = 4096*22.5/360, the mechanical angle of an
+ * electrical 90 deg at Pp=4: predicted, then observed.
  *
  * NOTE the settle must actually REACH steady state.  The old test sampled after
  * ~2e6 spin cycles and read 7219 -- a TRANSIENT -- and its range check happily
  * passed on it. A range check hides an unconverged value as readily as a wrong one.
  */
-#define PHASE_B_EXPECT_DI  8341
+#define PHASE_B_EXPECT_DI  4369
 #define PHASE_B_TOL        (PHASE_B_EXPECT_DI / 20)   /* +/-5% */
 
 static uint32_t udcb_mv(void)
