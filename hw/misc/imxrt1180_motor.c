@@ -65,6 +65,9 @@
 
 #define M_RATE_DEFAULT 50000u    /* physics steps/s (fast dq dynamics)  */
 
+/* kCLOCK_Root_Bus_Wakeup (fsl_clock.h) -- the EQDC QD-timer clock root. */
+#define IMXRT1180_CLKROOT_BUS_WAKEUP 4
+
 #define TWO_PI (2.0 * M_PI)
 #define SQRT3_2 0.8660254037844386
 
@@ -226,6 +229,39 @@ static void motor_step(void *opaque)
             rev -= 1;
         }
         imxrt1180_eqdc_set_position(s->eqdc, (uint32_t)pos, (uint16_t)rev);
+
+        /*
+         * Present the EQDC's hardware speed measurement.  The mc_pmsm qdc2 driver
+         * reads speed as POSDH / POSDPERH = counts-per-QD-clock, then scales by
+         * (2*pi*QDTimerFreq)/(4*pulses) -- so to report the shaft's real velocity
+         * we set POSD = vel_counts_per_sec / QDTimerFreq * POSDPER for a fixed
+         * period window.  QDTimerFreq = Bus_Wakeup clock >> FILT[PRSC], exactly
+         * what the driver derived when it built its speed constant.
+         */
+        uint32_t qd_hz = s->pwm
+            ? imxrt1180_ccm_root_hz(s->pwm->ccm, IMXRT1180_CLKROOT_BUS_WAKEUP)
+              >> imxrt1180_eqdc_filt_prsc(s->eqdc)
+            : 0;
+        if (qd_hz) {
+            double vel_cnt_s = s->omega * M_CPR / TWO_PI;   /* signed mech cts/s */
+            const uint16_t posdper = 2048;                  /* measurement window */
+            double posd = vel_cnt_s / (double)qd_hz * (double)posdper;
+            if (posd > 32767.0) {
+                posd = 32767.0;
+            } else if (posd < -32768.0) {
+                posd = -32768.0;
+            }
+            /* LASTEDGE = QD clocks between single-count edges (low-speed path);
+             * 0xFFFF = no edge seen (shaft stopped). */
+            uint16_t lastedge = 0xFFFF;
+            double avel = fabs(vel_cnt_s);
+            if (avel > 1.0) {
+                double le = (double)qd_hz / avel;
+                lastedge = le < 65535.0 ? (uint16_t)le : 0xFFFF;
+            }
+            imxrt1180_eqdc_set_speed(s->eqdc, (int16_t)llround(posd),
+                                     posdper, lastedge);
+        }
     }
 }
 

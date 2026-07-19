@@ -73,6 +73,38 @@ void imxrt1180_eqdc_set_position(IMXRT1180EQDCState *s, uint32_t pos,
     REG(s, R_LPOS) = pos & 0xFFFF;
     REG(s, R_UPOS) = pos >> 16;
     REG(s, R_REV)  = rev;
+    /*
+     * The mc_pmsm qdc2 encoder driver reads POSITION from the HOLD registers
+     * (UPOSH:LPOSH), not the live counters, and its fast loop does so without a
+     * preceding snapshot read -- on silicon a hardware position-hold trigger
+     * (synced to the PWM) refreshes them every control cycle.  Keep the hold
+     * equal to the live position so that read always sees the current shaft
+     * angle; without this it read the reset 0 and the FOC had no feedback.
+     */
+    REG(s, R_LPOSH) = REG(s, R_LPOS);
+    REG(s, R_UPOSH) = REG(s, R_UPOS);
+    REG(s, R_REVH)  = REG(s, R_REV);
+}
+
+/*
+ * Hardware speed measurement.  The driver computes rotor speed from POSDH (the
+ * position CHANGE) over POSDPERH (the number of QD-timer clocks that change took),
+ * i.e. POSDH/POSDPERH = counts per QD clock; LASTEDGE (QD clocks since the last
+ * encoder edge) drives the low-speed estimate.  A virtual plant knows the shaft
+ * velocity, so it presents these directly.  Signed POSD carries the direction.
+ */
+void imxrt1180_eqdc_set_speed(IMXRT1180EQDCState *s, int16_t posd,
+                              uint16_t posdper, uint16_t lastedge)
+{
+    REG(s, R_POSD)     = (uint16_t)posd;
+    REG(s, R_POSDPER)  = posdper;
+    REG(s, R_LASTEDGE) = lastedge;
+}
+
+/* QD-timer prescaler exponent from FILT[PRSC] (bits 14:12): clock = bus / 2^PRSC. */
+unsigned imxrt1180_eqdc_filt_prsc(IMXRT1180EQDCState *s)
+{
+    return (REG(s, R_FILT) >> 12) & 0x7;
 }
 
 static uint64_t imxrt1180_eqdc_read(void *opaque, hwaddr offset, unsigned size)
@@ -91,7 +123,11 @@ static uint64_t imxrt1180_eqdc_read(void *opaque, hwaddr offset, unsigned size)
         eqdc_snapshot(s);
         return REG(s, R_UPOS);
     case R_POSD:
-        REG(s, R_POSDH) = REG(s, R_POSD);   /* POSDH refreshed on POSD read */
+        /* Reading POSD latches the difference, its period and the last-edge time
+         * into the hold registers the speed driver then reads. */
+        REG(s, R_POSDH)     = REG(s, R_POSD);
+        REG(s, R_POSDPERH)  = REG(s, R_POSDPER);
+        REG(s, R_LASTEDGEH) = REG(s, R_LASTEDGE);
         return REG(s, R_POSD);
     default:
         return REG(s, offset);

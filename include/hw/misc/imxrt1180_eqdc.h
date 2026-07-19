@@ -31,5 +31,10 @@ struct IMXRT1180EQDCState {
 /* Drive the position/revolution counters from a virtual-motor plant. */
 void imxrt1180_eqdc_set_position(IMXRT1180EQDCState *s, uint32_t pos,
                                  uint16_t rev);
+/* Present the hardware speed measurement (position difference over its period). */
+void imxrt1180_eqdc_set_speed(IMXRT1180EQDCState *s, int16_t posd,
+                              uint16_t posdper, uint16_t lastedge);
+/* FILT[PRSC] prescaler exponent: QD-timer clock = bus clock / 2^PRSC. */
+unsigned imxrt1180_eqdc_filt_prsc(IMXRT1180EQDCState *s);
 
 #endif /* HW_MISC_IMXRT1180_EQDC_H */
