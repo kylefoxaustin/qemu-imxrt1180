@@ -59,6 +59,8 @@
 #define R_OUTEN     0x180
 #define R_MCTRL     0x188
 #define R_FSTS      0x18E
+#define FSTS_FFLAG  0x000F      /* fault flags (W1C, HW-set on fault edge) */
+#define FSTS_FFPIN  0x0F00      /* filtered fault-pin state (RO)           */
 
 /* CTRL bits. */
 #define CTRL_LDMOD      0x0004
@@ -314,6 +316,22 @@ static void imxrt1180_pwm_write(void *opaque, hwaddr offset,
                 pwm_sm_stop(s, sm);
             }
         }
+        return;
+    }
+    if (offset == R_FSTS) {
+        /*
+         * Fault Status.  FFLAG[3:0] are W1C fault flags SET BY HARDWARE on a fault
+         * input edge, and FFPIN[11:8] reflect the live (filtered) fault-pin state.
+         * This model routes no fault inputs into the eFlexPWM, so both are always
+         * clear -- but the driver CLEARS FFLAG by writing 1s to it
+         * (`FSTS = (FSTS & ~FFLAG) | FFLAG(0xF)`), and a plain store latched those
+         * 1s, which mcdrv_pwm3ph_pwma's FltGet then read back as a (spurious)
+         * over-current.  Honour W1C on FFLAG, never let a write set FFLAG/FFPIN,
+         * and keep the writable FFULL/FHALF config bits.
+         */
+        uint16_t old = s->regs[offset / 2];
+        uint16_t fflag = old & FSTS_FFLAG & ~v;            /* W1C, HW never sets it */
+        s->regs[offset / 2] = (v & ~(FSTS_FFLAG | FSTS_FFPIN)) | fflag;
         return;
     }
     s->regs[offset / 2] = v;
