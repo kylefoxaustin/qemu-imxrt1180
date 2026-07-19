@@ -194,11 +194,18 @@ honest gaps). Working today:
   conversion** (`DualSingleEndBothSide`: A-side→RESFIFO0, B-side→RESFIFO1) the
   `mc_pmsm` demo reads Ia/Ib with; the plant drives both mux sides (`tests/
   imxrt1180-adc-ab`, mutation-proven).
-- **Cortex-M7 boot**: opt-in `boot-cm7` (auto-detected from a cm7 ELF) boots the
-  M7 with its own per-core view (ITCM@0x0 + DTCM@0x20000000 + SoC background),
-  holding the M33. The **stock cm7 `mc_pmsm/pmsm_enc` FOC demo boots and runs its
-  control loop** — DCDC/FBB/LPADC-cal unblocked, real LPADC VERID (`0x02002C1B`).
-  M33 machine + tests untouched (`tests/imxrt1180-cm7boot`, mutation-proven).
+- **Cortex-M7 boot + closed-loop FOC**: opt-in `boot-cm7` (auto-detected from a cm7
+  ELF) boots the M7 with its own per-core view (ITCM@0x0 + DTCM@0x20000000 + SoC
+  background), holding the M33. The **stock cm7 `mc_pmsm/pmsm_enc` FOC demo closes
+  its control loop and spins the virtual PMSM rotor on the M7** — the FOC state
+  machine reaches `kRunState_Spin` and EQDC advances under field-oriented control.
+  Getting there took a chain of hardware-fidelity fixes each found by chasing the
+  next blocker: DCDC/FBB/LPADC-cal unblocks + real LPADC VERID (`0x02002C1B`);
+  eFlexPWM CLDOK strobe (double-buffer commit) + FSTS fault flags (W1C); QuadTimer
+  CSCTRL[TCF1EN] IRQ + PCS divider + ENBL reset (the 1 ms slow loop); LPADC A/B-side
+  dual conversion; and the plant's DC-bus + phase-current encoding aligned to the
+  driver's Q15·12/11 convention. Peripheral IRQs route to the boot core. M33 machine
+  + tests untouched (`tests/imxrt1180-cm7boot`, mutation-proven).
 - **Ethernet (NETC/ENETC)**: real L2 over a QEMU socket netdev; 1180↔1180 verified
   byte-exact.
 - **FlexSPI NOR**: `rom_device` XIP window + a real `m25p80`; storage-write-verified
@@ -208,8 +215,8 @@ honest gaps). Working today:
 Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is
 `0x88B6` on mcast `230.0.0.9:31337`); NETC L2 switch path; the ASRC sample-rate-
 converter data path (its Audio-PLL + codec blockers are now done). The cm7 FOC
-demo boots and runs; closing the loop against the plant on the M7 (it idles
-awaiting a FreeMASTER "run" command over LPUART1) is the next step.
+loop closes and the rotor spins on the M7; sustaining the spin indefinitely (it
+trips FAULT_LOAD_OVER after ~0.66 rev) is a plant/FOC tuning co-sim refinement.
 
 ## Fleet
 
