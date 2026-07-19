@@ -154,6 +154,18 @@ replicate that. `--config debug` links to TCM and runs directly. Harness:
     with the modulo hardwired.)
   - **Prove your negative test can fail**, and re-prove it: an unmeasured threshold
     is a decoration, and a negative test rots green when the model improves under it.
+  - **A GREEN FROM A STALE BINARY IS A WEAK ORACLE WEARING A DISGUISE.** When you
+    mutate BY HAND (not via `mutation-audit.sh`, which gates on the ninja exit code
+    at line ~230), the trap is that your break does not compile — `-Werror` on an
+    unused function, a type mismatch — the build FAILS, and your test then runs
+    against the *last good* binary and comes back green. That green is
+    indistinguishable from "the test can't catch the mutation." Both bit this model
+    in one session: an unused-function `-Werror` after deleting a call, and a stale
+    QEMU still holding gdb's `:1234` so the debugger attached to a pre-rebuild
+    image. **Gate every by-hand post-mutation run on a CONFIRMED rebuild** — see the
+    `[N/N] Linking target` line (or `ninja: no work to do` only when nothing
+    changed), and kill stale background QEMU/gdbstubs first. A red you did not prove
+    came from the *new* binary proves nothing. (95emulator, 2026-07-18.)
 
 - **Retract before you fix.** A false claim must not stay up while you work. See
   the retraction blocks in `PERIPHERALS.md`.
