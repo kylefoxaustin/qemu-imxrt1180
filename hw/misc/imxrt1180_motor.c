@@ -56,7 +56,18 @@
 
 /*
  * DC-bus voltage sense.  Full scale of the EVK's divider is M1_U_DCB_MAX =
- * 60.8 V (mc_pmsm m1_pmsm_appconfig.h), unipolar: code = V / 60.8 * 0xFFFF.
+ * 60.8 V (mc_pmsm m1_pmsm_appconfig.h).
+ *
+ * The mc_pmsm driver (mcdrv_adc_imxrt118x.c) does NOT read the LPADC result as a
+ * plain 16-bit fraction: it treats it as a Q15 frac16 and applies the EVK's
+ * VIN_HW/VIN_MAX = 11/12 board compensation before scaling:
+ *     U_dcb = (raw * 12/11 / 32768) * 60.8 V
+ * so the code the converter must PRESENT for a bus voltage v is the inverse,
+ *     raw = v / 60.8 * 32768 * 11/12
+ * NOT v/60.8 * 0xFFFF.  The old 16-bit-full-scale code was 0xFFFF/(32768*11/12)
+ * = 2.18x too high for that decode: it read 24 V as ~52 V and tripped the stock
+ * FOC's 30 V over-voltage lockout, so the cm7 mc_pmsm demo never left AppStop.
+ * (tests/imxrt1180-motor decodes with the same convention.)
  *
  * This channel MUST be driven by the plant.  Left at the ADC's neutral
  * mid-scale placeholder it reads 0x8000 -> 30.4 V, which is a *plausible* bus
@@ -71,11 +82,12 @@
  * (The bus is ideal/stiff: no sag under load, since that needs bus capacitance
  * and inverter DC-link current.  Flagged as future work, not faked.)
  */
-#define M_UDCB_FS  60.8   /* M1_U_DCB_MAX (V) — ADC full scale */
+#define M_UDCB_FS   60.8            /* M1_U_DCB_MAX (V)                       */
+#define M_UDCB_COMP (11.0 / 12.0)   /* VIN_HW/VIN_MAX; the driver applies 12/11 */
 
 static uint16_t voltage_to_code(double v)
 {
-    double code = (v / M_UDCB_FS) * 65535.0;
+    double code = (v / M_UDCB_FS) * 32768.0 * M_UDCB_COMP;
 
     if (code < 0) {
         code = 0;

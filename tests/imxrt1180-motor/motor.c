@@ -83,10 +83,14 @@ static uint32_t read_phaseB(void)
 /*
  * DC-bus voltage sense (channel 4 = mc_pmsm's M1_ADC1_UDCB), full scale
  * M1_U_DCB_MAX = 60.8 V.  This must be a REAL measurement of the bus the plant
- * drives (24 V), not the ADC's un-driven mid-scale placeholder.  0x8000 would
- * decode to 30.4 V -- a plausible-looking bus voltage that nothing measured,
- * and one an FOC loop would happily normalise its duty cycles against and run
- * its over/under-voltage protection off.  Guard against that regressing.
+ * drives (24 V), not the ADC's un-driven mid-scale placeholder.
+ *
+ * Decode EXACTLY as the stock mcdrv_adc_imxrt118x.c does -- the LPADC result is a
+ * Q15 frac16 with the EVK's 12/11 board compensation, full scale 60.8 V:
+ *     U_dcb = raw * 12/11 / 32768 * 60.8
+ * This is the real-silicon convention (a plain raw*60.8/0xFFFF over-reads it
+ * 2.18x and is why the cm7 FOC demo tripped its over-voltage lockout).  An
+ * un-driven placeholder (0x8000) decodes to ~66 V here, well clear of 24 V.
  */
 #define UDCB_CH        4
 #define UDCB_FS_MV     60800            /* 60.8 V full scale, in mV */
@@ -128,7 +132,11 @@ static uint32_t read_phaseB(void)
 
 static uint32_t udcb_mv(void)
 {
-    return (read_ch(UDCB_CH) * UDCB_FS_MV) / 0xFFFFu;
+    /* raw * 12/11 / 32768 * 60.8 V, in mV -- the mcdrv_adc_imxrt118x convention.
+     * Ordered to stay in 32 bits (raw*60800 <= 0xFFFF*60800 < 2^32) and avoid a
+     * 64-bit divide (no libgcc in -nostdlib). */
+    uint32_t raw = read_ch(UDCB_CH);
+    return (raw * UDCB_FS_MV / 32768u) * 12u / 11u;
 }
 
 void reset_handler(void)
