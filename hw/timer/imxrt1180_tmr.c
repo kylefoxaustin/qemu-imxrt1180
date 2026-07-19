@@ -42,7 +42,10 @@
 #define SCTRL_TOF       0x2000
 #define SCTRL_TOFIE     0x1000
 /* CSCTRL bits. */
-#define CSCTRL_TCF1     0x0010
+#define CSCTRL_TCF1     0x0010      /* compare-1 flag                    */
+#define CSCTRL_TCF2     0x0020      /* compare-2 flag                    */
+#define CSCTRL_TCF1EN   0x0040      /* compare-1 interrupt enable        */
+#define CSCTRL_TCF2EN   0x0080      /* compare-2 interrupt enable        */
 
 static uint16_t *reg(IMXRT1180TMRState *s, unsigned ch, unsigned off)
 {
@@ -54,8 +57,17 @@ static void tmr_update_irq(IMXRT1180TMRState *s)
     bool active = false;
     for (unsigned c = 0; c < IMXRT1180_TMR_NCHAN; c++) {
         uint16_t sc = *reg(s, c, R_SCTRL);
-        if (((sc & SCTRL_TCF) && (sc & SCTRL_TCFIE)) ||
-            ((sc & SCTRL_TOF) && (sc & SCTRL_TOFIE))) {
+        uint16_t cs = *reg(s, c, R_CSCTRL);
+        /*
+         * Two independent compare-interrupt paths, and the QuadTimer driver picks
+         * per use: the SCTRL timer-compare-flag (TCF/TCFIE) OR the CSCTRL compare-1/2
+         * flags (TCF1/TCF1EN, TCF2/TCF2EN).  mc_pmsm's 1 ms slow loop enables the
+         * IRQ through CSCTRL[TCF1EN] only -- checking SCTRL alone left it silent.
+         */
+        if (((sc & SCTRL_TCF)  && (sc & SCTRL_TCFIE)) ||
+            ((sc & SCTRL_TOF)  && (sc & SCTRL_TOFIE)) ||
+            ((cs & CSCTRL_TCF1) && (cs & CSCTRL_TCF1EN)) ||
+            ((cs & CSCTRL_TCF2) && (cs & CSCTRL_TCF2EN))) {
             active = true;
         }
     }
@@ -81,7 +93,13 @@ static void tmr_ch_update(IMXRT1180TMRState *s, unsigned ch)
     ptimer_transaction_begin(s->timer[ch]);
     if (running) {
         unsigned pcs = (ctrl & CTRL_PCS_MASK) >> CTRL_PCS_SHIFT;
-        unsigned div = pcs < 8 ? (1u << pcs) : 1;   /* PCS 0..7 = /2^n */
+        /*
+         * PCS 0x8..0xF select the IP-bus clock divided by 2^(pcs-8) (0x8=/1 ..
+         * 0xF=/128); 0x0..0x7 select external/secondary count sources we
+         * approximate as the undivided bus clock.  mc_pmsm's slow loop uses
+         * PCS=0xC (bus/16) -- reading it as /1 ran the 1 ms timer 16x fast.
+         */
+        unsigned div = pcs >= 8 ? (1u << (pcs - 8)) : 1;
         uint16_t comp1 = *reg(s, ch, R_COMP1);
         uint16_t load  = *reg(s, ch, R_LOAD);
         uint32_t period = (uint16_t)(comp1 - load) + 1u;   /* modulo count */
@@ -136,6 +154,15 @@ static void imxrt1180_tmr_write(void *opaque, hwaddr offset,
         tmr_update_irq(s);
         return;
     }
+    if (off == R_CSCTRL) {
+        /* TCF1/TCF2 are hardware-set compare flags cleared by writing 0 (the
+         * mc_pmsm ISR does `CSCTRL &= ~TCF1_MASK`); re-evaluate the level IRQ. */
+        uint16_t old = s->regs[offset / 2];
+        uint16_t keep = old & (CSCTRL_TCF1 | CSCTRL_TCF2) & v;
+        s->regs[offset / 2] = (v & ~(CSCTRL_TCF1 | CSCTRL_TCF2)) | keep;
+        tmr_update_irq(s);
+        return;
+    }
     s->regs[offset / 2] = v;
     if (off == R_CTRL || off == R_ENBL || off == R_COMP1 || off == R_LOAD) {
         if (off == R_ENBL) {
@@ -163,6 +190,13 @@ static void imxrt1180_tmr_reset(DeviceState *dev)
     IMXRT1180TMRState *s = IMXRT1180_TMR(dev);
 
     memset(s->regs, 0, sizeof(s->regs));
+    /*
+     * ENBL resets to 0x0001 (RM 72.5.1.15: "Enables the timer channel -- default"),
+     * i.e. channel 0 is enabled out of reset and starts counting as soon as
+     * CTRL[CM] != 0.  mc_pmsm's InitTMR1 relies on this: it never writes ENBL, so a
+     * zero reset left its 1 ms slow-loop timer permanently disabled.
+     */
+    *reg(s, 0, R_ENBL) = 0x0001;
     for (unsigned c = 0; c < IMXRT1180_TMR_NCHAN; c++) {
         ptimer_transaction_begin(s->timer[c]);
         ptimer_stop(s->timer[c]);
