@@ -317,6 +317,25 @@ uint32_t imxrt1180_ccm_root_hz(IMXRT1180CCMState *s, unsigned root)
     return hz / div;
 }
 
+/*
+ * DEFERRED-WITH-A-TRIPWIRE: this honours the ROOT gate (CONTROL.OFF ->
+ * ccm_root_hz returns 0) but NOT the per-peripheral LPCG DIRECT gate (0x8000).
+ * The LPCG bit is a poll-completion stub (it mirrors DIRECT->STATUS0 so
+ * CLOCK_ControlGate does not hang) and never reaches this frequency answer, so
+ * clearing a block's LPCG does NOT zero its clock.  Inert TODAY because this CCM
+ * is a query-oracle and our hot peripherals are event-driven -- a cleared gate
+ * that still reports a frequency changes nothing for them.
+ *
+ *   ⚠ THE TRIPWIRE (91emulator, 2026-07-18): the moment a ticking timer that
+ *   reads periph_hz has its LPCG cleared WHILE IT RUNS, this goes live and fails
+ *   SILENTLY -- the timer keeps counting where silicon freezes it, exactly the
+ *   thing a coarse test passes.  Our FOC/motor loops (TMR1, ADC) are ticking
+ *   timers.  If you are here because a demo gated a running timer and it would
+ *   not stop, THIS is why: close it by publishing a per-consumer GATED output
+ *   (root_hz gated by that block's DIRECT bit) and wiring the consumer to it;
+ *   imx91's imx93_ccm/imx91-lpcg-test is the ~50-line portable template.  Wire
+ *   it opportunistically next time you touch this path -- not on a fresh trip.
+ */
 uint32_t imxrt1180_ccm_periph_hz(IMXRT1180CCMState *s, unsigned root,
                                  const char *dev)
 {
