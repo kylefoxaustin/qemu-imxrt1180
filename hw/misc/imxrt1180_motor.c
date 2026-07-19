@@ -39,7 +39,16 @@
 #define M_VBUS     24.0       /* DC-bus voltage (V)                  */
 #define M_IMAX     8.25       /* rated peak current (A)              */
 
-#define M_CPR      4096       /* encoder counts per revolution       */
+/*
+ * Encoder counts per revolution.  The mc_pmsm encoder driver configures the EQDC
+ * modulus LMOD = 4*M1_POSPE_ENC_PULSES - 1 and scales ALL its position/speed gains
+ * for 4x the line count -- for the EVK's 2000-line quadrature encoder that is
+ * 8000 cts/rev.  A mismatched CPR here makes the FOC read the rotor angle at the
+ * wrong rate, so its dq frame diverges from the plant's (torque current lands in
+ * the d-axis) and the closed loop cannot sustain a spin.
+ */
+#define M_ENC_PULSES 2000     /* M1_POSPE_ENC_PULSES (EVK encoder lines) */
+#define M_CPR      (4 * M_ENC_PULSES)   /* 8000 quadrature counts/rev */
 #define M_ADC_MID  0x8000
 /*
  * ADC code span per amp.  The mc_pmsm driver reads a phase current as

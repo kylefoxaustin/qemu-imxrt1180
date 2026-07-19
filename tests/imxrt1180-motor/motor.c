@@ -9,7 +9,8 @@
  *
  *   * with the PWM idle the rotor stands still (EQDC == 0, current == mid-scale)
  *   * with the vector applied the rotor aligns at electrical 90 deg; for the
- *     Pp = 4 M1 motor that is 90/4 = 22.5 deg mechanical = CPR*22.5/360 = 256
+ *     Pp = 4 M1 motor that is 90/4 = 22.5 deg mechanical = CPR*22.5/360 = 500
+ *     (CPR = 8000 = 4 x the 2000-line encoder, matching M1_POSPE_ENC_PULSES)
  *     counts, and a bounded phase current flows.
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
@@ -122,7 +123,7 @@ static uint32_t read_phaseB(void)
  *
  * Rs, Pp and I_MAX are motor/board datasheet facts (MCUXpresso M1 motor), NOT
  * model internals -- so this expectation is independent of the thing it checks.
- * The rotor also settles at EQDC 256 = 4096*22.5/360, the mechanical angle of an
+ * The rotor also settles at EQDC 500 = 8000*22.5/360, the mechanical angle of an
  * electrical 90 deg at Pp=4: predicted, then observed.
  *
  * NOTE the settle must actually REACH steady state.  The old test sampled after
@@ -171,7 +172,7 @@ void reset_handler(void)
     PWM_MCTRL = MCTRL_LDOK;
     PWM_MCTRL = MCTRL_RUN012;
 
-    /* Let the rotor swing to alignment (~256 counts) and settle. */
+    /* Let the rotor swing to alignment (~500 counts) and settle. */
     uint16_t pos = 0;
     uint32_t guard = 0;
     while (pos < 200) {
@@ -205,8 +206,8 @@ void reset_handler(void)
     }
     if (!udcb_ok) { ok = 0; }
 
-    if (ok && pos >= 250 && pos <= 262) {
-        puts_("MOTOR: PASS - rotor aligns at EQDC 256 (electrical 90 deg, Pp=4)\r\n");
+    if (ok && pos >= 490 && pos <= 510) {
+        puts_("MOTOR: PASS - rotor aligns at EQDC 500 (electrical 90 deg, Pp=4)\r\n");
         puts_("MOTOR: PASS - phase current MATCHES the first-principles golden (8341)\r\n");
         puts_("MOTOR: PASS - DC-bus sense reads the plant's real 24V bus (not a placeholder)\r\n");
     } else if (!udcb_ok) {
