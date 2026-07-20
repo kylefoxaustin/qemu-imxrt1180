@@ -5,7 +5,7 @@
 A QEMU machine model of the **NXP i.MX RT1180** crossover MCU (the fully-loaded
 **MIMXRT1189** on the MIMXRT1180-EVK): a heterogeneous dual-core part pairing a
 secure **Cortex-M33** boot core with a **Cortex-M7** application core, targeting
-real-time **motor control** (eFlexPWM + quadrature encoder) and **Gb TSN**
+real-time **motor control** (eFlexPWM + quadrature encoder + LPADC) and **Gb TSN**
 industrial networking.
 
 - **Fork of** QEMU mainline (work on the `imxrt1180-dev` branch); all model
@@ -29,18 +29,55 @@ make -j"$(nproc)"
 # -> hello world.
 ```
 
+The machine auto-detects a **Cortex-M7 image** (a cm7 SDK ELF links below the M33
+code TCM) and boots the M7 with its own per-core view, holding the M33 — no extra
+flags. The M33 machine and every M33 test are untouched.
+
 ## What runs today
+
+Real NXP MCUXpresso SDK firmware runs against the **unmodified `fsl_*` drivers** —
+**34 / 47 `driver_examples` are byte-exact**, plus the stock audio and motor-control
+demos.
 
 | Subsystem | Tier | Evidence |
 |-----------|------|----------|
-| Cortex-M33 boot + memory map + NVIC | ✅ | boots bare-metal + stock SDK firmware |
+| Cortex-M33 boot + memory map + NVIC (239 IRQs) | ✅ | boots bare-metal + stock SDK firmware |
 | LPUART1 console | ✅ | stock `hello_world` prints `hello world.` |
-| Clocks (ANADIG PLL/PFD, CCM roots/gates/observe) | ✅ | real SDK `CLOCK_Init` / `GetFreqFromObs` complete |
+| Clocks (ANADIG PLL/PFD/**AUDIO PLL**, CCM roots/gates/observe) | ✅ | real SDK `CLOCK_Init` / `GetFreqFromObs` complete |
 | RTWDOG, TRDC, FlexSPI, EdgeLock ELE MU | ✅/◐ | SDK SystemInit runs to the console |
 | RGPIO | ✅ | stock `led_blinky` toggles the user LED (RGPIO4[27]) |
 | **Dual-core: M33 releases the Cortex-M7** | ✅ | `tests/imxrt1180-dualcore` — both cores print |
+| **eDMA hardware-request path** (SAI/LPSPI/LPI2C/LPADC/eFlexPWM, both eDMA3/eDMA4) | ✅ | every trigger shape, each gate mutation-proven |
+| **Audio streaming** (AUDIO PLL + WM8962 codec + SAI1-master + eDMA) | ✅ | stock `sai/edma_transfer` streams a byte-exact 1 kHz sine at 48 kHz to a wav |
+| **eFlexPWM + EQDC + LPADC + PWM→XBAR→ADC sync + dq PMSM plant** | ✅ | value-verified: phase current matches Ohm's law to one ADC count |
+| **LPADC A/B-side dual conversion** (`CMDL.CTYPE`) | ✅ | `tests/imxrt1180-adc-ab`, mutation-proven |
+| **Cortex-M7 boots + stock cm7 `mc_pmsm/pmsm_enc` FOC demo runs** | ✅ | closes its control loop and spins the virtual PMSM rotor on the M7 (see below) |
+| Ethernet (NETC / ENETC endpoint) | ✅ | real L2 over a QEMU netdev; 1180↔1180 byte-exact |
+| FlexSPI NOR (`rom_device` XIP + real `m25p80`) | ✅ | erase→program→read-back byte-exact |
 
-See [PERIPHERALS.md](PERIPHERALS.md) for the full coverage table and gaps.
+See [PERIPHERALS.md](PERIPHERALS.md) for the full per-block coverage table and the
+honest gaps.
+
+## Motor-control frontier: the M7 spins a virtual PMSM
+
+The headline target is a real **field-oriented-control (FOC) loop** closing against
+a virtual motor. The stock, unmodified NXP `mc_pmsm/pmsm_enc` demo — which is
+**cm7-only** — now **boots on the Cortex-M7 and closes its control loop**: it walks
+its state machine `Stop → Calib → Align → Startup → Spin`, and the virtual PMSM
+rotor **turns under field-oriented control** (the EQDC position advances as the
+speed loop tracks). Getting there exercised the whole chain end-to-end —
+AUDIO/ARM PLL + FBB + DCDC bring-up, LPADC offset/gain calibration, the eFlexPWM
+double-buffer commit, the LPADC A/B-side dual conversion the demo reads Ia/Ib with,
+the QuadTimer 1 ms slow loop, and the EQDC hardware position-hold + speed
+measurement the encoder driver reads back.
+
+**Honest status:** the loop demonstrably closes and the rotor spins, but an
+*indefinitely-stable* spin still has a closed-loop tuning refinement (a fast
+transient can over/undershoot the demo's high speed command and trip a load-over
+fault before it settles). This is dynamic co-simulation tuning, not a missing
+mechanism — tracked in the roadmap. The **M33** motor path is fully value-verified
+(`tests/imxrt1180-motor`: rotor aligns at the predicted encoder count, phase
+current matches Ohm's law to one ADC count).
 
 ## Interconnect (board-to-board) ✅
 
@@ -61,6 +98,10 @@ I2C (`i2c-link`) — the controllers are modelled; only the bridge wiring is lef
 - `hello_world_demo_cm33.bin` → `hello world.` over LPUART1 (full board init).
 - `led_blinky` → RGPIO4[27] toggles (observable in PDOR).
 - `tests/imxrt1180-dualcore` → M33 releases M7; both cores print.
+- `tests/imxrt1180-cm7boot` → a cm7 image boots on the M7 and proves its per-core
+  ITCM/DTCM/background view is live (mutation-proven).
+- `tests/imxrt1180-motor` / `-adc-ab` → dq plant physics, phase-current golden,
+  and the LPADC A/B dual conversion (mutation-proven).
 - `tests/imxrt1180-corpus/run.sh` → boots every prebuilt SDK cm33 demo, reports
   pass / run / fault.
 
@@ -69,8 +110,12 @@ I2C (`i2c-link`) — the controllers are modelled; only the bridge wiring is lef
 This is an MCU, not a Linux applications processor — so instead of a kernel /
 DTB / rootfs, the "artifact" is **firmware**: a bare-metal, Zephyr, or
 MCUXpresso image (`-kernel <elf|bin>`).  The SDK's prebuilt `cm33/*.bin` demos
-(in the EVK SDK zip) work directly; RAM/debug images link their vector table to
-the code TCM (`0x0FFE0000`).  _(Linux/DTB/rootfs rows: N/A — no Linux on this MCU.)_
+work directly; RAM/debug images link their vector table to the code TCM
+(`0x0FFE0000`). A **cm7** image (links to the M7's local ITCM at `0x0`) is
+auto-detected and boots the M7. Build SDK examples from source with
+`west build -b evkmimxrt1180 --toolchain armgcc <example> -Dcore_id=cm33|cm7
+--config debug` (`--config debug` links to TCM; see `tools/sdk-run.sh`).
+_(Linux/DTB/rootfs rows: N/A — no Linux on this MCU.)_
 
 ## Building
 
@@ -81,19 +126,33 @@ deps; the bare-metal tests use `arm-none-eabi-gcc`.
 ## Architecture
 
 `hw/arm/imxrt1180_soc.c` builds the SoC (dual ARMV7M cores, memory map, catch-all
-peripheral window, then the modelled peripherals); `hw/arm/imxrt1180_evk.c` is
-the thin board.  Each peripheral is a self-contained `imxrt1180_*` device under
-`hw/{char,misc,gpio}/`.  The M7 is released from a bottom-half on
-`SRC_GENERAL.SCR.BT_RELEASE_M7`, booting from `BLK_CTRL_S_AONMIX.M7_CFG.INITVTOR`.
+peripheral window, then the modelled peripherals); `hw/arm/imxrt1180_evk.c` is the
+thin board.  Each peripheral is a self-contained `imxrt1180_*` device under
+`hw/{char,misc,gpio,ssi,i2c,audio,timer}/`.
+
+Two ways the **M7** comes up:
+
+- **M33-released** (the silicon path): the M33 firmware releases the M7 through
+  `SRC` / `BLK_CTRL_S_AONMIX`, and the M7 boots from a system-view image — this is
+  what `tests/imxrt1180-dualcore` exercises.
+- **Direct cm7 boot** (`boot-cm7`, opt-in, auto-detected from the ELF): the M7 gets
+  its own per-core memory view (local ITCM @ `0x0` + DTCM @ `0x20000000` overlaid on
+  the SoC background), the M33 is held, and peripheral IRQs route to the boot core —
+  so a standalone cm7 image (with no M33 to release it) runs its own interrupts.
 
 ## Repository tour
 
-- `hw/arm/imxrt1180_{soc,evk}.c` — SoC + board
-- `hw/char/imxrt1180_lpuart.c` — console UART
-- `hw/misc/imxrt1180_{anadig,ccm,rtwdog,s3mu,flexspi,src,trdc}.c` — clocks, watchdog, ELE MU, FlexSPI, M7-release, TRDC
+- `hw/arm/imxrt1180_{soc,evk}.c` — SoC + board (incl. the `boot-cm7` M7 path)
+- `hw/char/imxrt1180_lpuart.c` — console / B2B UART
+- `hw/misc/imxrt1180_{anadig,ccm}.c` — clock tree (PLLs incl. AUDIO PLL, roots, gates)
+- `hw/misc/imxrt1180_{pwm,eqdc,adc,motor,xbar}.c` — the motor-control frontier (eFlexPWM, encoder, LPADC, dq PMSM plant, XBAR)
+- `hw/{misc/imxrt1180_sai,audio/wm8962}.c` — SAI + WM8962 codec (audio streaming)
+- `hw/timer/imxrt1180_{tmr,lptmr}.c` — QuadTimer + LPTMR
+- `hw/misc/imxrt1180_{rtwdog,s3mu,flexspi,src,trdc}.c` — watchdog, ELE MU, FlexSPI, M7-release, TRDC
+- `hw/{ssi,i2c}/imxrt1180_{lpspi,lpi2c}.c` — SPI / I2C
 - `hw/gpio/imxrt1180_rgpio.c` — GPIO
-- `tests/imxrt1180-{hello,dualcore,corpus}/` — bring-up + dual-core + saturation tests
-- `include/hw/{arm,char,misc,gpio}/imxrt1180_*.h` — headers
+- `tests/imxrt1180-*/` — bring-up, dual-core, cm7-boot, FOC, DMA, audio + saturation tests
+- `include/hw/*/imxrt1180_*.h` — headers
 
 ## Cross-silicon: three SoCs on one wire ✅
 
@@ -128,35 +187,27 @@ hard way (see `CLAUDE.md`):
   "An IRQ fired", "a VALID bit was set", "it's within a range" proves nothing —
   **a range is not a golden**. The phase current is checked against Ohm's law
   (matches to *one ADC count*); the PWM period against SysTick, an Arm core timer
-  outside the model; NOR programming against real erase/program physics.
+  outside the model; NOR programming against real erase/program physics; register
+  reset values against the Reference Manual, not the model (that oracle caught the
+  LPADC `VERID` — a wrong *constant*, not logic, that blocked the FOC demo).
 - **A test that cannot fail is decoration, and you cannot tell by reading it.**
   `tools/mutation-audit.sh` corrupts the model on purpose and requires each test
   to notice. When it was first run, **3 of 4 tests did not** — the whole FOC path
   was blind. Goldens are also **swept across shapes**, because a model can be
-  right at one prescaler and wrong at another.
+  right at one prescaler and wrong at another. (A recurring trap the fleet now
+  gates against: a *green from a stale binary* — a build that silently failed and
+  left the last-good artifact in place — is a weak oracle wearing a disguise.)
 
 ## Known limitations
 
 Honest gaps, per-block, are in [PERIPHERALS.md](PERIPHERALS.md); `(flagged)` is
 defined there and means *visible to the guest*, never "we wrote a host log".
 
-- ~~**Clocks** report nominal, not computed, frequencies~~ — **CLOSED 2026-07-13.**
-  CCM now computes `root_hz = source(MUX) / (DIV+1)` from the registers firmware
-  actually writes, with the PLL/OSC frequencies derived from ANADIG exactly as
-  `CLOCK_GetPllFreq()` does; all six timer blocks (LPIT, GPT, TPM, LPTMR, QTMR,
-  eFlexPWM) read it at the point of use.
-
-  > **What this gap actually was, because it is worse than the old text admitted.**
-  > Every timer in the machine ran at a hardcoded constant, and **not one of the six
-  > was right**: GPT 10× slow, LPIT/TPM 5.5× slow, LPTMR 3.3× slow, QTMR 1.8× fast,
-  > eFlexPWM **1.5× fast**. The PWM value-golden — the one this section pointed at —
-  > *passed the whole time*, because it took `PWM_HZ` **from the model** and said so
-  > in its own comment: *"if PWM_CLK were wrong, this golden would be wrong in
-  > exactly the same direction and still pass."* It was, and it did.
-  > **A mirror that declares itself is still a mirror.** The golden is now anchored
-  > on the clock root the firmware programs and sweeps the root divider, so a model
-  > that ignores the clock tree fails it. Gates: `tests/imxrt1180-clocktree` (exact
-  > Hz, 42 combinations) and the re-anchored `tests/imxrt1180-pwm`.
+- **FOC closed-loop stability**: the cm7 `mc_pmsm` demo's loop closes and the rotor
+  spins, but sustaining it indefinitely still needs dynamic tuning (a fast transient
+  can over/undershoot the high speed command and trip a load-over fault, and a
+  transient DC-bus dip can latch a spurious under-voltage). The feedback path itself
+  (position + hardware speed measurement) is correct.
 - **TRDC** does not enforce access control (grants everything).
 - **EdgeLock (ELE)**: the enclave is proprietary and not modelled. Its **RNG is
   real** (genuine `qemu_guest_getrandom` entropy DMA'd to the guest). **Every
@@ -168,20 +219,39 @@ defined there and means *visible to the guest*, never "we wrote a host log".
   > un-written buffer — firmware would have seeded a crypto stack with un-computed
   > data and believed it succeeded. Fixed 2026-07-12. The false claim is left
   > visible rather than quietly deleted.
-- **LPADC A/B input side** (`CMDL.SIDE`) is not modelled, which is what currently
-  blocks running NXP's stock `mc_pmsm` FOC demo unmodified.
-- **No audio subsystem** (ASRC / audio PLL / codec); **NETC L2 switch path** is
-  not modelled (the ENETC *endpoint* is).
+- **ASRC** (sample-rate converter) data path is not modelled (its AUDIO-PLL + codec
+  blockers are now done); **NETC L2 switch path** is not modelled (the ENETC
+  *endpoint* is).
 - **Cache** is a QEMU-architectural WONTFIX (no guest CPU cache to model); **MECC**
   is an optional RAS diagnostic.
 
+Two limitations this README used to list are now **CLOSED**: the *clock tree*
+(every timer once ran at a hardcoded, wrong constant — see the retraction below),
+and the *LPADC A/B input side* + *audio subsystem*, both of which the motor-control
+and audio-streaming work above now cover.
+
+> **The clock-tree gap, because it was worse than the old text admitted.**
+> Every timer in the machine ran at a hardcoded constant, and **not one of the six
+> was right**: GPT 10× slow, LPIT/TPM 5.5× slow, LPTMR 3.3× slow, QTMR 1.8× fast,
+> eFlexPWM **1.5× fast**. The PWM value-golden *passed the whole time*, because it
+> took `PWM_HZ` **from the model** and said so in its own comment: *"if PWM_CLK were
+> wrong, this golden would be wrong in exactly the same direction and still pass."*
+> It was, and it did. **A mirror that declares itself is still a mirror.** The golden
+> is now anchored on the clock root the firmware programs and sweeps the divider, so
+> a model that ignores the clock tree fails it. Gates: `tests/imxrt1180-clocktree`
+> (exact Hz, 42 combinations) and the re-anchored `tests/imxrt1180-pwm`.
+
 ## Roadmap
 
-1. **LPADC A/B side mux** → run the stock `mc_pmsm` FOC demo unmodified.
-2. **NETC switch path** (SW0/FDB), multi-SI, PTP 1588.
-3. Saturation/thermal effects and a time-varying load profile in the motor plant.
+1. **Sustain the FOC spin** — close the closed-loop stability gap (plant/PI dynamic
+   tuning + the transient DC-bus dip) so the stock `mc_pmsm` demo holds a commanded
+   speed indefinitely.
+2. **NETC switch path** (SW0/FDB), multi-SI, PTP 1588; finish the 3-node raw-L2
+   segment.
+3. Saturation/thermal effects and a time-varying load profile in the motor plant;
+   the ASRC data path.
 4. Value-golden a peripheral **through the real `fsl_*` driver** rather than by
-   poking registers — the one rung-3 clause we do not yet satisfy.
+   poking registers — the one rung-3 clause we do not yet satisfy everywhere.
 
 ## License
 
