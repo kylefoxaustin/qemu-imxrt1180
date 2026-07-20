@@ -166,6 +166,23 @@ replicate that. `--config debug` links to TCM and runs directly. Harness:
     `[N/N] Linking target` line (or `ninja: no work to do` only when nothing
     changed), and kill stale background QEMU/gdbstubs first. A red you did not prove
     came from the *new* binary proves nothing. (95emulator, 2026-07-18.)
+    - **`pkill -f <pattern>` MATCHES ITS OWN COMMAND LINE AND SIGKILLS ITS OWN SHELL.**
+      A three-way-confirmed trap (ollama_95_neutron on an NPU release, 91emulator, and
+      this model — 2026-07-19). `pkill -f 'build/qemu-system-arm'` run *inside* a
+      background launch whose own argv contains that string kills itself before QEMU
+      starts; it surfaces as a bare `exit 1`/`exit 144` (or, over ssh, reads as
+      *network flakiness* on a wired link). Same family as the ghost gdbstub on :1234:
+      **the tool you use to control the experiment is itself a participant in it.**
+      Kill by PID (`for p in $(pgrep -f ...); do kill -9 $p; done`) or make the pattern
+      un-self-matching; never put a broad `pkill -f` in the same command line it would
+      match.
+    - **BINARY FRESHNESS ≠ SOURCE PROVENANCE (for releases/patch prep).** The rebuild
+      gate proves the artifact changed; it does NOT prove it was built from the source
+      you *meant*. For a mutation audit the two collapse (you just edited the file); for
+      a release or an upstream patch series they separate — "a confirmed rebuild of the
+      WRONG source is the same lie one level up," and every downstream check still
+      passes. There, also assert the INPUT's identity (sha of the source vs. the
+      intended final) *before* building. (ollama_95_neutron, 2026-07-19.)
 
 - **Retract before you fix.** A false claim must not stay up while you work. See
   the retraction blocks in `PERIPHERALS.md`.
