@@ -22,11 +22,13 @@
  *     process BD -> advance CBDRCIR).  We run add / query / update / delete
  *     synchronously for the forwarding database (FDB, {MAC,FID}->portBitmap) and
  *     the VLAN filter table (VF, VID->{FID, port membership}).  A frame ingressing
- *     the switch also has its SOURCE MAC learned into a dynamic FDB entry, as
- *     silicon populates its database from live traffic.  The egress datapath
- *     (routing a frame out its looked-up ports between station interfaces) is not
- *     yet modelled (unmodelled tables fault honestly via the BD's resp.error,
- *     never a silent ack).
+ *     the switch has its SOURCE MAC learned into a dynamic FDB entry, and a CPU-
+ *     injected frame is FORWARDED per the FDB: the egress decision does the
+ *     FDB (intersect VLAN membership) lookup, floods an unknown-unicast/broadcast,
+ *     and applies split-horizon, so it reaches the wire only when its destination
+ *     resolves there.  The wire->CPU forwarding side and multi-physical-port
+ *     routing are not yet modelled (unmodelled tables fault honestly via the BD's
+ *     resp.error, never a silent ack).
  *   - PTP 1588 timer (TMR0): a nanosecond clock derived from the QEMU virtual
  *     clock, whose rate the driver tunes via the addend (digital DDS).
  *
@@ -306,8 +308,15 @@ static void netc_deliver_rx(IMXRT1180NETCState *s, const uint8_t *frame,
 #define NETC_SW_PORT_CPU    4
 #define NETC_SW_PORT_WIRE   0
 #define NETC_SW_DEFAULT_FID 0
+#define NETC_SW_NUM_PORTS   5
+#define NETC_SW_ALL_PORTS   0x1Fu
+/* Switch port 0 (the wire) MAC "Transmit Frame Counter" (aFramesTransmittedOK):
+ * ETH_LINK @ 0x60A05000, PM0_TFRMN @ +0x220 (64-bit). */
+#define R_SW_P0_TFRMN       0xA05220
 static void netc_switch_learn(IMXRT1180NETCState *s, const uint8_t *src_mac,
                               uint16_t fid, unsigned port);
+static uint32_t netc_switch_egress(IMXRT1180NETCState *s, const uint8_t *dest_mac,
+                                   uint16_t fid, unsigned ingress_port);
 
 static void netc_do_tx(IMXRT1180NETCState *s)
 {
@@ -346,11 +355,29 @@ static void netc_do_tx(IMXRT1180NETCState *s)
 
         if (s->phy_regs[0] & PHY_BMCR_LOOPBACK) {
             /* PHY local loopback: the frame U-turns back into our own RX ring
-             * (this is what the SDK netc_txrx_transfer example relies on). */
+             * (this is what the SDK netc_txrx_transfer example relies on).  This is
+             * a MAC self-test, below the switch -- it bypasses the forwarding path. */
             netc_deliver_rx(s, frame, flen);
-        } else {
-            /* Normal operation: put the frame on the wire (the netdev). */
-            qemu_send_packet(qemu_get_queue(s->nic), frame, flen);
+        } else if (flen >= 14) {
+            /*
+             * Switch egress: the CPU-injected frame ingresses on the management
+             * port; the switch forwards it out the ports its destination resolves
+             * to.  We have one physical port (the wire), so a frame egresses the
+             * wire iff the destination floods (unknown unicast / broadcast) or its
+             * FDB entry names the wire port.  A destination that maps only to the
+             * CPU's own port is dropped by split-horizon -- NOT put on the wire.
+             * An unprogrammed FDB floods, so plain endpoint TX still reaches the
+             * wire exactly as before.
+             */
+            uint32_t egress = netc_switch_egress(s, frame, NETC_SW_DEFAULT_FID,
+                                                 NETC_SW_PORT_CPU);
+            if (egress & (1u << NETC_SW_PORT_WIRE)) {
+                qemu_send_packet(qemu_get_queue(s->nic), frame, flen);
+                /* count it out the wire port's MAC (PM0_TFRMN, aFramesTransmittedOK) */
+                netc_backing_write(s, R_SW_P0_TFRMN,
+                                   netc_backing_read(s, R_SW_P0_TFRMN, 8) + 1, 8);
+            }
+            /* else: forwarded elsewhere / dropped by the switch -- not to the wire */
         }
         cir = (cir + 1) % tlen;
     }
@@ -520,6 +547,36 @@ static void netc_switch_learn(IMXRT1180NETCState *s, const uint8_t *src_mac,
             return;
         }
     }
+}
+
+/*
+ * Switch forwarding decision: the egress port bitmap for a frame with destination
+ * `dest_mac` and filtering-ID `fid` ingressing on `ingress_port`.
+ *   - a group destination (broadcast/multicast) floods to all ports;
+ *   - a unicast destination with an FDB entry egresses that entry's port bitmap;
+ *   - an unknown unicast floods (so an unprogrammed switch behaves as a hub, which
+ *     is what a plain endpoint relies on);
+ *   - the result is intersected with the VLAN's port membership if this fid has a
+ *     VLAN filter entry, and never includes the ingress port (split-horizon).
+ */
+static uint32_t netc_switch_egress(IMXRT1180NETCState *s, const uint8_t *dest_mac,
+                                   uint16_t fid, unsigned ingress_port)
+{
+    uint32_t bitmap;
+
+    if (dest_mac[0] & 0x01) {
+        bitmap = NETC_SW_ALL_PORTS;              /* group address -> flood */
+    } else {
+        IMXRT1180NETCFdbEntry *e = netc_fdb_find_key(s, dest_mac, fid);
+        bitmap = e ? e->port_bitmap : NETC_SW_ALL_PORTS;   /* unknown unicast -> flood */
+    }
+    for (int i = 0; i < IMXRT1180_NETC_VF_SIZE; i++) {
+        if (s->vlan[i].valid && (s->vlan[i].cfge[1] & 0xFFF) == fid) {
+            bitmap &= s->vlan[i].cfge[0] & 0xFFFFFF;   /* restrict to VLAN members */
+            break;
+        }
+    }
+    return bitmap & ~(1u << ingress_port);       /* split-horizon */
 }
 
 /*
