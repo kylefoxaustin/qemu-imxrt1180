@@ -47,9 +47,22 @@ fi
 ELF="$(ls "$BUILD"/*.elf 2>/dev/null | head -1)"
 [ -n "$ELF" ] || { echo "   no ELF produced"; exit 1; }
 
+# Motor-control (FOC) demos need -icount: the ADC conversion is modelled as
+# instant, so without a virtual clock the PWM-synced ADC hardware trigger fires
+# far faster than the emulated CPU services the ADC1 ISR, overflowing the LPADC
+# RESFIFO -- the mc_pmsm read chain then mis-aligns and U_DCbus reads a phase
+# current, tripping a spurious under-voltage fault that wedges the FOC loop.
+# -icount locks the trigger rate to instruction retirement, matching silicon.
+# Auto-enabled for mc_pmsm; override with QEMU_ICOUNT=... (or ='' to disable).
+ICOUNT="${QEMU_ICOUNT-}"
+if [ -z "${QEMU_ICOUNT+set}" ] && echo "$EXAMPLE" | grep -qiE 'mc_pmsm|motor|foc'; then
+    ICOUNT="-icount shift=3"
+    echo ">> motor-control demo: enabling $ICOUNT (rate-match ADC trigger to CPU)"
+fi
+
 echo ">> running on $QEMU"
 timeout -k 5 12 "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none \
-    -kernel "$ELF" -serial "file:/tmp/sdk_$NAME.con" \
+    -kernel "$ELF" -serial "file:/tmp/sdk_$NAME.con" $ICOUNT \
     -semihosting-config enable=on,target=native -d unimp 2>/tmp/sdk_$NAME.unimp
 echo "---- console ----"
 cat "/tmp/sdk_$NAME.con"

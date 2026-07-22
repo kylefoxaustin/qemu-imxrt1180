@@ -229,11 +229,24 @@ honest gaps). Working today:
   (erase→program→read-back byte-exact, and program-without-erase only clears bits).
 - **B2B**: UART and Ethernet transports live.
 
+The cm7 FOC loop **holds a commanded speed indefinitely under `-icount`** — driven
+to 2000 rpm it settles within ~1.5% and holds flat, zero faults, `id≈0`, encoder
+speed tracking the rotor to <0.5%. The old "trips FAULT_LOAD_OVER after ~0.66 rev"
+was **not** a tuning gap: it was an **LPADC RESFIFO overflow**. The FOC reads a
+2-command DualBoth chain in fixed `FIFO0/1/0/1 = Ia/Ib/dummy/U_DCbus` order, so
+each PWM-synced trigger must leave 2+2. The ADC conversion is modelled instant, so
+without a virtual clock the trigger outruns the ADC1 ISR, the FIFO overflows, the
+grouping shifts, and **U_DCbus reads a phase current** (saw −15 V) → spurious
+under-voltage every cycle → wedged. `-icount` rate-matches it (as conversion time
+does on silicon). Model is faithful either way (drops on full + raises `STAT.FOF`).
+`tools/sdk-run.sh` auto-enables `-icount` for `mc_pmsm`; invariant pinned by
+`tests/imxrt1180-adc-fifo-align` (mutation-proven). **A `?:`-style "instant is fine"
+peripheral timing assumption is a place a bug lives where no single-step test looks
+— it only bites at rate, under the real ISR.**
+
 Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is
 `0x88B6` on mcast `230.0.0.9:31337`); NETC L2 switch path; the ASRC sample-rate-
-converter data path (its Audio-PLL + codec blockers are now done). The cm7 FOC
-loop closes and the rotor spins on the M7; sustaining the spin indefinitely (it
-trips FAULT_LOAD_OVER after ~0.66 rev) is a plant/FOC tuning co-sim refinement.
+converter data path (its Audio-PLL + codec blockers are now done).
 
 ## Fleet
 

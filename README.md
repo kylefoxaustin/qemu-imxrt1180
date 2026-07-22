@@ -51,7 +51,7 @@ demos.
 | **Audio streaming** (AUDIO PLL + WM8962 codec + SAI1-master + eDMA) | ✅ | stock `sai/edma_transfer` streams a byte-exact 1 kHz sine at 48 kHz to a wav |
 | **eFlexPWM + EQDC + LPADC + PWM→XBAR→ADC sync + dq PMSM plant** | ✅ | value-verified: phase current matches Ohm's law to one ADC count |
 | **LPADC A/B-side dual conversion** (`CMDL.CTYPE`) | ✅ | `tests/imxrt1180-adc-ab`, mutation-proven |
-| **Cortex-M7 boots + stock cm7 `mc_pmsm/pmsm_enc` FOC demo runs** | ✅ | closes its control loop and spins the virtual PMSM rotor on the M7 (see below) |
+| **Cortex-M7 boots + stock cm7 `mc_pmsm/pmsm_enc` FOC demo runs** | ✅ | closed-loop FOC holds a commanded speed on the virtual PMSM indefinitely, under `-icount` (see below) |
 | Ethernet (NETC / ENETC endpoint) | ✅ | real L2 over a QEMU netdev; 1180↔1180 byte-exact |
 | FlexSPI NOR (`rom_device` XIP + real `m25p80`) | ✅ | erase→program→read-back byte-exact |
 
@@ -71,13 +71,31 @@ double-buffer commit, the LPADC A/B-side dual conversion the demo reads Ia/Ib wi
 the QuadTimer 1 ms slow loop, and the EQDC hardware position-hold + speed
 measurement the encoder driver reads back.
 
-**Honest status:** the loop demonstrably closes and the rotor spins, but an
-*indefinitely-stable* spin still has a closed-loop tuning refinement (a fast
-transient can over/undershoot the demo's high speed command and trip a load-over
-fault before it settles). This is dynamic co-simulation tuning, not a missing
-mechanism — tracked in the roadmap. The **M33** motor path is fully value-verified
-(`tests/imxrt1180-motor`: rotor aligns at the predicted encoder count, phase
-current matches Ohm's law to one ADC count).
+**Status: the spin is sustained.** Under `-icount` the FOC loop closes and the
+virtual PMSM **holds a commanded speed indefinitely** — driven to 2000 rpm it
+settles within ~1.5 % and holds flat with **zero faults**, `id ≈ 0` (textbook
+field orientation), the encoder-measured speed tracking the true rotor to <0.5 %,
+and the plant's mechanical speed exactly 4× the electrical (Pp = 4) as physics
+demands. A commanded step (2000→1194 rpm) tracks smoothly and re-settles.
+
+The "spurious under-voltage / load-over fault" that previously killed the spin was
+**not** a plant/PI-tuning problem — it was an **LPADC RESFIFO overflow**. The FOC
+fast loop reads a two-command DualBoth chain in a fixed `FIFO0/1/0/1 = Ia/Ib/dummy/
+U_DCbus` order, so every PWM-synced trigger must leave exactly 2+2 entries. The
+model's ADC conversion is *instant*, so without a virtual clock the trigger fires
+far faster than the emulated CPU services the ADC1 ISR; the FIFO overflows, drops
+entries, the grouping shifts, and **U_DCbus reads a signed phase current** (seen
+swinging to −15 V) — re-latching an under-voltage fault every cycle and wedging the
+drive. On silicon the conversion takes real time and the rates are matched by
+physics; **`-icount` restores that** by locking the trigger rate to instruction
+retirement. The model itself is faithful either way — it drops on a full FIFO and
+raises `STAT.FOF`, the honest overflow flag. `tools/sdk-run.sh` enables `-icount`
+automatically for `mc_pmsm`; the invariant is pinned by `tests/imxrt1180-adc-fifo-
+align` (RESFIFO alignment + honest overflow, mutation-proven).
+
+The **M33** motor path is fully value-verified (`tests/imxrt1180-motor`: rotor
+aligns at the predicted encoder count, phase current matches Ohm's law to one ADC
+count).
 
 ## Interconnect (board-to-board) ✅
 
@@ -203,11 +221,13 @@ hard way (see `CLAUDE.md`):
 Honest gaps, per-block, are in [PERIPHERALS.md](PERIPHERALS.md); `(flagged)` is
 defined there and means *visible to the guest*, never "we wrote a host log".
 
-- **FOC closed-loop stability**: the cm7 `mc_pmsm` demo's loop closes and the rotor
-  spins, but sustaining it indefinitely still needs dynamic tuning (a fast transient
-  can over/undershoot the high speed command and trip a load-over fault, and a
-  transient DC-bus dip can latch a spurious under-voltage). The feedback path itself
-  (position + hardware speed measurement) is correct.
+- **FOC demo requires `-icount`**: the cm7 `mc_pmsm` FOC loop closes and the rotor
+  holds a commanded speed indefinitely (see the frontier section above) **only under
+  a virtual clock** — the LPADC conversion is modelled as instant, so free-running it
+  overflows the RESFIFO and the mc_pmsm read chain mis-aligns. `tools/sdk-run.sh`
+  enables `-icount` for `mc_pmsm` automatically; `tests/imxrt1180-adc-fifo-align`
+  pins the FIFO invariant. Free-running (no `-icount`) is honest, not silent — the
+  ADC raises `STAT.FOF` — but the FOC loop will fault.
 - **TRDC** does not enforce access control (grants everything).
 - **EdgeLock (ELE)**: the enclave is proprietary and not modelled. Its **RNG is
   real** (genuine `qemu_guest_getrandom` entropy DMA'd to the guest). **Every
@@ -243,14 +263,11 @@ and audio-streaming work above now cover.
 
 ## Roadmap
 
-1. **Sustain the FOC spin** — close the closed-loop stability gap (plant/PI dynamic
-   tuning + the transient DC-bus dip) so the stock `mc_pmsm` demo holds a commanded
-   speed indefinitely.
-2. **NETC switch path** (SW0/FDB), multi-SI, PTP 1588; finish the 3-node raw-L2
+1. **NETC switch path** (SW0/FDB), multi-SI, PTP 1588; finish the 3-node raw-L2
    segment.
-3. Saturation/thermal effects and a time-varying load profile in the motor plant;
+2. Saturation/thermal effects and a time-varying load profile in the motor plant;
    the ASRC data path.
-4. Value-golden a peripheral **through the real `fsl_*` driver** rather than by
+3. Value-golden a peripheral **through the real `fsl_*` driver** rather than by
    poking registers — the one rung-3 clause we do not yet satisfy everywhere.
 
 ## License
