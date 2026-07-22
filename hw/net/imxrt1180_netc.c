@@ -17,6 +17,12 @@
  *   - TX->RX BD loopback: writing the TX producer index DMAs the frame from the
  *     TX BD, copies it into the RX ring's buffer, writes the RX BD back ready,
  *     and emits the TX/RX MSI-X messages so the driver's completion path runs.
+ *   - SWITCH (SW0) NTMP command-BD ring + L2 forwarding database (FDB): the
+ *     fsl_netc_switch driver programs the switch's tables over a command BD ring
+ *     (CBDRPIR doorbell -> process BD -> advance CBDRCIR).  We run FDB add / query
+ *     / delete synchronously and maintain the {MAC,FID}->portBitmap table.  Multi-
+ *     SI port forwarding and PTP are not yet modelled (unmodelled tables fault
+ *     honestly via the BD's resp.error, never a silent ack).
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -375,6 +381,242 @@ static NetClientInfo netc_net_info = {
     .receive = netc_receive,
 };
 
+/* ============ NETC switch: NTMP command-BD ring + FDB table ================
+ *
+ * The switch driver (fsl_netc_switch + fsl_netc_hw) programs the L2 forwarding
+ * database and VLAN filter over a "command BD ring" using the NETC Table
+ * Management Protocol (NTMP).  Per operation it writes a 32-byte command BD into
+ * the ring, then rings the doorbell CBDRPIR = (index+1)%len and SPINS on
+ *   while (producerIndex != CBDRCIR)
+ * -- there is no busy bit; completion IS hardware advancing CBDRCIR to the
+ * producer index (NETC_CmdBDSendCommand, fsl_netc_hw.c).  We process the BD
+ * synchronously on the CBDRPIR write and set CBDRCIR = CBDRPIR, releasing the
+ * spin.  A command that we do not model must fault through the BD's own error
+ * field (resp.error), never by leaving CBDRCIR behind -- that would HANG the
+ * driver instead of telling it.
+ *
+ * Register offsets/masks: PERI_NETC_SW.h (SW0 @ 0x60A00000).  BD + table byte
+ * offsets: fsl_netc.h, compiler-verified.
+ */
+#define SW0_OFF            0xA00000               /* SW0_BASE - NETC base */
+#define SW_CBDR_BASE       (SW0_OFF + 0x800)
+#define SW_CBDR_STEP       0x30
+#define SW_NUM_CBDR        2
+#define SWCBDR_MR          0x00                   /* mode; EN = bit 31 */
+#define SWCBDR_BAR0        0x10                   /* ring base low (128B-aligned) */
+#define SWCBDR_BAR1        0x14                   /* ring base high */
+#define SWCBDR_PIR         0x18                   /* producer index (doorbell) */
+#define SWCBDR_CIR         0x1C                   /* consumer index (completion) */
+#define SWCBDR_LENR        0x20                   /* ring length (#BDs, mult of 8) */
+#define SWCBDR_MR_EN       0x80000000u
+#define SWCBDR_LEN_MASK    0x7F8u
+#define SWCBDR_IDX_MASK    0x3FFu
+#define SWCBDR_BAR0_MASK   0xFFFFFF80u
+
+#define NTMP_BD_SIZE       32
+/* command BD dword@12: cmd[3:0], accessType[13:12], tableId[23:16]; resp view of
+ * the same dword: numMatched[15:0], error[27:16], resReady[31]. */
+#define NTMP_TB_FDB        15
+#define NTMP_CMD_DELETE    0x1
+#define NTMP_CMD_UPDATE    0x2
+#define NTMP_CMD_QUERY     0x4
+#define NTMP_CMD_ADD       0x8
+#define NTMP_ACC_ENTRYID   0                      /* kNETC_EntryIDMatch */
+/* NTMP error status (netc_cmd_error_t) -- documented codes, not invented. */
+#define NTMP_ERR_NONE      0x00
+#define NTMP_ERR_SIZE      0x02                   /* kNETC_SizeError: table full */
+#define NTMP_ERR_INV_TABLE 0x80                   /* kNETC_InvTableID */
+
+static IMXRT1180NETCFdbEntry *netc_fdb_find_key(IMXRT1180NETCState *s,
+                                                const uint8_t *mac, uint16_t fid)
+{
+    for (int i = 0; i < IMXRT1180_NETC_FDB_SIZE; i++) {
+        IMXRT1180NETCFdbEntry *e = &s->fdb[i];
+        if (e->valid && e->fid == fid && memcmp(e->mac, mac, 6) == 0) {
+            return e;
+        }
+    }
+    return NULL;
+}
+
+static IMXRT1180NETCFdbEntry *netc_fdb_find_id(IMXRT1180NETCState *s, uint32_t id)
+{
+    for (int i = 0; i < IMXRT1180_NETC_FDB_SIZE; i++) {
+        if (s->fdb[i].valid && s->fdb[i].entry_id == id) {
+            return &s->fdb[i];
+        }
+    }
+    return NULL;
+}
+
+/*
+ * Execute one FDB (tableId 15) command.  Buffer layout at req_addr
+ * (compiler-verified offsets from netc_tb_fdb_{req,rsp}_data_t):
+ *   request  (48B): commonHeader@0; union@4 { entryID@4 | keye@4:
+ *                   mac[6]@4, fid dword@12 [11:0] }; cfge@36:
+ *                   portBitmap dword@36 [23:0], flags dword@40, etEID@44.
+ *   response (36B): status@0, entryID@4, keye@8 (mac@8, fid dword@16),
+ *                   cfge@20 (portBitmap@20, flags@24, etEID@28), acte@32.
+ * cmd is a bitfield (Add 0x8, Update 0x2, Query 0x4, Delete 0x1) so combined
+ * ops (AddAndQuery 0xC, QueryAndDelete 0x5) fall out of testing each bit.
+ * Returns the NTMP error status and sets *num_matched.
+ */
+static uint32_t netc_fdb_op(IMXRT1180NETCState *s, unsigned cmd, unsigned acc,
+                            uint64_t req_addr, uint16_t *num_matched)
+{
+    uint8_t rbuf[48];
+    IMXRT1180NETCFdbEntry *e = NULL;
+    uint32_t err = NTMP_ERR_NONE;
+
+    *num_matched = 0;
+    dma_memory_read(s->dma_as, req_addr, rbuf, sizeof(rbuf), MEMTXATTRS_UNSPECIFIED);
+
+    if (cmd & NTMP_CMD_ADD) {
+        uint16_t fid = ldl_le_p(rbuf + 12) & 0xFFF;
+        e = netc_fdb_find_key(s, rbuf + 4, fid);
+        if (!e) {
+            for (int i = 0; i < IMXRT1180_NETC_FDB_SIZE && !e; i++) {
+                if (!s->fdb[i].valid) {
+                    e = &s->fdb[i];
+                }
+            }
+            if (!e) {
+                return NTMP_ERR_SIZE;            /* table full -- honest fault */
+            }
+            memcpy(e->mac, rbuf + 4, 6);
+            e->fid = fid;
+            e->valid = true;
+            e->entry_id = s->fdb_next_id++;
+        }
+        e->port_bitmap = ldl_le_p(rbuf + 36) & 0xFFFFFF;
+        e->cfge_flags  = ldl_le_p(rbuf + 40);
+        e->et_eid      = ldl_le_p(rbuf + 44);
+        e->dynamic     = (e->cfge_flags >> 11) & 1;
+        *num_matched = 1;
+    } else if (cmd & NTMP_CMD_UPDATE) {
+        e = (acc == NTMP_ACC_ENTRYID)
+              ? netc_fdb_find_id(s, ldl_le_p(rbuf + 4))
+              : netc_fdb_find_key(s, rbuf + 4, ldl_le_p(rbuf + 12) & 0xFFF);
+        if (e) {
+            e->port_bitmap = ldl_le_p(rbuf + 36) & 0xFFFFFF;
+            e->cfge_flags  = ldl_le_p(rbuf + 40);
+            e->et_eid      = ldl_le_p(rbuf + 44);
+            e->dynamic     = (e->cfge_flags >> 11) & 1;
+            *num_matched = 1;
+        }
+    }
+
+    if (cmd & NTMP_CMD_QUERY) {
+        if (!e) {
+            e = (acc == NTMP_ACC_ENTRYID)
+                  ? netc_fdb_find_id(s, ldl_le_p(rbuf + 4))
+                  : netc_fdb_find_key(s, rbuf + 4, ldl_le_p(rbuf + 12) & 0xFFF);
+        }
+        if (e) {
+            uint8_t resp[36];
+            memset(resp, 0, sizeof(resp));
+            stl_le_p(resp + 4, e->entry_id);      /* rsp.entryID */
+            memcpy(resp + 8, e->mac, 6);          /* rsp.keye.macAddr */
+            stl_le_p(resp + 16, e->fid & 0xFFF);  /* rsp.keye.fid */
+            stl_le_p(resp + 20, e->port_bitmap);  /* rsp.cfge.portBitmap */
+            stl_le_p(resp + 24, e->cfge_flags);   /* rsp.cfge flags */
+            stl_le_p(resp + 28, e->et_eid);       /* rsp.cfge.etEID */
+            dma_memory_write(s->dma_as, req_addr, resp, sizeof(resp),
+                             MEMTXATTRS_UNSPECIFIED);
+            *num_matched = 1;
+        }
+    }
+
+    if (cmd & NTMP_CMD_DELETE) {
+        IMXRT1180NETCFdbEntry *d = (acc == NTMP_ACC_ENTRYID)
+              ? netc_fdb_find_id(s, ldl_le_p(rbuf + 4))
+              : netc_fdb_find_key(s, rbuf + 4, ldl_le_p(rbuf + 12) & 0xFFF);
+        if (d) {
+            d->valid = false;
+            *num_matched = 1;
+        }
+    }
+
+    return err;
+}
+
+/* Process one 32-byte NTMP command BD at bd_addr: dispatch on tableId/cmd, then
+ * write the response (error/numMatched/resReady) back into the BD's dword@12. */
+static void netc_process_cmd_bd(IMXRT1180NETCState *s, uint64_t bd_addr)
+{
+    uint8_t bd[NTMP_BD_SIZE];
+    uint64_t req_addr;
+    uint32_t dw3, err;
+    unsigned cmd, acc, table_id;
+    uint16_t num_matched = 0;
+
+    dma_memory_read(s->dma_as, bd_addr, bd, sizeof(bd), MEMTXATTRS_UNSPECIFIED);
+    req_addr = ldq_le_p(bd);                      /* req.addr (data buffer) */
+    dw3      = ldl_le_p(bd + 12);
+    cmd      = dw3 & 0xF;
+    acc      = (dw3 >> 12) & 0x3;
+    table_id = (dw3 >> 16) & 0xFF;
+
+    switch (table_id) {
+    case NTMP_TB_FDB:
+        err = netc_fdb_op(s, cmd, acc, req_addr, &num_matched);
+        break;
+    default:
+        /* We do not model this table yet.  TELL THE DRIVER via the BD's own error
+         * field (a documented, non-gating channel) instead of faking success -- a
+         * silent ack over an unprogrammed table is a lie the driver cannot see. */
+        qemu_log_mask(LOG_UNIMP, "imxrt1180-netc: NTMP command for unmodelled "
+                      "table %u (cmd 0x%x) -- returning kNETC_InvTableID (flagged)\n",
+                      table_id, cmd);
+        err = NTMP_ERR_INV_TABLE;
+        break;
+    }
+
+    /* Response into dword@12: numMatched[15:0], error[27:16], resReady[31]. */
+    stl_le_p(bd + 12, (num_matched & 0xFFFF) | ((err & 0xFFF) << 16) | (1u << 31));
+    dma_memory_write(s->dma_as, bd_addr + 12, bd + 12, 4, MEMTXATTRS_UNSPECIFIED);
+}
+
+/* CBDRPIR (doorbell) written for a ring: process every BD between the consumer
+ * index and the new producer index, then advance CBDRCIR to release the driver's
+ * spin-wait (which polls CBDRCIR == producerIndex). */
+static void netc_cbdr_doorbell(IMXRT1180NETCState *s, unsigned ring)
+{
+    hwaddr rbase = SW_CBDR_BASE + (hwaddr)ring * SW_CBDR_STEP;
+    uint64_t ring_base;
+    uint32_t len, pir, cir, guard = 0;
+
+    if (!(netc_reg(s, rbase + SWCBDR_MR) & SWCBDR_MR_EN)) {
+        return;                                   /* ring disabled */
+    }
+    len = netc_reg(s, rbase + SWCBDR_LENR) & SWCBDR_LEN_MASK;
+    if (len == 0) {
+        return;
+    }
+    ring_base = (uint64_t)(netc_reg(s, rbase + SWCBDR_BAR0) & SWCBDR_BAR0_MASK) |
+                ((uint64_t)netc_reg(s, rbase + SWCBDR_BAR1) << 32);
+    pir = netc_reg(s, rbase + SWCBDR_PIR) & SWCBDR_IDX_MASK;
+    cir = netc_reg(s, rbase + SWCBDR_CIR) & SWCBDR_IDX_MASK;
+
+    while (cir != pir && guard++ <= len) {
+        netc_process_cmd_bd(s, ring_base + (uint64_t)cir * NTMP_BD_SIZE);
+        cir = (cir + 1) % len;
+    }
+    netc_backing_write(s, rbase + SWCBDR_CIR, pir, 4);   /* completion */
+}
+
+/* Is off a CBDRPIR doorbell register for some switch command BD ring? */
+static bool netc_is_cbdr_pir(hwaddr off, unsigned *ring)
+{
+    for (unsigned r = 0; r < SW_NUM_CBDR; r++) {
+        if (off == SW_CBDR_BASE + (hwaddr)r * SW_CBDR_STEP + SWCBDR_PIR) {
+            *ring = r;
+            return true;
+        }
+    }
+    return false;
+}
+
 static uint64_t netc_read(void *opaque, hwaddr off, unsigned size)
 {
     IMXRT1180NETCState *s = opaque;
@@ -404,6 +646,18 @@ static uint64_t netc_read(void *opaque, hwaddr off, unsigned size)
 static void netc_write(void *opaque, hwaddr off, uint64_t val, unsigned size)
 {
     IMXRT1180NETCState *s = opaque;
+    unsigned ring;
+
+    /*
+     * NTMP command-BD doorbell: the switch driver writes CBDRPIR to launch a
+     * table (FDB/VLAN) operation, then spins on CBDRCIR.  Store the index, run
+     * the command(s), and advance CBDRCIR to release the spin.
+     */
+    if (netc_is_cbdr_pir(off, &ring)) {
+        netc_backing_write(s, off, val, size);
+        netc_cbdr_doorbell(s, ring);
+        return;
+    }
 
     /*
      * RX-QUEUE RESTART.
@@ -547,6 +801,8 @@ static void netc_reset(DeviceState *dev)
     }
     memset(s->phy_regs, 0, sizeof(s->phy_regs));
     s->mdio_reg = 0;
+    memset(s->fdb, 0, sizeof(s->fdb));
+    s->fdb_next_id = 0;
 }
 
 static void netc_realize(DeviceState *dev, Error **errp)
@@ -572,13 +828,33 @@ static void netc_unrealize(DeviceState *dev)
     g_free(s->backing);
 }
 
-static const VMStateDescription vmstate_netc = {
-    .name = TYPE_IMXRT1180_NETC,
+static const VMStateDescription vmstate_netc_fdb = {
+    .name = "imxrt1180-netc/fdb-entry",
     .version_id = 1,
     .minimum_version_id = 1,
     .fields = (const VMStateField[]) {
+        VMSTATE_BOOL(valid, IMXRT1180NETCFdbEntry),
+        VMSTATE_BOOL(dynamic, IMXRT1180NETCFdbEntry),
+        VMSTATE_UINT8_ARRAY(mac, IMXRT1180NETCFdbEntry, 6),
+        VMSTATE_UINT16(fid, IMXRT1180NETCFdbEntry),
+        VMSTATE_UINT32(port_bitmap, IMXRT1180NETCFdbEntry),
+        VMSTATE_UINT32(cfge_flags, IMXRT1180NETCFdbEntry),
+        VMSTATE_UINT32(et_eid, IMXRT1180NETCFdbEntry),
+        VMSTATE_UINT32(entry_id, IMXRT1180NETCFdbEntry),
+        VMSTATE_END_OF_LIST()
+    },
+};
+
+static const VMStateDescription vmstate_netc = {
+    .name = TYPE_IMXRT1180_NETC,
+    .version_id = 2,
+    .minimum_version_id = 2,
+    .fields = (const VMStateField[]) {
         VMSTATE_UINT32(mdio_reg, IMXRT1180NETCState),
         VMSTATE_UINT16_ARRAY(phy_regs, IMXRT1180NETCState, 32),
+        VMSTATE_STRUCT_ARRAY(fdb, IMXRT1180NETCState, IMXRT1180_NETC_FDB_SIZE, 1,
+                             vmstate_netc_fdb, IMXRT1180NETCFdbEntry),
+        VMSTATE_UINT32(fdb_next_id, IMXRT1180NETCState),
         VMSTATE_END_OF_LIST()
     },
 };

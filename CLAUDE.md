@@ -244,9 +244,18 @@ does on silicon). Model is faithful either way (drops on full + raises `STAT.FOF
 peripheral timing assumption is a place a bug lives where no single-step test looks
 — it only bites at rate, under the real ISR.**
 
+The NETC switch (SW0) **NTMP command-BD ring + FDB core** now land — the
+`fsl_netc_switch` driver programs L2 tables over the command BD ring (`CBDRPIR`
+doorbell → process BD → `CBDRCIR` completion), and the `{MAC,FID}→portBitmap`
+forwarding database add/query/deletes round-trip (`tests/imxrt1180-netc-fdb`,
+mutation-proven). See [[project-rt1180-netc-switch]] for the driver anchors, the
+compiler-verified BD/FDB byte offsets, and the OCRAM DMA-visibility gotcha.
+
 Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is
-`0x88B6` on mcast `230.0.0.9:31337`); NETC L2 switch path; the ASRC sample-rate-
-converter data path (its Audio-PLL + codec blockers are now done).
+`0x88B6` on mcast `230.0.0.9:31337`); NETC switch **multi-SI port forwarding**
+(route frames between station interfaces by FDB lookup), the VLAN filter table,
+and PTP 1588; the ASRC sample-rate-converter data path (its Audio-PLL + codec
+blockers are now done).
 
 ## Fleet
 
