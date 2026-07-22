@@ -244,19 +244,20 @@ does on silicon). Model is faithful either way (drops on full + raises `STAT.FOF
 peripheral timing assumption is a place a bug lives where no single-step test looks
 — it only bites at rate, under the real ISR.**
 
-The NETC switch (SW0) **NTMP command-BD ring + FDB + VLAN-filter tables** now land
-— the `fsl_netc_switch` driver programs L2 tables over the command BD ring
-(`CBDRPIR` doorbell → process BD → `CBDRCIR` completion), and both the
-`{MAC,FID}→portBitmap` forwarding database and the `VID→{FID,port membership}`
-VLAN filter table round-trip add/query/delete (`tests/imxrt1180-netc-fdb`,
-mutation-proven). See [[project-rt1180-netc-switch]] for the driver anchors, the
-compiler-verified BD/table byte offsets, and the OCRAM DMA-visibility gotcha.
+The NETC switch (SW0) **NTMP command-BD ring + FDB + VLAN-filter tables +
+source-MAC learning** now land — the `fsl_netc_switch` driver programs L2 tables
+over the command BD ring (`CBDRPIR` doorbell → process BD → `CBDRCIR` completion);
+both the `{MAC,FID}→portBitmap` FDB and the `VID→{FID,port membership}` VLAN filter
+table round-trip add/query/delete; and a frame ingressing the switch has its source
+MAC learned into a dynamic FDB entry (`tests/imxrt1180-netc-fdb`, mutation-proven).
+See [[project-rt1180-netc-switch]] for the driver anchors, the compiler-verified
+BD/table byte offsets, and the OCRAM DMA-visibility gotcha.
 
 Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is
-`0x88B6` on mcast `230.0.0.9:31337`); NETC switch **multi-SI port forwarding**
-(route frames between station interfaces by FDB lookup, with source-MAC learning)
-and PTP 1588; the ASRC sample-rate-converter data path (its Audio-PLL + codec
-blockers are now done).
+`0x88B6` on mcast `230.0.0.9:31337`); the NETC switch **egress datapath** (route a
+frame out its FDB-looked-up ports between station interfaces, verified with a 2-node
+socket harness) and PTP 1588; the ASRC sample-rate-converter data path (its
+Audio-PLL + codec blockers are now done).
 
 ## Fleet
 

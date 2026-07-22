@@ -21,9 +21,12 @@
  *     programs the switch's tables over a command BD ring (CBDRPIR doorbell ->
  *     process BD -> advance CBDRCIR).  We run add / query / update / delete
  *     synchronously for the forwarding database (FDB, {MAC,FID}->portBitmap) and
- *     the VLAN filter table (VF, VID->{FID, port membership}).  Multi-SI port
- *     forwarding and PTP are not yet modelled (unmodelled tables fault honestly
- *     via the BD's resp.error, never a silent ack).
+ *     the VLAN filter table (VF, VID->{FID, port membership}).  A frame ingressing
+ *     the switch also has its SOURCE MAC learned into a dynamic FDB entry, as
+ *     silicon populates its database from live traffic.  The egress datapath
+ *     (routing a frame out its looked-up ports between station interfaces) and PTP
+ *     are not yet modelled (unmodelled tables fault honestly via the BD's
+ *     resp.error, never a silent ack).
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -290,6 +293,19 @@ static void netc_deliver_rx(IMXRT1180NETCState *s, const uint8_t *frame,
 
 /* TX producer written: walk the new TX BDs, form each frame, write the BD back
  * done, loop it into the RX ring, then emit the TX MSI-X. */
+/*
+ * Switch logical port numbers used for source-MAC learning.  On the SW0 switch
+ * the CPU reaches the fabric through the ENETC management pseudo-port (port 4);
+ * the external wire is a physical port (port 0).  An untagged frame uses the
+ * default filtering-ID 0 (a real switch derives the FID from the ingress port's
+ * default VID via the VLAN filter table; untagged with no VLAN config => 0).
+ */
+#define NETC_SW_PORT_CPU    4
+#define NETC_SW_PORT_WIRE   0
+#define NETC_SW_DEFAULT_FID 0
+static void netc_switch_learn(IMXRT1180NETCState *s, const uint8_t *src_mac,
+                              uint16_t fid, unsigned port);
+
 static void netc_do_tx(IMXRT1180NETCState *s)
 {
     uint64_t base = (uint64_t)netc_reg(s, R_TBBAR0) | ((uint64_t)netc_reg(s, R_TBBAR1) << 32);
@@ -319,6 +335,11 @@ static void netc_do_tx(IMXRT1180NETCState *s)
 
         wb = cpu_to_le32(TXBD_WB_WRITTEN);       /* written=1, status=success */
         dma_memory_write(s->dma_as, bd + 8, &wb, 4, MEMTXATTRS_UNSPECIFIED);
+
+        /* Switch ingress on the CPU/management port: learn the source MAC. */
+        if (flen >= 14) {
+            netc_switch_learn(s, frame + 6, NETC_SW_DEFAULT_FID, NETC_SW_PORT_CPU);
+        }
 
         if (s->phy_regs[0] & PHY_BMCR_LOOPBACK) {
             /* PHY local loopback: the frame U-turns back into our own RX ring
@@ -369,6 +390,11 @@ static ssize_t netc_receive(NetClientState *nc, const uint8_t *buf, size_t size)
 {
     IMXRT1180NETCState *s = qemu_get_nic_opaque(nc);
     uint32_t len = size > NETC_FRAME_MAX ? NETC_FRAME_MAX : (uint32_t)size;
+
+    /* Switch ingress on the physical (wire) port: learn the source MAC. */
+    if (len >= 14) {
+        netc_switch_learn(s, buf + 6, NETC_SW_DEFAULT_FID, NETC_SW_PORT_WIRE);
+    }
 
     /* Inbound frame from the wire -> into the RX ring (+ RX MSI-X). */
     netc_deliver_rx(s, buf, len);
@@ -449,6 +475,48 @@ static IMXRT1180NETCFdbEntry *netc_fdb_find_id(IMXRT1180NETCState *s, uint32_t i
         }
     }
     return NULL;
+}
+
+/*
+ * Source-MAC learning.  A frame ingressing on `port` teaches the switch that its
+ * source MAC is reachable via that port: create or refresh a DYNAMIC FDB entry.
+ * This is how a real switch populates its forwarding database from live traffic
+ * (the NTMP-programmed entries are the STATIC ones).  Rules:
+ *   - a multicast/broadcast source address is never a real station -> ignore it;
+ *   - never disturb a STATIC entry (operator config wins over learning);
+ *   - a known dynamic MAC seen on a new port has moved -> update its port;
+ *   - if the table is full, stop learning silently (as the hardware does -- it is
+ *     not a command error, just a full CAM).
+ */
+static void netc_switch_learn(IMXRT1180NETCState *s, const uint8_t *src_mac,
+                              uint16_t fid, unsigned port)
+{
+    IMXRT1180NETCFdbEntry *e;
+
+    if (src_mac[0] & 0x01) {
+        return;                            /* group address: not a source */
+    }
+    e = netc_fdb_find_key(s, src_mac, fid);
+    if (e) {
+        if (e->dynamic) {
+            e->port_bitmap = 1u << port;   /* station moved to a new port */
+        }
+        return;                            /* static entry: leave it alone */
+    }
+    for (int i = 0; i < IMXRT1180_NETC_FDB_SIZE; i++) {
+        if (!s->fdb[i].valid) {
+            e = &s->fdb[i];
+            memcpy(e->mac, src_mac, 6);
+            e->fid = fid;
+            e->port_bitmap = 1u << port;
+            e->dynamic = true;
+            e->cfge_flags = (1u << 11);    /* cfge.dynamic bit set */
+            e->et_eid = 0;
+            e->valid = true;
+            e->entry_id = s->fdb_next_id++;
+            return;
+        }
+    }
 }
 
 /*

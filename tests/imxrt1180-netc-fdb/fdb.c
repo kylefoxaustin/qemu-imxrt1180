@@ -46,6 +46,16 @@
 #define RING_BASE 0x20484000u          /* 8 BDs x 32 = 256 bytes */
 #define DBUF_BASE 0x20484100u          /* request/response data buffer (48 bytes) */
 #define RING_LEN  8u
+#define TXRING_BASE  0x20484200u       /* ENETC SI0 TX BD ring (8 x 16 = 128B)   */
+#define TXFRAME_BASE 0x20484300u       /* a frame to inject through the switch    */
+
+/* ENETC0 SI0 TX ring registers (@ 0x60B0_8010..) + the switch ingress path. */
+#define TB_BAR0 (*(volatile uint32_t *)(0x60B08010u))
+#define TB_BAR1 (*(volatile uint32_t *)(0x60B08014u))
+#define TB_PIR  (*(volatile uint32_t *)(0x60B08018u))   /* producer index = TX "go" */
+#define TB_CIR  (*(volatile uint32_t *)(0x60B0801Cu))
+#define TB_LENR (*(volatile uint32_t *)(0x60B08020u))
+#define MSIX0_CTRL (*(volatile uint32_t *)(0x60BF000Cu)) /* TX MSI-X vector 0 control */
 
 /* NTMP table IDs / commands / access modes. */
 #define TB_FDB       15u
@@ -203,6 +213,45 @@ void reset_handler(void)
     err = submit(7, 24, 28, CMD_QUERY, ACC_EXACTKEY, TB_VF, &nmatch);
     if (nmatch != 0) { ok = 0; }
 
+    /*
+     * ---- Source-MAC learning ----
+     * Inject a frame through the switch (via the ENETC SI TX ring) with a known
+     * source MAC.  The switch must LEARN it: a dynamic FDB entry mapping that MAC
+     * to the CPU/management port (bit 4).  We then read that entry back over NTMP
+     * -- proving the switch populated its own database from live traffic, not just
+     * from driver-programmed static entries.
+     */
+    static const uint8_t src[6] = { 0x02, 0x11, 0x22, 0x33, 0x44, 0x55 };
+    volatile uint8_t *fr = (volatile uint8_t *)TXFRAME_BASE;
+    for (int i = 0; i < 6; i++)  { fr[i] = 0xFF; }        /* dest = broadcast */
+    for (int i = 0; i < 6; i++)  { fr[6 + i] = src[i]; }  /* source MAC       */
+    fr[12] = 0x88; fr[13] = 0xB6;                         /* ethertype        */
+    for (int i = 14; i < 64; i++) { fr[i] = 0x5A; }
+
+    volatile uint32_t *txbd = (volatile uint32_t *)TXRING_BASE;
+    txbd[0] = TXFRAME_BASE;                               /* BD.addr    */
+    txbd[1] = 0;
+    *(volatile uint16_t *)(TXRING_BASE + 10) = 64;        /* BD.frameLen @ +10 */
+
+    MSIX0_CTRL = 1;                                       /* mask TX MSI-X (no completion DMA) */
+    TB_BAR0 = TXRING_BASE;
+    TB_BAR1 = 0;
+    TB_CIR  = 0;
+    TB_LENR = 8;
+    TB_PIR  = 1;                                          /* GO: switch ingress learns src */
+
+    fill_key(src, 0, 0);                                  /* query FDB by {src, fid 0} */
+    /* The 8 FDB/VLAN commands wrapped the consumer index back to 0, so the next
+     * command reuses ring slot 0 (CBDRCIR == 0). */
+    err = submit(0, 48, 36, CMD_QUERY, ACC_EXACTKEY, TB_FDB, &nmatch);
+    uint32_t learned_port = *(volatile uint32_t *)(DBUF_BASE + 20);  /* rsp.cfge.portBitmap */
+    uint32_t learned_cfge = *(volatile uint32_t *)(DBUF_BASE + 24);  /* rsp.cfge flags      */
+    int learn_ok = 1;
+    if (nmatch != 1) { learn_ok = 0; }                   /* not learned at all */
+    if (learned_port != (1u << 4)) { learn_ok = 0; }     /* wrong port (must be CPU port 4) */
+    if (((learned_cfge >> 11) & 1) == 0) { learn_ok = 0; } /* not marked dynamic */
+    if (!learn_ok) { ok = 0; }
+
     if (!g_complete_ok) { ok = 0; }                /* a doorbell never completed */
 
     if (ok) {
@@ -210,8 +259,9 @@ void reset_handler(void)
         puts_("NETC-FDB: PASS - queried portBitmap/FID/entry_id match what was programmed\r\n");
         puts_("NETC-FDB: PASS - entry is gone after delete (zero matches)\r\n");
         puts_("NETC-VF:  PASS - VLAN filter add/query/delete round-trip (VID->membership/FID)\r\n");
+        puts_("NETC-LRN: PASS - switch learned an injected frame's src MAC (dynamic FDB, CPU port)\r\n");
     } else {
-        puts_("NETC-FDB: FAIL - FDB/VLAN round-trip mismatch (see which assert)\r\n");
+        puts_("NETC-FDB: FAIL - FDB/VLAN/learning mismatch (see which assert)\r\n");
     }
     sh(SYS_EXIT, (void *)0x20026u);
     for (;;) {
