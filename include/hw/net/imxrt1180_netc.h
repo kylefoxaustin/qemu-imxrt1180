@@ -74,6 +74,16 @@ struct IMXRT1180NETCState {
     uint32_t fdb_next_id;      /* next hardware-assigned FDB entry_id */
     IMXRT1180NETCVlanEntry vlan[IMXRT1180_NETC_VF_SIZE];
     uint32_t vlan_next_id;     /* next hardware-assigned VLAN-filter entry_id */
+
+    /* PTP 1588 timer (TMR0): a nanosecond clock derived from the QEMU virtual
+     * clock.  The count advances at rate = full_addend / nominal_addend (the
+     * first addend written is the rate-1 reference), matching the driver's
+     * digital-DDS frequency servo. */
+    int64_t  ptp_t_base;         /* QEMU_CLOCK_VIRTUAL ns at the last re-latch   */
+    uint64_t ptp_cnt_base;       /* raw counter value at the last re-latch       */
+    uint64_t ptp_nominal_addend; /* full addend corresponding to rate 1.0        */
+    uint32_t ptp_cur_hi_latch;   /* high word captured when CUR_TIME_L was read  */
+    bool     ptp_enabled;        /* TMR_CTRL.TE                                  */
 };
 
 #endif /* HW_NET_IMXRT1180_NETC_H */

@@ -24,14 +24,17 @@
  *     the VLAN filter table (VF, VID->{FID, port membership}).  A frame ingressing
  *     the switch also has its SOURCE MAC learned into a dynamic FDB entry, as
  *     silicon populates its database from live traffic.  The egress datapath
- *     (routing a frame out its looked-up ports between station interfaces) and PTP
- *     are not yet modelled (unmodelled tables fault honestly via the BD's
- *     resp.error, never a silent ack).
+ *     (routing a frame out its looked-up ports between station interfaces) is not
+ *     yet modelled (unmodelled tables fault honestly via the BD's resp.error,
+ *     never a silent ack).
+ *   - PTP 1588 timer (TMR0): a nanosecond clock derived from the QEMU virtual
+ *     clock, whose rate the driver tunes via the addend (digital DDS).
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include "qemu/osdep.h"
 #include "qemu/log.h"
+#include "qemu/timer.h"
 #include "hw/core/sysbus.h"
 #include "hw/net/imxrt1180_netc.h"
 #include "system/dma.h"
@@ -794,13 +797,151 @@ static bool netc_is_cbdr_pir(hwaddr off, unsigned *ring)
     return false;
 }
 
+/* ============ PTP 1588 timer (TMR0 @ 0x60B80000) ==========================
+ *
+ * The IEEE-1588 timer is a digital DDS: each reference-clock tick the addend is
+ * accumulated, and the nanosecond counter advances by addend/2^32 ns; the driver
+ * tunes frequency by scaling the addend (NETC_TimerAdjustFreq: addend =
+ * 2^32*(1e9+ppb)/timerFreq).  At ppb=0 the counter therefore advances exactly one
+ * nanosecond per real nanosecond -- timerFreq cancels.  We model that against the
+ * QEMU virtual clock: the count = base + elapsed_virtual_ns * (addend / nominal),
+ * where the FIRST addend written is taken as the rate-1 nominal, so subsequent
+ * ppb adjustments scale the rate faithfully without needing the (runtime-derived)
+ * reference frequency.  Software reads the 64-bit time through TMR_CUR_TIME_H/L
+ * with an H-L-H coherency loop; reading _L latches _H. */
+#define TMR0_OFF        0xB80000
+#define R_TMR_DEFCNT_L  (TMR0_OFF + 0x30)
+#define R_TMR_DEFCNT_H  (TMR0_OFF + 0x34)
+#define R_TMR_CTRL      (TMR0_OFF + 0x80)
+#define R_TMR_CNT_L     (TMR0_OFF + 0x98)
+#define R_TMR_CNT_H     (TMR0_OFF + 0x9C)
+#define R_TMR_ADD       (TMR0_OFF + 0xA0)
+#define R_TMROFF_L      (TMR0_OFF + 0xB0)
+#define R_TMROFF_H      (TMR0_OFF + 0xB4)
+#define R_TMR_CUR_L     (TMR0_OFF + 0xF0)
+#define R_TMR_CUR_H     (TMR0_OFF + 0xF4)
+#define TMR_CTRL_TE               0x4u
+#define TMR_CTRL_TCLK_PERIOD_MASK 0x3FF0000u
+
+/* Full 64-bit addend = TCLK_PERIOD (TMR_CTRL[25:16]) << 32 | TMR_ADD. */
+static uint64_t netc_ptp_addend(IMXRT1180NETCState *s)
+{
+    uint32_t tclk = (netc_reg(s, R_TMR_CTRL) & TMR_CTRL_TCLK_PERIOD_MASK) >> 16;
+    return ((uint64_t)tclk << 32) | netc_reg(s, R_TMR_ADD);
+}
+
+/* The raw nanosecond counter (before the software offset). */
+static uint64_t netc_ptp_raw(IMXRT1180NETCState *s)
+{
+    int64_t now, dt;
+    uint64_t fa, nom;
+
+    if (!s->ptp_enabled) {
+        return s->ptp_cnt_base;                  /* frozen while disabled */
+    }
+    now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+    dt = now - s->ptp_t_base;
+    if (dt < 0) {
+        dt = 0;
+    }
+    fa = netc_ptp_addend(s);
+    nom = s->ptp_nominal_addend;
+    if (nom == 0 || fa == nom) {
+        return s->ptp_cnt_base + (uint64_t)dt;   /* rate 1.0 (exact) */
+    }
+    return s->ptp_cnt_base + (uint64_t)((double)dt * (double)fa / (double)nom);
+}
+
+/* Current time = raw counter + the signed software offset (TMROFF). */
+static uint64_t netc_ptp_cur_time(IMXRT1180NETCState *s)
+{
+    int64_t off = (int64_t)(((uint64_t)netc_reg(s, R_TMROFF_H) << 32) |
+                            netc_reg(s, R_TMROFF_L));
+    return netc_ptp_raw(s) + (uint64_t)off;
+}
+
+/* Freeze the running count into the base and reset the clock origin, so a
+ * config change (enable/disable, addend, counter set) takes effect from now. */
+static void netc_ptp_relatch(IMXRT1180NETCState *s)
+{
+    s->ptp_cnt_base = netc_ptp_raw(s);
+    s->ptp_t_base = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+}
+
+/* Handle a write to a TMR0 register; returns true if it was one. */
+static bool netc_ptp_write(IMXRT1180NETCState *s, hwaddr off, uint64_t val,
+                           unsigned size)
+{
+    switch (off) {
+    case R_TMR_CTRL:
+        netc_ptp_relatch(s);                     /* freeze with the OLD config */
+        netc_backing_write(s, off, val, size);
+        s->ptp_enabled = (netc_reg(s, R_TMR_CTRL) & TMR_CTRL_TE) != 0;
+        return true;
+    case R_TMR_ADD:
+        netc_ptp_relatch(s);
+        netc_backing_write(s, off, val, size);
+        if (s->ptp_nominal_addend == 0) {
+            s->ptp_nominal_addend = netc_ptp_addend(s);  /* first addend = rate 1 */
+        }
+        return true;
+    case R_TMR_CNT_L:
+    case R_TMR_CNT_H:
+        netc_backing_write(s, off, val, size);   /* software sets the counter */
+        s->ptp_cnt_base = ((uint64_t)netc_reg(s, R_TMR_CNT_H) << 32) |
+                          netc_reg(s, R_TMR_CNT_L);
+        s->ptp_t_base = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+        return true;
+    case R_TMROFF_L:
+    case R_TMROFF_H:
+        netc_backing_write(s, off, val, size);   /* offset applied at read */
+        return true;
+    default:
+        return false;
+    }
+}
+
+/* Handle a read from a TMR0 register; sets *out and returns true if it was one. */
+static bool netc_ptp_read(IMXRT1180NETCState *s, hwaddr off, uint64_t *out)
+{
+    switch (off) {
+    case R_TMR_CUR_L: {
+        uint64_t t = netc_ptp_cur_time(s);
+        s->ptp_cur_hi_latch = (uint32_t)(t >> 32);   /* reading _L latches _H */
+        *out = (uint32_t)t;
+        return true;
+    }
+    case R_TMR_CUR_H:
+        *out = s->ptp_cur_hi_latch;
+        return true;
+    case R_TMR_CNT_L:
+        *out = (uint32_t)netc_ptp_raw(s);
+        return true;
+    case R_TMR_CNT_H:
+        *out = (uint32_t)(netc_ptp_raw(s) >> 32);
+        return true;
+    case R_TMR_DEFCNT_L:
+        *out = (uint32_t)s->ptp_cnt_base;            /* frozen "default" count */
+        return true;
+    case R_TMR_DEFCNT_H:
+        *out = (uint32_t)(s->ptp_cnt_base >> 32);
+        return true;
+    default:
+        return false;
+    }
+}
+
 static uint64_t netc_read(void *opaque, hwaddr off, unsigned size)
 {
     IMXRT1180NETCState *s = opaque;
+    uint64_t ptp;
 
     if (netc_is_pci_flr(off)) {
         /* INIT_FLR always reads clear: the FLR-complete poll exits at once. */
         return netc_backing_read(s, off, size) & ~(uint64_t)PCI_INIT_FLR;
+    }
+    if (netc_ptp_read(s, off, &ptp)) {
+        return ptp;                                     /* PTP 1588 timer register */
     }
 
     switch (off) {
@@ -834,6 +975,10 @@ static void netc_write(void *opaque, hwaddr off, uint64_t val, unsigned size)
         netc_backing_write(s, off, val, size);
         netc_cbdr_doorbell(s, ring);
         return;
+    }
+
+    if (netc_ptp_write(s, off, val, size)) {
+        return;                                     /* PTP 1588 timer register */
     }
 
     /*
@@ -982,6 +1127,11 @@ static void netc_reset(DeviceState *dev)
     s->fdb_next_id = 0;
     memset(s->vlan, 0, sizeof(s->vlan));
     s->vlan_next_id = 0;
+    s->ptp_t_base = 0;
+    s->ptp_cnt_base = 0;
+    s->ptp_nominal_addend = 0;
+    s->ptp_cur_hi_latch = 0;
+    s->ptp_enabled = false;
 }
 
 static void netc_realize(DeviceState *dev, Error **errp)
@@ -1039,8 +1189,8 @@ static const VMStateDescription vmstate_netc_vlan = {
 
 static const VMStateDescription vmstate_netc = {
     .name = TYPE_IMXRT1180_NETC,
-    .version_id = 3,
-    .minimum_version_id = 3,
+    .version_id = 4,
+    .minimum_version_id = 4,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32(mdio_reg, IMXRT1180NETCState),
         VMSTATE_UINT16_ARRAY(phy_regs, IMXRT1180NETCState, 32),
@@ -1050,6 +1200,11 @@ static const VMStateDescription vmstate_netc = {
         VMSTATE_STRUCT_ARRAY(vlan, IMXRT1180NETCState, IMXRT1180_NETC_VF_SIZE, 1,
                              vmstate_netc_vlan, IMXRT1180NETCVlanEntry),
         VMSTATE_UINT32(vlan_next_id, IMXRT1180NETCState),
+        VMSTATE_INT64(ptp_t_base, IMXRT1180NETCState),
+        VMSTATE_UINT64(ptp_cnt_base, IMXRT1180NETCState),
+        VMSTATE_UINT64(ptp_nominal_addend, IMXRT1180NETCState),
+        VMSTATE_UINT32(ptp_cur_hi_latch, IMXRT1180NETCState),
+        VMSTATE_BOOL(ptp_enabled, IMXRT1180NETCState),
         VMSTATE_END_OF_LIST()
     },
 };

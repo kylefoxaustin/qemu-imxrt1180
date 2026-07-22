@@ -248,16 +248,18 @@ The NETC switch (SW0) **NTMP command-BD ring + FDB + VLAN-filter tables +
 source-MAC learning** now land — the `fsl_netc_switch` driver programs L2 tables
 over the command BD ring (`CBDRPIR` doorbell → process BD → `CBDRCIR` completion);
 both the `{MAC,FID}→portBitmap` FDB and the `VID→{FID,port membership}` VLAN filter
-table round-trip add/query/delete; and a frame ingressing the switch has its source
-MAC learned into a dynamic FDB entry (`tests/imxrt1180-netc-fdb`, mutation-proven).
-See [[project-rt1180-netc-switch]] for the driver anchors, the compiler-verified
+table round-trip add/query/delete; a frame ingressing the switch has its source
+MAC learned into a dynamic FDB entry; and the **PTP 1588 timer** (TMR0) is a
+virtual-clock-derived nanosecond clock whose rate the addend tunes
+(`tests/imxrt1180-netc-fdb` + `tests/imxrt1180-netc-ptp`, mutation-proven). See
+[[project-rt1180-netc-switch]] for the driver anchors, the compiler-verified
 BD/table byte offsets, and the OCRAM DMA-visibility gotcha.
 
 Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is
 `0x88B6` on mcast `230.0.0.9:31337`); the NETC switch **egress datapath** (route a
 frame out its FDB-looked-up ports between station interfaces, verified with a 2-node
-socket harness) and PTP 1588; the ASRC sample-rate-converter data path (its
-Audio-PLL + codec blockers are now done).
+socket harness); the ASRC sample-rate-converter data path (its Audio-PLL + codec
+blockers are now done).
 
 ## Fleet
 
