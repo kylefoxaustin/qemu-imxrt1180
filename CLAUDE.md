@@ -251,16 +251,17 @@ both the `{MAC,FID}→portBitmap` FDB and the `VID→{FID,port membership}` VLAN
 table round-trip add/query/delete; a frame ingressing the switch has its source
 MAC learned into a dynamic FDB entry; the **PTP 1588 timer** (TMR0) is a
 virtual-clock-derived nanosecond clock whose rate the addend tunes; and the switch
-**forwards** a CPU-injected frame per the FDB (FDB∩VLAN lookup + flood + split-
-horizon egress decision, observed via the wire port's `PM0_TFRMN` counter) --
-`tests/imxrt1180-netc-{fdb,ptp,fwd}`, all mutation-proven. See
-[[project-rt1180-netc-switch]] for the driver anchors, the compiler-verified
-BD/table byte offsets, and the OCRAM DMA-visibility gotcha.
+**forwards** frames per the FDB in BOTH directions (FDB∩VLAN + flood + split-horizon
+egress decision: CPU→wire observed via the wire port's `PM0_TFRMN` counter, wire→CPU
+proven over a QEMU mcast socket with a sentinel-barrier oracle) --
+`tests/imxrt1180-netc-{fdb,ptp,fwd,rxfwd}`, all mutation-proven; the lab3 3-node
+broadcast segment still passes. See [[project-rt1180-netc-switch]] for the driver
+anchors, the compiler-verified BD/table byte offsets, and the OCRAM DMA gotcha.
 
 Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is
-`0x88B6` on mcast `230.0.0.9:31337`); the NETC switch **wire->CPU forwarding side**
-+ true **multi-physical-port** routing (verified with a 2-node socket harness); the
-ASRC sample-rate-converter data path (its Audio-PLL + codec blockers are now done).
+`0x88B6` on mcast `230.0.0.9:31337`); true **multi-physical-port** switch routing
+(more than one wire port, needs a multi-netdev structure); the ASRC sample-rate-
+converter data path (its Audio-PLL + codec blockers are now done).
 
 ## Fleet
 

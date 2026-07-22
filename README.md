@@ -258,10 +258,14 @@ defined there and means *visible to the guest*, never "we wrote a host log".
   an unknown-unicast/broadcast, and applies split-horizon, so a frame reaches the
   wire only when its destination resolves there (observed via the wire port's
   `PM0_TFRMN` transmit counter; `tests/imxrt1180-netc-fwd`, mutation-proven).
-  **Not yet modelled**: the wire→CPU RX side of forwarding (frames are still
-  delivered to the CPU unconditionally), true multi-physical-port routing (the
-  model has one wire port), and the per-VLAN MAC-learning-options. Unmodelled
-  tables fault honestly via the BD's `resp.error`, never a silent ack.
+  Forwarding is **symmetric**: a frame arriving from the wire is delivered to the
+  CPU only when its destination resolves to the management port — a known unicast
+  destined elsewhere is switched away, while an unknown-unicast/broadcast floods
+  and is delivered (`tests/imxrt1180-netc-rxfwd` proves this over a QEMU mcast
+  socket with a sentinel-barrier oracle; the lab3 3-node broadcast segment still
+  passes). **Not yet modelled**: true multi-physical-port routing (the model has
+  one wire port) and the per-VLAN MAC-learning-options. Unmodelled tables fault
+  honestly via the BD's `resp.error`, never a silent ack.
 - **Cache** is a QEMU-architectural WONTFIX (no guest CPU cache to model); **MECC**
   is an optional RAS diagnostic.
 
@@ -284,10 +288,10 @@ and audio-streaming work above now cover.
 ## Roadmap
 
 1. **NETC switch path** — the SW0 NTMP command-BD ring, FDB + VLAN-filter tables,
-   source-MAC learning, the PTP 1588 timer, and CPU-side egress forwarding now land;
-   what remains is the **wire→CPU forwarding side** and **true multi-physical-port
-   routing** (more than one wire port), verified with a 2-node socket harness; finish
-   the 3-node raw-L2 segment.
+   source-MAC learning, the PTP 1588 timer, and **bidirectional** (CPU↔wire) FDB
+   forwarding now land; what remains is **true multi-physical-port routing** (more
+   than one wire port, needing a multi-netdev structure); finish the 3-node raw-L2
+   segment.
 2. Saturation/thermal effects and a time-varying load profile in the motor plant;
    the ASRC data path.
 3. Value-golden a peripheral **through the real `fsl_*` driver** rather than by

@@ -22,13 +22,14 @@
  *     process BD -> advance CBDRCIR).  We run add / query / update / delete
  *     synchronously for the forwarding database (FDB, {MAC,FID}->portBitmap) and
  *     the VLAN filter table (VF, VID->{FID, port membership}).  A frame ingressing
- *     the switch has its SOURCE MAC learned into a dynamic FDB entry, and a CPU-
- *     injected frame is FORWARDED per the FDB: the egress decision does the
- *     FDB (intersect VLAN membership) lookup, floods an unknown-unicast/broadcast,
- *     and applies split-horizon, so it reaches the wire only when its destination
- *     resolves there.  The wire->CPU forwarding side and multi-physical-port
- *     routing are not yet modelled (unmodelled tables fault honestly via the BD's
- *     resp.error, never a silent ack).
+ *     the switch has its SOURCE MAC learned into a dynamic FDB entry, and is
+ *     FORWARDED per the FDB in BOTH directions: the egress decision does the FDB
+ *     (intersect VLAN membership) lookup, floods an unknown-unicast/broadcast, and
+ *     applies split-horizon.  A CPU-injected frame reaches the wire only when its
+ *     destination resolves there; a wire frame reaches the CPU only when its
+ *     destination resolves to the management port.  Multi-physical-port routing is
+ *     not yet modelled (unmodelled tables fault honestly via the BD's resp.error,
+ *     never a silent ack).
  *   - PTP 1588 timer (TMR0): a nanosecond clock derived from the QEMU virtual
  *     clock, whose rate the driver tunes via the addend (digital DDS).
  *
@@ -421,12 +422,21 @@ static ssize_t netc_receive(NetClientState *nc, const uint8_t *buf, size_t size)
     IMXRT1180NETCState *s = qemu_get_nic_opaque(nc);
     uint32_t len = size > NETC_FRAME_MAX ? NETC_FRAME_MAX : (uint32_t)size;
 
-    /* Switch ingress on the physical (wire) port: learn the source MAC. */
+    /* Switch ingress on the physical (wire) port: learn the source MAC, then
+     * forward.  The frame reaches the CPU only if its destination resolves to the
+     * management port -- an unknown unicast / broadcast floods (so it is delivered,
+     * as a plain endpoint expects), but a known unicast destined to another port is
+     * switched away and NOT handed to the CPU. */
     if (len >= 14) {
+        uint32_t egress;
         netc_switch_learn(s, buf + 6, NETC_SW_DEFAULT_FID, NETC_SW_PORT_WIRE);
+        egress = netc_switch_egress(s, buf, NETC_SW_DEFAULT_FID, NETC_SW_PORT_WIRE);
+        if (!(egress & (1u << NETC_SW_PORT_CPU))) {
+            return size;                 /* switched away from the CPU port */
+        }
     }
 
-    /* Inbound frame from the wire -> into the RX ring (+ RX MSI-X). */
+    /* Inbound frame destined here -> into the RX ring (+ RX MSI-X). */
     netc_deliver_rx(s, buf, len);
     return size;
 }
