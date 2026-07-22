@@ -241,14 +241,15 @@ defined there and means *visible to the guest*, never "we wrote a host log".
   > visible rather than quietly deleted.
 - **ASRC** (sample-rate converter) data path is not modelled (its AUDIO-PLL + codec
   blockers are now done).
-- **NETC switch (SW0)**: the **NTMP command-BD ring + L2 forwarding database (FDB
-  add/query/delete)** are modelled — the `fsl_netc_switch` driver programs the
-  switch's tables through the command BD ring (`CBDRPIR` doorbell → process BD →
-  `CBDRCIR` completion), and the `{MAC,FID}→portBitmap` table round-trips
+- **NETC switch (SW0)**: the **NTMP command-BD ring + L2 tables** are modelled —
+  the `fsl_netc_switch` driver programs the switch's tables through the command BD
+  ring (`CBDRPIR` doorbell → process BD → `CBDRCIR` completion), and both the
+  **forwarding database** (FDB, `{MAC,FID}→portBitmap`) and the **VLAN filter
+  table** (VF, `VID→{FID, port membership}`) round-trip add/query/delete
   (`tests/imxrt1180-netc-fdb`, mutation-proven). **Not yet modelled**: multi-SI
-  port forwarding (frames routed between station interfaces by FDB lookup), the
-  VLAN filter table, and PTP 1588. Unmodelled tables fault honestly via the BD's
-  `resp.error`, never a silent ack.
+  port forwarding (frames routed between station interfaces by FDB lookup) and
+  PTP 1588. Unmodelled tables fault honestly via the BD's `resp.error`, never a
+  silent ack.
 - **Cache** is a QEMU-architectural WONTFIX (no guest CPU cache to model); **MECC**
   is an optional RAS diagnostic.
 
@@ -270,9 +271,10 @@ and audio-streaming work above now cover.
 
 ## Roadmap
 
-1. **NETC switch path** — the SW0 NTMP command-BD ring + FDB core now land; next
-   is **multi-SI port forwarding** (route frames between station interfaces by FDB
-   lookup), the VLAN filter table, and PTP 1588; finish the 3-node raw-L2 segment.
+1. **NETC switch path** — the SW0 NTMP command-BD ring + FDB + VLAN-filter tables
+   now land; next is **multi-SI port forwarding** (route frames between station
+   interfaces by FDB lookup, with source-MAC learning) and PTP 1588; finish the
+   3-node raw-L2 segment.
 2. Saturation/thermal effects and a time-varying load profile in the motor plant;
    the ASRC data path.
 3. Value-golden a peripheral **through the real `fsl_*` driver** rather than by

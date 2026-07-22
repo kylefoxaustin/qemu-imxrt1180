@@ -49,6 +49,7 @@
 
 /* NTMP table IDs / commands / access modes. */
 #define TB_FDB       15u
+#define TB_VF        18u               /* VLAN filter table */
 #define CMD_DELETE   0x1u
 #define CMD_QUERY    0x4u
 #define CMD_ADDQUERY 0xCu              /* Add | Query */
@@ -95,6 +96,18 @@ static void fill_key(const uint8_t mac[6], uint32_t fid, uint32_t port_bitmap)
     *(volatile uint32_t *)(DBUF_BASE + 36) = port_bitmap;   /* cfge.portBitmap @ +36 */
 }
 
+/* Fill the request buffer with a VLAN-filter exact-key {vid} + cfge {membership, fid}. */
+static void fill_vlan(uint32_t vid, uint32_t membership, uint32_t fid)
+{
+    volatile uint8_t *b = (volatile uint8_t *)DBUF_BASE;
+    for (int i = 0; i < 48; i++) {
+        b[i] = 0;
+    }
+    *(volatile uint32_t *)(DBUF_BASE + 4)  = vid & 0xFFF;         /* keye.vid @ +4 */
+    *(volatile uint32_t *)(DBUF_BASE + 8)  = membership & 0xFFFFFF; /* cfge.portMembership @ +8 */
+    *(volatile uint32_t *)(DBUF_BASE + 12) = fid & 0xFFF;         /* cfge.fid @ +12 */
+}
+
 /* Submit one command BD at ring slot `idx`, ring the doorbell, wait for the model
  * to advance CBDRCIR, and return resp.error; *nmatch gets resp.numMatched. */
 static uint32_t submit(unsigned idx, unsigned reqLen, unsigned resLen,
@@ -107,10 +120,11 @@ static uint32_t submit(unsigned idx, unsigned reqLen, unsigned resLen,
     bd[3] = (cmd & 0xF) | ((acc & 0x3) << 12) | ((tableId & 0xFF) << 16);
     bd[4] = bd[5] = bd[6] = bd[7] = 0;
 
-    CBDRPIR = idx + 1;                              /* doorbell */
+    uint32_t pir = (idx + 1) % RING_LEN;            /* producer index, wrapped */
+    CBDRPIR = pir;                                  /* doorbell */
 
     uint32_t guard = 0;
-    while ((CBDRCIR & 0x3FFu) != (idx + 1)) {       /* completion = CIR==PIR */
+    while ((CBDRCIR & 0x3FFu) != pir) {             /* completion = CIR==PIR */
         if (++guard > 2000000u) { g_complete_ok = 0; break; }
     }
     uint32_t resp = bd[3];                          /* resp dword@12 (HW wrote it) */
@@ -159,14 +173,45 @@ void reset_handler(void)
     err = submit(3, 48, 36, CMD_QUERY, ACC_EXACTKEY, TB_FDB, &nmatch);
     if (nmatch != 0) { ok = 0; }                   /* still present -> delete failed */
 
+    /* ---- VLAN filter table (tableId 18): the same NTMP round-trip ---- */
+    const uint32_t vid = 100, membership = 0x7, vfid = 42;   /* VID 100 -> FID 42 */
+    uint32_t ventry;
+
+    /* 5) Add a VLAN entry {vid -> portMembership, fid} and query it back. */
+    fill_vlan(vid, membership, vfid);
+    err = submit(4, 24, 28, CMD_ADDQUERY, ACC_EXACTKEY, TB_VF, &nmatch);
+    ventry = *(volatile uint32_t *)(DBUF_BASE + 4);   /* rsp.entryID @ +4 */
+    if (err != 0 || nmatch != 1) { ok = 0; }
+
+    /* 6) Query by VID -> membership and FID must come back out. */
+    fill_vlan(vid, 0, 0);                          /* zero them: prove they are READ */
+    err = submit(5, 24, 28, CMD_QUERY, ACC_EXACTKEY, TB_VF, &nmatch);
+    uint32_t got_mem  = *(volatile uint32_t *)(DBUF_BASE + 12) & 0xFFFFFF; /* rsp.cfge.portMembership */
+    uint32_t got_vfid = *(volatile uint32_t *)(DBUF_BASE + 16) & 0xFFF;    /* rsp.cfge.fid          */
+    uint32_t got_vid  = *(volatile uint32_t *)(DBUF_BASE + 8) & 0xFFF;     /* rsp.keye.vid          */
+    if (err != 0 || nmatch != 1) { ok = 0; }
+    if (got_mem != membership) { ok = 0; }
+    if (got_vfid != vfid) { ok = 0; }
+    if (got_vid != vid) { ok = 0; }
+
+    /* 7) Delete the VLAN entry by its entry_id, then query -> zero matches. */
+    for (int i = 0; i < 48; i++) { ((volatile uint8_t *)DBUF_BASE)[i] = 0; }
+    *(volatile uint32_t *)(DBUF_BASE + 4) = ventry;
+    err = submit(6, 24, 28, CMD_DELETE, ACC_ENTRYID, TB_VF, &nmatch);
+    if (err != 0 || nmatch != 1) { ok = 0; }
+    fill_vlan(vid, 0, 0);
+    err = submit(7, 24, 28, CMD_QUERY, ACC_EXACTKEY, TB_VF, &nmatch);
+    if (nmatch != 0) { ok = 0; }
+
     if (!g_complete_ok) { ok = 0; }                /* a doorbell never completed */
 
     if (ok) {
-        puts_("NETC-FDB: PASS - add/query/delete round-trip over the NTMP command BD ring\r\n");
+        puts_("NETC-FDB: PASS - FDB add/query/delete round-trip over the NTMP command BD ring\r\n");
         puts_("NETC-FDB: PASS - queried portBitmap/FID/entry_id match what was programmed\r\n");
         puts_("NETC-FDB: PASS - entry is gone after delete (zero matches)\r\n");
+        puts_("NETC-VF:  PASS - VLAN filter add/query/delete round-trip (VID->membership/FID)\r\n");
     } else {
-        puts_("NETC-FDB: FAIL - FDB round-trip mismatch (see which assert)\r\n");
+        puts_("NETC-FDB: FAIL - FDB/VLAN round-trip mismatch (see which assert)\r\n");
     }
     sh(SYS_EXIT, (void *)0x20026u);
     for (;;) {

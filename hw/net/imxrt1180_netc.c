@@ -17,12 +17,13 @@
  *   - TX->RX BD loopback: writing the TX producer index DMAs the frame from the
  *     TX BD, copies it into the RX ring's buffer, writes the RX BD back ready,
  *     and emits the TX/RX MSI-X messages so the driver's completion path runs.
- *   - SWITCH (SW0) NTMP command-BD ring + L2 forwarding database (FDB): the
- *     fsl_netc_switch driver programs the switch's tables over a command BD ring
- *     (CBDRPIR doorbell -> process BD -> advance CBDRCIR).  We run FDB add / query
- *     / delete synchronously and maintain the {MAC,FID}->portBitmap table.  Multi-
- *     SI port forwarding and PTP are not yet modelled (unmodelled tables fault
- *     honestly via the BD's resp.error, never a silent ack).
+ *   - SWITCH (SW0) NTMP command-BD ring + L2 tables: the fsl_netc_switch driver
+ *     programs the switch's tables over a command BD ring (CBDRPIR doorbell ->
+ *     process BD -> advance CBDRCIR).  We run add / query / update / delete
+ *     synchronously for the forwarding database (FDB, {MAC,FID}->portBitmap) and
+ *     the VLAN filter table (VF, VID->{FID, port membership}).  Multi-SI port
+ *     forwarding and PTP are not yet modelled (unmodelled tables fault honestly
+ *     via the BD's resp.error, never a silent ack).
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -417,6 +418,7 @@ static NetClientInfo netc_net_info = {
 /* command BD dword@12: cmd[3:0], accessType[13:12], tableId[23:16]; resp view of
  * the same dword: numMatched[15:0], error[27:16], resReady[31]. */
 #define NTMP_TB_FDB        15
+#define NTMP_TB_VF         18                      /* VLAN filter table */
 #define NTMP_CMD_DELETE    0x1
 #define NTMP_CMD_UPDATE    0x2
 #define NTMP_CMD_QUERY     0x4
@@ -540,6 +542,110 @@ static uint32_t netc_fdb_op(IMXRT1180NETCState *s, unsigned cmd, unsigned acc,
     return err;
 }
 
+static IMXRT1180NETCVlanEntry *netc_vlan_find_vid(IMXRT1180NETCState *s, uint16_t vid)
+{
+    for (int i = 0; i < IMXRT1180_NETC_VF_SIZE; i++) {
+        if (s->vlan[i].valid && s->vlan[i].vid == vid) {
+            return &s->vlan[i];
+        }
+    }
+    return NULL;
+}
+
+static IMXRT1180NETCVlanEntry *netc_vlan_find_id(IMXRT1180NETCState *s, uint32_t id)
+{
+    for (int i = 0; i < IMXRT1180_NETC_VF_SIZE; i++) {
+        if (s->vlan[i].valid && s->vlan[i].entry_id == id) {
+            return &s->vlan[i];
+        }
+    }
+    return NULL;
+}
+
+/*
+ * Execute one VLAN-filter (tableId 18) command.  Buffer layout at req_addr
+ * (compiler-verified from netc_tb_vf_{req,rsp}_data_t):
+ *   request  (24B): commonHeader@0; union@4 { entryID@4 | keye@4: vid dword@4
+ *                   [11:0] }; cfge@8 (16 raw bytes: portMembership@8 [23:0],
+ *                   fid dword@12 [11:0], etaBitmap@16, baseETEID@20).
+ *   response (28B): status@0, entryID@4, keye@8 (vid dword@8), cfge@12 (16 bytes).
+ * The VLAN filter maps a VID to a filtering-ID (FID) and a VLAN port membership;
+ * the FDB lookup's fid comes from here.  Same NTMP mechanism as the FDB.
+ */
+static uint32_t netc_vf_op(IMXRT1180NETCState *s, unsigned cmd, unsigned acc,
+                           uint64_t req_addr, uint16_t *num_matched)
+{
+    uint8_t rbuf[24];
+    IMXRT1180NETCVlanEntry *e = NULL;
+
+    *num_matched = 0;
+    dma_memory_read(s->dma_as, req_addr, rbuf, sizeof(rbuf), MEMTXATTRS_UNSPECIFIED);
+
+    if (cmd & NTMP_CMD_ADD) {
+        uint16_t vid = ldl_le_p(rbuf + 4) & 0xFFF;
+        e = netc_vlan_find_vid(s, vid);
+        if (!e) {
+            for (int i = 0; i < IMXRT1180_NETC_VF_SIZE && !e; i++) {
+                if (!s->vlan[i].valid) {
+                    e = &s->vlan[i];
+                }
+            }
+            if (!e) {
+                return NTMP_ERR_SIZE;
+            }
+            e->vid = vid;
+            e->valid = true;
+            e->entry_id = s->vlan_next_id++;
+        }
+        for (int i = 0; i < 4; i++) {
+            e->cfge[i] = ldl_le_p(rbuf + 8 + i * 4);
+        }
+        *num_matched = 1;
+    } else if (cmd & NTMP_CMD_UPDATE) {
+        e = (acc == NTMP_ACC_ENTRYID)
+              ? netc_vlan_find_id(s, ldl_le_p(rbuf + 4))
+              : netc_vlan_find_vid(s, ldl_le_p(rbuf + 4) & 0xFFF);
+        if (e) {
+            for (int i = 0; i < 4; i++) {
+                e->cfge[i] = ldl_le_p(rbuf + 8 + i * 4);
+            }
+            *num_matched = 1;
+        }
+    }
+
+    if (cmd & NTMP_CMD_QUERY) {
+        if (!e) {
+            e = (acc == NTMP_ACC_ENTRYID)
+                  ? netc_vlan_find_id(s, ldl_le_p(rbuf + 4))
+                  : netc_vlan_find_vid(s, ldl_le_p(rbuf + 4) & 0xFFF);
+        }
+        if (e) {
+            uint8_t resp[28];
+            memset(resp, 0, sizeof(resp));
+            stl_le_p(resp + 4, e->entry_id);      /* rsp.entryID */
+            stl_le_p(resp + 8, e->vid & 0xFFF);   /* rsp.keye.vid */
+            for (int i = 0; i < 4; i++) {
+                stl_le_p(resp + 12 + i * 4, e->cfge[i]);  /* rsp.cfge (16 bytes) */
+            }
+            dma_memory_write(s->dma_as, req_addr, resp, sizeof(resp),
+                             MEMTXATTRS_UNSPECIFIED);
+            *num_matched = 1;
+        }
+    }
+
+    if (cmd & NTMP_CMD_DELETE) {
+        IMXRT1180NETCVlanEntry *d = (acc == NTMP_ACC_ENTRYID)
+              ? netc_vlan_find_id(s, ldl_le_p(rbuf + 4))
+              : netc_vlan_find_vid(s, ldl_le_p(rbuf + 4) & 0xFFF);
+        if (d) {
+            d->valid = false;
+            *num_matched = 1;
+        }
+    }
+
+    return NTMP_ERR_NONE;
+}
+
 /* Process one 32-byte NTMP command BD at bd_addr: dispatch on tableId/cmd, then
  * write the response (error/numMatched/resReady) back into the BD's dword@12. */
 static void netc_process_cmd_bd(IMXRT1180NETCState *s, uint64_t bd_addr)
@@ -560,6 +666,9 @@ static void netc_process_cmd_bd(IMXRT1180NETCState *s, uint64_t bd_addr)
     switch (table_id) {
     case NTMP_TB_FDB:
         err = netc_fdb_op(s, cmd, acc, req_addr, &num_matched);
+        break;
+    case NTMP_TB_VF:
+        err = netc_vf_op(s, cmd, acc, req_addr, &num_matched);
         break;
     default:
         /* We do not model this table yet.  TELL THE DRIVER via the BD's own error
@@ -803,6 +912,8 @@ static void netc_reset(DeviceState *dev)
     s->mdio_reg = 0;
     memset(s->fdb, 0, sizeof(s->fdb));
     s->fdb_next_id = 0;
+    memset(s->vlan, 0, sizeof(s->vlan));
+    s->vlan_next_id = 0;
 }
 
 static void netc_realize(DeviceState *dev, Error **errp)
@@ -845,16 +956,32 @@ static const VMStateDescription vmstate_netc_fdb = {
     },
 };
 
+static const VMStateDescription vmstate_netc_vlan = {
+    .name = "imxrt1180-netc/vlan-entry",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .fields = (const VMStateField[]) {
+        VMSTATE_BOOL(valid, IMXRT1180NETCVlanEntry),
+        VMSTATE_UINT16(vid, IMXRT1180NETCVlanEntry),
+        VMSTATE_UINT32(entry_id, IMXRT1180NETCVlanEntry),
+        VMSTATE_UINT32_ARRAY(cfge, IMXRT1180NETCVlanEntry, 4),
+        VMSTATE_END_OF_LIST()
+    },
+};
+
 static const VMStateDescription vmstate_netc = {
     .name = TYPE_IMXRT1180_NETC,
-    .version_id = 2,
-    .minimum_version_id = 2,
+    .version_id = 3,
+    .minimum_version_id = 3,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32(mdio_reg, IMXRT1180NETCState),
         VMSTATE_UINT16_ARRAY(phy_regs, IMXRT1180NETCState, 32),
         VMSTATE_STRUCT_ARRAY(fdb, IMXRT1180NETCState, IMXRT1180_NETC_FDB_SIZE, 1,
                              vmstate_netc_fdb, IMXRT1180NETCFdbEntry),
         VMSTATE_UINT32(fdb_next_id, IMXRT1180NETCState),
+        VMSTATE_STRUCT_ARRAY(vlan, IMXRT1180NETCState, IMXRT1180_NETC_VF_SIZE, 1,
+                             vmstate_netc_vlan, IMXRT1180NETCVlanEntry),
+        VMSTATE_UINT32(vlan_next_id, IMXRT1180NETCState),
         VMSTATE_END_OF_LIST()
     },
 };

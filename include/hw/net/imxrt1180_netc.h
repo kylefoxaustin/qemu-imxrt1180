@@ -24,8 +24,9 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180NETCState, IMXRT1180_NETC)
 #define IMXRT1180_NETC_BASE 0x60000000
 #define IMXRT1180_NETC_SIZE 0x00C20000
 
-/* Switch forwarding-database (FDB) capacity, programmed via the NTMP command BD. */
+/* Switch table capacities, programmed via the NTMP command BD ring. */
 #define IMXRT1180_NETC_FDB_SIZE 64
+#define IMXRT1180_NETC_VF_SIZE  32
 
 /* One L2 forwarding-database entry (MAC + filtering-ID -> destination ports). */
 typedef struct IMXRT1180NETCFdbEntry {
@@ -38,6 +39,16 @@ typedef struct IMXRT1180NETCFdbEntry {
     uint32_t et_eid;           /* cfge.etEID */
     uint32_t entry_id;         /* hardware-assigned entry handle */
 } IMXRT1180NETCFdbEntry;
+
+/* One VLAN-filter entry (VID -> filtering-ID + VLAN port membership).  The
+ * config element is stored raw (4 dwords) so a query round-trips exactly what
+ * the driver programmed; port_membership = cfge[0][23:0], fid = cfge[1][11:0]. */
+typedef struct IMXRT1180NETCVlanEntry {
+    bool     valid;
+    uint16_t vid;              /* keye.vid */
+    uint32_t entry_id;         /* hardware-assigned entry handle */
+    uint32_t cfge[4];          /* raw cfge: portMembership, fid/mlo/mfo, etaBitmap, baseETEID */
+} IMXRT1180NETCVlanEntry;
 
 struct IMXRT1180NETCState {
     /*< private >*/
@@ -57,10 +68,12 @@ struct IMXRT1180NETCState {
     uint32_t mdio_reg;         /* PHY register addressed by the last EMDIO_CTL */
     uint16_t phy_regs[32];     /* per-PHY-register scratch (writes echo back) */
 
-    /* NETC switch (SW0) forwarding database, programmed over the NTMP command
-     * BD ring (CBDRPIR doorbell -> process BD -> advance CBDRCIR). */
+    /* NETC switch (SW0) tables, programmed over the NTMP command BD ring
+     * (CBDRPIR doorbell -> process BD -> advance CBDRCIR). */
     IMXRT1180NETCFdbEntry fdb[IMXRT1180_NETC_FDB_SIZE];
     uint32_t fdb_next_id;      /* next hardware-assigned FDB entry_id */
+    IMXRT1180NETCVlanEntry vlan[IMXRT1180_NETC_VF_SIZE];
+    uint32_t vlan_next_id;     /* next hardware-assigned VLAN-filter entry_id */
 };
 
 #endif /* HW_NET_IMXRT1180_NETC_H */
