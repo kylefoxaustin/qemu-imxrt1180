@@ -75,6 +75,26 @@
 #define R_SIPCAPR1_E1      (ENETC1_SI0_OFF + 0x24)
 
 /*
+ * Switch MANAGEMENT TX ring.  SWT_SendFrame -> EP_SendFrameCommon(mgmtTxBdRing)
+ * writes a TX BD to ENETC1's SI, ring 0, and rings its producer index; the model
+ * DMAs the frame, and -- because the demo sends it to an egress port in loopback
+ * -- learns the source MAC on that port (egress port = TX-descriptor flags PORT
+ * field, valid when SMSO is set), then fires the TX-done MSI-X so the driver's
+ * completion (txOver) runs.  MSI-X vector index from ENETC1 SI SIMSITRVR[0], via
+ * ENETC1PSI0's OWN MSI-X table (0x60C00000, NOT ENETC0PSI0's).
+ */
+#define R_MGMT_TX_BAR0     (ENETC1_SI0_OFF + 0x8010)
+#define R_MGMT_TX_BAR1     (ENETC1_SI0_OFF + 0x8014)
+#define R_MGMT_TX_PIR      (ENETC1_SI0_OFF + 0x8018)   /* doorbell */
+#define R_MGMT_TX_CIR      (ENETC1_SI0_OFF + 0x801C)
+#define R_MGMT_TX_LENR     (ENETC1_SI0_OFF + 0x8020)
+#define R_ENETC1_SIMSITRVR0 (ENETC1_SI0_OFF + 0xB00)
+#define ENETC1_MSIX_TABLE  0xC00000
+#define TXDESC_SMSO        (1u << 23)                   /* switch mgmt send option */
+#define TXDESC_PORT_SHIFT  16
+#define TXDESC_PORT_MASK   0x1Fu
+
+/*
  * Ethernet MAC/link (ETH_LINK) blocks: PMn_COMMAND_CONFIG.SWR is a self-clearing
  * software reset the driver spins on (NETC_PortSoftwareResetEthMac).  Every port
  * MAC has one -- the two ENETC endpoint MACs AND the five switch (SW0) port MACs.
@@ -218,12 +238,12 @@ static uint32_t netc_reg(IMXRT1180NETCState *s, hwaddr off)
     return (uint32_t)netc_backing_read(s, off, 4);
 }
 
-/* Emit the MSI-X message for a ring: look up the entry the driver assigned,
- * and if it is unmasked, write msgData to msgAddr (which lands in the MSGINTR
- * router and raises its NVIC line). */
-static void netc_emit_msix(IMXRT1180NETCState *s, uint32_t entry_idx)
+/* Emit the MSI-X message for a ring from a specific per-SI MSI-X table: look up
+ * the entry the driver assigned, and if it is unmasked, write msgData to msgAddr
+ * (which lands in the MSGINTR router and raises its NVIC line). */
+static void netc_emit_msix_tbl(IMXRT1180NETCState *s, hwaddr table, uint32_t entry_idx)
 {
-    hwaddr e = NETC_MSIX_TABLE + (hwaddr)entry_idx * 16;
+    hwaddr e = table + (hwaddr)entry_idx * 16;
     uint64_t msg_addr = (uint64_t)netc_reg(s, e) | ((uint64_t)netc_reg(s, e + 4) << 32);
     uint32_t msg_data = netc_reg(s, e + 8);
     uint32_t ctrl = netc_reg(s, e + 12);
@@ -234,6 +254,11 @@ static void netc_emit_msix(IMXRT1180NETCState *s, uint32_t entry_idx)
     }
     le = cpu_to_le32(msg_data);
     dma_memory_write(s->dma_as, msg_addr, &le, 4, MEMTXATTRS_UNSPECIFIED);
+}
+
+static void netc_emit_msix(IMXRT1180NETCState *s, uint32_t entry_idx)
+{
+    netc_emit_msix_tbl(s, NETC_MSIX_TABLE, entry_idx);   /* ENETC0PSI0 table */
 }
 
 /* Deliver one frame into the RX ring: copy it into the posted RX buffer, write
@@ -356,6 +381,57 @@ static void netc_switch_learn(IMXRT1180NETCState *s, const uint8_t *src_mac,
                               uint16_t fid, unsigned port);
 static uint32_t netc_switch_egress(IMXRT1180NETCState *s, const uint8_t *dest_mac,
                                    uint16_t fid, unsigned ingress_port);
+
+/*
+ * Switch management TX: the switch driver injects a frame directed to an egress
+ * switch port (SWT_SendFrame).  Walk the new BDs on ENETC1's SI ring 0, form each
+ * frame, and -- since the demo's port is in loopback -- learn the frame's source
+ * MAC on that egress port so the switch's forwarding database picks it up.  Then
+ * write the BDs back done and fire the TX-done MSI-X (from ENETC1PSI0's table).
+ */
+static void netc_do_mgmt_tx(IMXRT1180NETCState *s)
+{
+    uint64_t base = (uint64_t)netc_reg(s, R_MGMT_TX_BAR0) |
+                    ((uint64_t)netc_reg(s, R_MGMT_TX_BAR1) << 32);
+    uint32_t tlen = netc_reg(s, R_MGMT_TX_LENR) & BDR_LEN_MASK;
+    uint32_t cir = netc_reg(s, R_MGMT_TX_CIR) & 0xFFFF;
+    uint32_t pir = netc_reg(s, R_MGMT_TX_PIR) & 0xFFFF;
+
+    if (tlen == 0) {
+        return;
+    }
+    while (cir != pir) {
+        hwaddr bd = base + (hwaddr)cir * 16;
+        uint8_t txbd[16], frame[NETC_FRAME_MAX];
+        uint64_t addr;
+        uint32_t flen, flags, wb;
+
+        dma_memory_read(s->dma_as, bd, txbd, 16, MEMTXATTRS_UNSPECIFIED);
+        addr  = ldq_le_p(txbd);
+        flen  = lduw_le_p(txbd + 10);            /* standard.frameLen */
+        if (flen == 0 || flen > NETC_FRAME_MAX) {
+            flen = lduw_le_p(txbd + 8);          /* fall back to bufLen */
+        }
+        if (flen > NETC_FRAME_MAX) {
+            flen = NETC_FRAME_MAX;
+        }
+        flags = ldl_le_p(txbd + 12);
+        dma_memory_read(s->dma_as, addr, frame, flen, MEMTXATTRS_UNSPECIFIED);
+
+        /* Frame directed to an egress switch port (SMSO) -> the switch, on the
+         * port loopback, learns the source MAC on that port. */
+        if ((flags & TXDESC_SMSO) && flen >= 14) {
+            unsigned port = (flags >> TXDESC_PORT_SHIFT) & TXDESC_PORT_MASK;
+            netc_switch_learn(s, frame + 6, NETC_SW_DEFAULT_FID, port);
+        }
+
+        wb = cpu_to_le32(TXBD_WB_WRITTEN);       /* written=1, status=success */
+        dma_memory_write(s->dma_as, bd + 8, &wb, 4, MEMTXATTRS_UNSPECIFIED);
+        cir = (cir + 1) % tlen;
+    }
+    netc_backing_write(s, R_MGMT_TX_CIR, cir, 4);
+    netc_emit_msix_tbl(s, ENETC1_MSIX_TABLE, netc_reg(s, R_ENETC1_SIMSITRVR0));
+}
 
 static void netc_do_tx(IMXRT1180NETCState *s)
 {
@@ -1201,6 +1277,11 @@ static void netc_write(void *opaque, hwaddr off, uint64_t val, unsigned size)
         /* TX producer index written -> run the internal TX->RX loopback. */
         netc_backing_write(s, off, val, size);
         netc_do_tx(s);
+        return;
+    case R_MGMT_TX_PIR:
+        /* Switch management TX producer index -> process the switch-injected frame. */
+        netc_backing_write(s, off, val, size);
+        netc_do_mgmt_tx(s);
         return;
     default:
         netc_backing_write(s, off, val, size);
