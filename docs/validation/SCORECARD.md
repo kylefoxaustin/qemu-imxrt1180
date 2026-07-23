@@ -35,6 +35,15 @@
 | B | `driver_examples/sai/edma_transfer` | cm33 | **PASS** | "SAI EDMA example finished!" |
 | B | `driver_examples/netc/switch` | cm33 | **PASS** | "Frame forwarding to port" |
 | B | `driver_examples/flexspi/nor/polling_transfer` | cm33 | **PASS** | "Program data - successfully" |
+| B | `driver_examples/edma4/memory_to_memory` | cm33 | **PASS** | "EDMA memory to memory example finish" |
+| B | `driver_examples/edma4/memory_to_memory_transfer` | cm33 | **PASS** | "EDMA memory to memory transfer example finish" |
+| B | `driver_examples/edma4/memset` | cm33 | **PASS** | "EDMA memset finish" |
+| B | `driver_examples/edma4/channel_link` | cm33 | **PASS** | "EDMA channel link example finish" |
+| B | `driver_examples/edma4/ping_pong_transfer` | cm33 | **PASS** | "EDMA ping pong transfer example finish" |
+| B | `driver_examples/edma4/scatter_gather` | cm33 | **PASS** | "EDMA scatter gather transfer example finish" |
+| B | `driver_examples/edma4/wrap_transfer` | cm33 | **PASS** | "EDMA wrap transfer example finish" |
+| B | `driver_examples/edma4/interleave_transfer` | cm33 | **PASS** | "EDMA interleave transfer example finish" |
+| B | `driver_examples/edma4/memory_to_memory_trigger` | cm33 | **XBUILD** | triggered variant not wired for evkmimxrt1180 in SDK 26.06.00 (board CMake gap) |
 | B | `ele_crypto/ele_crypto_hsm` | cm33 | **XFAIL** | documented gap: prints "ERROR: execution of commands on Security Sub-System failed!" at Load EdgeLock FW; ELE FW-load handshake not modeled (README ELE = partial) |
 | B | `driver_examples/wdog32` | cm33 | **XBUILD** | example not wired for evkmimxrt1180 in SDK 26.06.00 (board CMake gap, not a model fault) |
 | B | `motor_control/pmsm/mc_pmsm/pmsm_enc` | cm7 | **VALUE-PROVEN** | proof: closed-loop FOC spin (no console success string), pinned by tests/imxrt1180-cm7boot + adc-fifo-align (needs -icount) |
@@ -43,11 +52,11 @@
 
 | class | count |
 |---|---|
-| PASS (ran to success) | 5 |
+| PASS (ran to success) | 13 |
 | BANNER (reached app, blocked on external host) | 5 |
 | XFAIL (documented gap) | 2 |
 | VALUE-PROVEN (pinned by a value-test) | 2 |
-| XBUILD (SDK build gap) | 1 |
+| XBUILD (SDK build gap) | 2 |
 
-Coverage gate: Tier A 8/8, Tier B 7/7.
+Coverage gate: Tier A 8/8, Tier B 16/16.
 **Gate: PASS.**
