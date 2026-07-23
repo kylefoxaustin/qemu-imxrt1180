@@ -319,9 +319,11 @@ and audio-streaming work above now cover.
    the ASRC data path.
 3. Value-golden more peripherals **through the real `fsl_*` driver** rather than by
    poking registers — the `netc_switch` bring-up now does this for the switch;
-   extend the same rung-3 discipline across the corpus, and build a tracked,
-   RT1180-specific example scorecard (the old `docs/validation` set was a stale
-   MCXN947 copy and has been removed).
+   extend the same rung-3 discipline across the corpus. _(The tracked,
+   RT1180-specific example scorecard is now live — see
+   [`docs/validation/`](docs/validation/) — and already surfaces the next gaps to
+   close: MCMGR core1 image-info, the FlexSPI IP-command path, and the ELE
+   FW-load handshake.)_
 
 ## License
 
