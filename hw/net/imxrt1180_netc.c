@@ -528,6 +528,11 @@ static NetClientInfo netc_net_info = {
 #define NTMP_CMD_QUERY     0x4
 #define NTMP_CMD_ADD       0x8
 #define NTMP_ACC_ENTRYID   0                      /* kNETC_EntryIDMatch */
+#define NTMP_ACC_SEARCH    2                      /* kNETC_Search (by criteria) */
+/* FDB search match-criteria (netc_tb_fdb_sc_{keye,cfge}_mc_t). */
+#define FDB_KEYEMC_FID     0x1
+#define FDB_CFGEMC_DYNAMIC 0x1
+#define FDB_CFGEMC_PORTBMP 0x2
 /* NTMP error status (netc_cmd_error_t) -- documented codes, not invented. */
 #define NTMP_ERR_NONE      0x00
 #define NTMP_ERR_SIZE      0x02                   /* kNETC_SizeError: table full */
@@ -684,7 +689,59 @@ static uint32_t netc_fdb_op(IMXRT1180NETCState *s, unsigned cmd, unsigned acc,
         }
     }
 
-    if (cmd & NTMP_CMD_QUERY) {
+    if ((cmd & NTMP_CMD_QUERY) && acc == NTMP_ACC_SEARCH) {
+        /*
+         * Search by criteria (SWT_BridgeSearchFDBTableEntry).  Request is a
+         * netc_tb_fdb_search_criteria_t within the buffer: resumeEntryId@4
+         * (0xFFFFFFFF = start), keye@8 (fid@16), cfge@20 (portBitmap@20,
+         * dynamic in flags@24 bit11), match criteria bytes @32 (acte@32,
+         * keyeMc byte@33 [1:0], cfgeMc byte@34 [2:0]).  Return the first valid
+         * entry after resumeEntryId that matches the requested elements; the
+         * response status carries the resume point for the next search.
+         */
+        uint32_t resume  = ldl_le_p(rbuf + 4);
+        unsigned keye_mc = rbuf[33] & 0x3;
+        unsigned cfge_mc = rbuf[34] & 0x7;
+        uint16_t s_fid   = ldl_le_p(rbuf + 16) & 0xFFF;
+        uint32_t s_port  = ldl_le_p(rbuf + 20) & 0xFFFFFF;
+        unsigned s_dyn   = (ldl_le_p(rbuf + 24) >> 11) & 1;
+        IMXRT1180NETCFdbEntry *found = NULL;
+
+        for (int i = 0; i < IMXRT1180_NETC_FDB_SIZE; i++) {
+            IMXRT1180NETCFdbEntry *c = &s->fdb[i];
+            if (!c->valid) {
+                continue;
+            }
+            if (resume != 0xFFFFFFFFu && c->entry_id <= resume) {
+                continue;                       /* already returned in a prior page */
+            }
+            if ((cfge_mc & FDB_CFGEMC_PORTBMP) && c->port_bitmap != s_port) {
+                continue;
+            }
+            if ((cfge_mc & FDB_CFGEMC_DYNAMIC) && (unsigned)c->dynamic != s_dyn) {
+                continue;
+            }
+            if ((keye_mc & FDB_KEYEMC_FID) && c->fid != s_fid) {
+                continue;
+            }
+            found = c;
+            break;
+        }
+        if (found) {
+            uint8_t resp[36];
+            memset(resp, 0, sizeof(resp));
+            stl_le_p(resp + 0,  found->entry_id);  /* rsp.status = next resume id */
+            stl_le_p(resp + 4,  found->entry_id);
+            memcpy(resp + 8, found->mac, 6);
+            stl_le_p(resp + 16, found->fid & 0xFFF);
+            stl_le_p(resp + 20, found->port_bitmap);
+            stl_le_p(resp + 24, found->cfge_flags);
+            stl_le_p(resp + 28, found->et_eid);
+            dma_memory_write(s->dma_as, req_addr, resp, sizeof(resp),
+                             MEMTXATTRS_UNSPECIFIED);
+            *num_matched = 1;
+        }
+    } else if (cmd & NTMP_CMD_QUERY) {
         if (!e) {
             e = (acc == NTMP_ACC_ENTRYID)
                   ? netc_fdb_find_id(s, ldl_le_p(rbuf + 4))

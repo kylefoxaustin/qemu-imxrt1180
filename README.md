@@ -244,9 +244,9 @@ defined there and means *visible to the guest*, never "we wrote a host log".
 - **NETC switch (SW0)**: the **NTMP command-BD ring + L2 tables + source-MAC
   learning** are modelled — the `fsl_netc_switch` driver programs the switch's
   tables through the command BD ring (`CBDRPIR` doorbell → process BD → `CBDRCIR`
-  completion), and both the **forwarding database** (FDB, `{MAC,FID}→portBitmap`)
-  and the **VLAN filter table** (VF, `VID→{FID, port membership}`) round-trip
-  add/query/delete. A frame ingressing the switch (CPU-injected on the management
+  completion), and both the **forwarding database** (FDB, `{MAC,FID}→portBitmap`,
+  including search-by-criteria) and the **VLAN filter table** (VF, `VID→{FID, port
+  membership}`) round-trip add/query/delete. A frame ingressing the switch (CPU-injected on the management
   port, or arriving from the wire) has its **source MAC learned** into a dynamic
   FDB entry, exactly as silicon populates its database from live traffic
   (`tests/imxrt1180-netc-fdb`, mutation-proven). The **PTP 1588 timer** (TMR0) is

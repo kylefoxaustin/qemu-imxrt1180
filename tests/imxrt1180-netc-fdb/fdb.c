@@ -106,6 +106,21 @@ static void fill_key(const uint8_t mac[6], uint32_t fid, uint32_t port_bitmap)
     *(volatile uint32_t *)(DBUF_BASE + 36) = port_bitmap;   /* cfge.portBitmap @ +36 */
 }
 
+/* Fill the request buffer with an FDB search-by-criteria for a given portBitmap
+ * (netc_tb_fdb_search_criteria_t: resumeEntryId@4, cfge.portBitmap@20, cfgeMc@34). */
+#define ACC_SEARCH   2u
+#define CFGEMC_PORTBMP 2u
+static void fill_search(uint32_t port_bitmap)
+{
+    volatile uint8_t *b = (volatile uint8_t *)DBUF_BASE;
+    for (int i = 0; i < 48; i++) {
+        b[i] = 0;
+    }
+    *(volatile uint32_t *)(DBUF_BASE + 4)  = 0xFFFFFFFFu;      /* resumeEntryId = start */
+    *(volatile uint32_t *)(DBUF_BASE + 20) = port_bitmap;      /* cfge.portBitmap       */
+    ((volatile uint8_t *)DBUF_BASE)[34]    = CFGEMC_PORTBMP;   /* cfgeMc = MatchPortBitmap */
+}
+
 /* Fill the request buffer with a VLAN-filter exact-key {vid} + cfge {membership, fid}. */
 static void fill_vlan(uint32_t vid, uint32_t membership, uint32_t fid)
 {
@@ -252,6 +267,29 @@ void reset_handler(void)
     if (((learned_cfge >> 11) & 1) == 0) { learn_ok = 0; } /* not marked dynamic */
     if (!learn_ok) { ok = 0; }
 
+    /*
+     * ---- FDB search by criteria (SWT_BridgeSearchFDBTableEntry) ----
+     * Add an entry with a distinctive portBitmap, then SEARCH the FDB for that
+     * portBitmap and confirm the search returns that entry (MAC + entry_id).
+     * (Ring slot 0 was used by the learning query above -> CBDRCIR wrapped to 1,
+     * so we continue at slots 1, 2.)
+     */
+    static const uint8_t W[6] = { 0x02, 0x77, 0x77, 0x77, 0x77, 0x77 };
+    const uint32_t wport = 0x5;                    /* ports 0 and 2 */
+    fill_key(W, 7, wport);                          /* fid 7 -> W on portBitmap 0x5 */
+    err = submit(1, 48, 36, CMD_ADDQUERY, ACC_EXACTKEY, TB_FDB, &nmatch);
+    uint32_t wentry = *(volatile uint32_t *)(DBUF_BASE + 4);
+    if (err != 0 || nmatch != 1) { ok = 0; }
+
+    fill_search(wport);
+    err = submit(2, 48, 36, CMD_QUERY, ACC_SEARCH, TB_FDB, &nmatch);
+    uint32_t s_entry = *(volatile uint32_t *)(DBUF_BASE + 4);   /* rsp.entryID  */
+    uint32_t s_port  = *(volatile uint32_t *)(DBUF_BASE + 20) & 0xFFFFFF; /* rsp.cfge.portBitmap */
+    volatile uint8_t *sm = (volatile uint8_t *)(DBUF_BASE + 8); /* rsp.keye.macAddr */
+    int search_ok = (nmatch == 1) && (s_entry == wentry) && (s_port == wport) &&
+                    (sm[0] == W[0]) && (sm[5] == W[5]);
+    if (!search_ok) { ok = 0; }
+
     if (!g_complete_ok) { ok = 0; }                /* a doorbell never completed */
 
     if (ok) {
@@ -260,6 +298,7 @@ void reset_handler(void)
         puts_("NETC-FDB: PASS - entry is gone after delete (zero matches)\r\n");
         puts_("NETC-VF:  PASS - VLAN filter add/query/delete round-trip (VID->membership/FID)\r\n");
         puts_("NETC-LRN: PASS - switch learned an injected frame's src MAC (dynamic FDB, CPU port)\r\n");
+        puts_("NETC-SRCH: PASS - FDB search-by-portBitmap returns the matching entry\r\n");
     } else {
         puts_("NETC-FDB: FAIL - FDB/VLAN/learning mismatch (see which assert)\r\n");
     }
