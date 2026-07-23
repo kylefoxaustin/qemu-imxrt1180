@@ -208,6 +208,7 @@ Two ways the **M7** comes up:
 - `hw/{misc/imxrt1180_sai,audio/wm8962}.c` — SAI + WM8962 codec (audio streaming)
 - `hw/timer/imxrt1180_{tmr,lptmr}.c` — QuadTimer + LPTMR
 - `hw/misc/imxrt1180_{rtwdog,s3mu,flexspi,src,trdc}.c` — watchdog, ELE MU, FlexSPI, M7-release, TRDC
+- `hw/misc/imxrt1180_xcache.c` — platform cache controllers (XCACHE_PC/PS): maintenance completion so `fsl_cache` polls retire
 - `hw/{ssi,i2c}/imxrt1180_{lpspi,lpi2c}.c` — SPI / I2C
 - `hw/gpio/imxrt1180_rgpio.c` — GPIO
 - `hw/net/imxrt1180_netc.c` — NETC: ENETC endpoint + the SW0 L2 switch (NTMP/FDB/VLAN, forwarding, PTP)

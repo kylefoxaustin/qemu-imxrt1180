@@ -252,3 +252,4 @@ system_ss.add(when: 'CONFIG_IMXRT1180_SEMA42', if_true: files('imxrt1180_sema42.
 system_ss.add(when: 'CONFIG_IMXRT1180_CMP', if_true: files('imxrt1180_cmp.c'))
 system_ss.add(when: 'CONFIG_IMXRT1180_VREF', if_true: files('imxrt1180_vref.c'))
 system_ss.add(when: 'CONFIG_IMXRT1180_PERIPHRDY', if_true: files('imxrt1180_periphrdy.c'))
+system_ss.add(when: 'CONFIG_IMXRT1180_XCACHE', if_true: files('imxrt1180_xcache.c'))

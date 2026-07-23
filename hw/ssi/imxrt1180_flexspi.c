@@ -473,16 +473,20 @@ static uint64_t flexspi_read(void *opaque, hwaddr offset, unsigned size)
     switch (offset) {
     case FSPI_STS0:
         /*
-         * Commands complete inline, so the arbiter is always idle (ARBIDLE).  But
-         * SEQIDLE reports the SEQUENCE ENGINE, and while the module is DISABLED
-         * (MCR0.MDIS, which is SET at reset -- MCR0 resets to 0xFFFF80C2) the engine
-         * is not clocked and does not report itself idle.  The RM resets STS0 to
-         * 0x2: ARBIDLE alone.
+         * Commands complete inline, so the arbiter is always idle (ARBIDLE).
+         * SEQIDLE reports the SEQUENCE ENGINE.  At *cold reset* the engine has
+         * never been clocked, so the RM resets STS0 to 0x2 (ARBIDLE alone) -- we
+         * honour that until firmware first configures the module (writes MCR0).
          *
-         *   WE REPORTED AN IDLE SEQUENCE ENGINE FROM A MODULE THAT WAS SWITCHED OFF.
+         * Crucially, SEQIDLE is NOT gated on MCR0.MDIS: a disabled module is
+         * trivially idle (nothing is running), and the fsl_flexspi driver RELIES
+         * on this -- FLEXSPI_Init writes MCR0 with MDIS *set* (configValue |=
+         * MDIS_MASK) and then immediately spins on GetBusIdleStatus (ARBIDLE &&
+         * SEQIDLE). Gating SEQIDLE on !MDIS wedged FLEXSPI_SetFlashConfig there
+         * (the flexspi_nor polling example). Once clocked, the engine is idle
+         * whenever no inline command is mid-flight -- i.e. always, for us.
          */
-        return STS0_ARBIDLE |
-               ((s->regs[FSPI_MCR0 >> 2] & MCR0_MDIS) ? 0 : STS0_SEQIDLE);
+        return STS0_ARBIDLE | (s->configured ? STS0_SEQIDLE : 0);
 
     case FSPI_IPRXFSTS:
         return flexspi_fill_entries(&s->rx);
@@ -561,6 +565,7 @@ static void flexspi_write(void *opaque, hwaddr offset, uint64_t value,
             fifo8_reset(&s->tx);
             value &= ~MCR0_SWRESET;     /* self-clearing */
         }
+        s->configured = true;           /* engine now clocked -> STS0.SEQIDLE */
         s->regs[FSPI_MCR0 >> 2] = value;
         break;
 
@@ -698,6 +703,7 @@ static void flexspi_reset(DeviceState *dev)
     s->regs[0xE8 / 4] = 0x01000100;   /* STS2    */
 
     s->lut_unlocked = false;
+    s->configured = false;      /* STS0.SEQIDLE stays 0 until firmware writes MCR0 */
     fifo8_reset(&s->rx);
     fifo8_reset(&s->tx);
 
@@ -748,12 +754,13 @@ static const Property flexspi_properties[] = {
 
 static const VMStateDescription vmstate_flexspi = {
     .name = TYPE_IMXRT1180_FLEXSPI,
-    .version_id = 1,
-    .minimum_version_id = 1,
+    .version_id = 2,
+    .minimum_version_id = 2,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32_ARRAY(regs, IMXRT1180FlexSPIState,
                              IMXRT1180_FLEXSPI_NUM_REGS),
         VMSTATE_BOOL(lut_unlocked, IMXRT1180FlexSPIState),
+        VMSTATE_BOOL(configured, IMXRT1180FlexSPIState),
         VMSTATE_FIFO8(rx, IMXRT1180FlexSPIState),
         VMSTATE_FIFO8(tx, IMXRT1180FlexSPIState),
         VMSTATE_END_OF_LIST()

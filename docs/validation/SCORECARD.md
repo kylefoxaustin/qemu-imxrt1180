@@ -34,7 +34,7 @@
 | B | `demo_apps/hello_world` | cm33 | **PASS** | "hello world." |
 | B | `driver_examples/sai/edma_transfer` | cm33 | **PASS** | "SAI EDMA example finished!" |
 | B | `driver_examples/netc/switch` | cm33 | **PASS** | "Frame forwarding to port" |
-| B | `driver_examples/flexspi/nor/polling_transfer` | cm33 | **XFAIL** | documented gap: builds clean, stalls in FlexSPI init (IP-command/LUT path unmodeled); our FlexSPI proof is the dedicated erase/program/read-back storage test, a different access pattern |
+| B | `driver_examples/flexspi/nor/polling_transfer` | cm33 | **PASS** | "Program data - successfully" |
 | B | `ele_crypto/ele_crypto_hsm` | cm33 | **XFAIL** | documented gap: prints "ERROR: execution of commands on Security Sub-System failed!" at Load EdgeLock FW; ELE FW-load handshake not modeled (README ELE = partial) |
 | B | `driver_examples/wdog32` | cm33 | **XBUILD** | example not wired for evkmimxrt1180 in SDK 26.06.00 (board CMake gap, not a model fault) |
 | B | `motor_control/pmsm/mc_pmsm/pmsm_enc` | cm7 | **VALUE-PROVEN** | proof: closed-loop FOC spin (no console success string), pinned by tests/imxrt1180-cm7boot + adc-fifo-align (needs -icount) |
@@ -43,9 +43,9 @@
 
 | class | count |
 |---|---|
-| PASS (ran to success) | 4 |
+| PASS (ran to success) | 5 |
 | BANNER (reached app, blocked on external host) | 5 |
-| XFAIL (documented gap) | 3 |
+| XFAIL (documented gap) | 2 |
 | VALUE-PROVEN (pinned by a value-test) | 2 |
 | XBUILD (SDK build gap) | 1 |
 

@@ -62,6 +62,7 @@ struct IMXRT1180FlexSPIState {
 
     uint32_t regs[IMXRT1180_FLEXSPI_NUM_REGS];
     bool lut_unlocked;
+    bool configured;        /* firmware has written MCR0 -> seq engine clocked */
     Fifo8 rx;               /* bytes read from flash (RFDR packs 4/word)   */
     Fifo8 tx;               /* bytes to program     (TFDR unpacks 4/word)  */
 };

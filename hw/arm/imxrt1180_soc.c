@@ -24,6 +24,7 @@
 #include "hw/sensor/fxls8974.h"     /* TYPE_FXLS8974 */
 #include "hw/audio/wm8962.h"        /* TYPE_WM8962 */
 #include "hw/misc/imxrt1180_periphrdy.h"
+#include "hw/misc/imxrt1180_xcache.h"
 #include "system/address-spaces.h"   /* get_system_memory() */
 #include "system/system.h"           /* serial_hd() */
 
@@ -1206,6 +1207,21 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     imxrt1180_add_rdy(s, "i3c2",  0x42520000, 0x1000);
     imxrt1180_add_rdy(s, "usbnc1", 0x42C80200, 0x100);
     imxrt1180_add_rdy(s, "usbnc2", 0x42C90200, 0x100);
+
+    /*
+     * XCACHE — the two platform cache controllers (PC @0x44400000, PS @+0x800).
+     * QEMU memory is coherent, so cache maintenance is a no-op; the model only
+     * self-clears the CCR.GO / CSAR.LGO command bits so the fsl_cache driver's
+     * completion poll finishes instead of spinning (the FlexSPI polling example
+     * hung here). One 0x1000 window covers both instances; the secure alias
+     * (0x54400000) comes free from the NS->S peripheral mirror above.
+     */
+    {
+        DeviceState *xc = qdev_new(TYPE_IMXRT1180_XCACHE);
+        object_property_add_child(OBJECT(s), "xcache", OBJECT(xc));
+        sysbus_realize_and_unref(SYS_BUS_DEVICE(xc), &error_fatal);
+        sysbus_mmio_map(SYS_BUS_DEVICE(xc), 0, 0x44400000);
+    }
     for (int i = 0; i < 6; i++) {          /* MSGINTR1..6 message-interrupt routers */
         if (!sysbus_realize(SYS_BUS_DEVICE(&s->msgintr[i]), errp)) {
             return;

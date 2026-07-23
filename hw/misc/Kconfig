@@ -509,6 +509,9 @@ config IMXRT1180_VREF
 config IMXRT1180_PERIPHRDY
     bool
 
+config IMXRT1180_XCACHE
+    bool
+
 config IMXRT1180_CMP
     bool
 

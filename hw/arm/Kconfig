@@ -838,6 +838,7 @@ config IMXRT1180_SOC
     select IMXRT1180_TMR
     select IMXRT1180_VREF
     select IMXRT1180_PERIPHRDY
+    select IMXRT1180_XCACHE
     select IMXRT1180_CMP
     select IMXRT1180_SEMA42
     select IMXRT1180_TPM

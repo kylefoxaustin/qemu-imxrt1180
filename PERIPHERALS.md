@@ -62,6 +62,7 @@ it."*) So, explicitly:
 | **SAI** (I2S audio) | 1..4 | 0x443B0000, 0x42BB0000, 0x42BC0000, 0x42BD0000 | ✅ TX real (PIO+DMA) | **Real TX path**: TDR words land in a per-instance FIFO (PARAM-sized: SAI1=16, SAI2–4=32), clock out at the rate the guest's OWN registers describe (BCLK/frame, master-mode only — a bit-clock SLAVE returns rate 0, not a fabricated 48 kHz), and reach QEMU's audio backend. **Value-verified byte-exact** to a wav at two rates, PIO (`tests/imxrt1180-sai`) and **eDMA-driven** (`tests/imxrt1180-sai-dma`). **TX FIFO→eDMA request line** (`SRC` 21/180/182/184), gated by `TCSR[FRDE]`/`[FWDE]`. **FRF/FWF corrected 2026-07-17** (they were swapped-and-wrong — FRF="reached watermark", FWF="empty"; see retraction below). Underrun→FEF; overrun→FEF. RX path not modelled (RFR reads empty). IRQ 45/198/199/154 |
 | **SRC + BLK_CTRL_S_AONMIX** | 1 | 0x44460000 / 0x444F0000 | ✅ functional | M7 boot-vector (M7_CFG) + release (SCR.BT_RELEASE_M7), bottom-half start |
 | **FlexSPI** (controller) | 1, 2 | 0x425E0000, 0x445E0000 | ● functional | LUT-driven IP command engine over SSI + AHB/XIP window; real `m25p80` NOR on FlexSPI1 (16 MiB, `-drive if=mtd`). Storage-write-verified: erase→program→read-back byte-exact, and program-without-erase correctly only clears bits. FlexSPI2 has no flash on the EVK, so its AHB window is deliberately unmapped |
+| **XCACHE** (platform cache) | PC, PS | 0x44400000, 0x44400800 | ✅ functional | CCR/CLCR/CSAR/CCVR. QEMU memory is coherent (no data cache), so invalidate/push/line-ops are genuine no-ops; the model self-clears the `CCR.GO`/`CSAR.LGO` command bits so the `fsl_cache` completion poll retires (unblocked the FlexSPI polling example's `DCACHE_InvalidateByRange`). Config bits (ENCACHE) stick |
 | **RGPIO** | 1..6 | 0x47400000, 0x4381/2/3/4/5 0000 | ✅ functional | PDOR/PSOR/PCOR/PTOR/PDDR/PDIR + per-pin qemu_irq out |
 | **TRDC** | 1..3 | 0x44270000, 0x42460000, 0x42810000 | ◐ config stub | HWCFG0 counts + per-master DACFG.NCM (fsl_trdc DAC setup); byte-access safe; no access enforcement (flagged) |
 | **USBPHY** | 1..2 | 0x42CA0000, 0x42CB0000 | ✅ functional | USB-HS PHY PLL: RW/SET/CLR/TOG register bank; PLL_SIC.PLL_LOCK reported once powered (instant lock, like ANADIG); no UTMI/charger-detect |
@@ -394,6 +395,20 @@ row above and `tests/imxrt1180-flexspi/run.sh`), but it was never validated at t
 time it was claimed. Flagging rather than quietly correcting: a peripheral listed as
 driver-validated when it wasn't is the same class of false green this repo exists to
 avoid.
+
+**Rotted, then repaired (2026-07-23):** the example scorecard (roadmap #3) caught
+that `flexspi/nor/polling_transfer` had *silently regressed* — the SDK 26.06 flash
+init path now (a) does `DCACHE_InvalidateByRange` through the **XCACHE** platform
+cache controller (unmodelled → the invalidate-complete poll never retired) and (b)
+polls `GetBusIdleStatus` immediately after `FLEXSPI_Init` leaves `MCR0.MDIS` *set*
+(our STS0 gated `SEQIDLE` on `!MDIS`, so a disabled-but-idle module never reported
+idle). Both hung the driver; `tests/imxrt1180-flexspi` had rotted green with it.
+Fixed by modelling XCACHE (`hw/misc/imxrt1180_xcache.c`, cache maintenance is a
+no-op on coherent memory → self-clear the CCR.GO/CSAR.LGO command bits) and by
+reporting `STS0.SEQIDLE` once the module is configured regardless of MDIS — a
+disabled FlexSPI is trivially idle, which the driver *relies* on. Both fixes are
+mutation-proven via the storage test; the STS0 cold-reset value (0x2) is preserved.
+A test that rots green under an SDK bump is why a corpus scorecard, re-run, matters.
 
 Fixes the sweep drove: TRDC aperture 0x1000→0x20000 (readback assert unblocked
 the whole corpus); GPT `CR.SWR` self-clear + TPM `CONTROLS[]` backing (fsl-audit);
