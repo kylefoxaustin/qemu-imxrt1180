@@ -266,12 +266,15 @@ defined there and means *visible to the guest*, never "we wrote a host log".
   passes). The **real NXP `netc_switch` SDK example** (the unmodified
   `fsl_netc_switch` driver) runs its whole **control-plane bring-up** on the model
   — `EP_Init` on the ENETC1 management SI, the seven port-MAC software resets,
-  per-port RTL8211F PHY link-up, and **`SWT_Init` (switch + bridge + command-BD-ring
-  config) returns success** — validating the NTMP/FDB/VLAN/port modeling against
-  the real driver. **Not yet modelled**: true multi-physical-port routing (the
-  model has one wire port; the example's frame-forwarding data plane needs
-  switch-port netdevs) and the per-VLAN MAC-learning-options. Unmodelled tables
-  fault honestly via the BD's `resp.error`, never a silent ack.
+  per-port RTL8211F PHY link-up, `SWT_Init` (switch + bridge + command-BD-ring
+  config) and `SWT_ManagementTxRxConfig` return success, and the demo reaches its
+  MAC-learning frame send — validating the NTMP/FDB/VLAN/port/management modeling
+  against the real driver. It stops at the **data-plane frame path**: `SWT_SendFrame`
+  drives the switch's *management* TX BD ring (on ENETC1's SI), which the model does
+  not yet DMA/forward, so the TX never completes. **Not yet modelled**: that
+  management TX/RX frame path (and true multi-physical-port routing — the model has
+  one wire port), and the per-VLAN MAC-learning-options. Unmodelled tables fault
+  honestly via the BD's `resp.error`, never a silent ack.
 - **Cache** is a QEMU-architectural WONTFIX (no guest CPU cache to model); **MECC**
   is an optional RAS diagnostic.
 

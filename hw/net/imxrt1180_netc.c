@@ -69,6 +69,8 @@
 #define ENETC1_BASE_OFF    0xB50000
 #define R_ECAPR1_E1        (ENETC1_BASE_OFF + 0x4)
 #define R_ECAPR2_E1        (ENETC1_BASE_OFF + 0x8)
+#define R_SMCAPR_E1        (ENETC1_BASE_OFF + 0x800)  /* Switch Management Capability */
+#define SMCAPR_SM          0x1u                       /* ENETC1 IS the switch mgmt ENETC */
 #define ENETC1_SI0_OFF     0xB40000
 #define R_SIPCAPR1_E1      (ENETC1_SI0_OFF + 0x24)
 
@@ -1061,6 +1063,7 @@ static uint64_t netc_read(void *opaque, hwaddr off, unsigned size)
     case R_ECAPR2_E1:   return ECAPR2_VAL;
     case R_SIPCAPR1:
     case R_SIPCAPR1_E1: return SIPCAPR1_VAL;
+    case R_SMCAPR_E1:   return SMCAPR_SM;   /* ENETC1 has switch management */
     case R_EMDIO_CFG: return netc_backing_read(s, off, size) & ~(uint64_t)EMDIO_CFG_BSY;
     case R_EMDIO_DATA: return netc_phy_read(s, s->mdio_reg);
     default:
