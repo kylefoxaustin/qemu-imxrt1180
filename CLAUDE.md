@@ -258,11 +258,12 @@ proven over a QEMU mcast socket with a sentinel-barrier oracle) --
 broadcast segment still passes. **The real NXP `netc_switch` SDK example runs its
 control plane AND its MAC-learning data plane on the model** — EP_Init (ENETC1 mgmt
 SI), 7 port-MAC resets, RTL8211F PHY link-up, `SWT_Init`/`SWT_ManagementTxRxConfig`,
-and the switch management TX frame path (SWT_SendFrame → learn src on the egress
-port → TX-done MSI-X via ENETC1PSI0's table); the demo prints the MAC it learned on
-each port (rung-3 validation of NTMP/FDB+search/VLAN/port/management/MSI-X). It then
-reaches the "Frame forwarding" phase (endpoint TX ring + per-port MAC stat counters),
-not yet modelled. See [[project-rt1180-netc-switch]] for the driver anchors,
+and both the management + endpoint TX frame paths (on ENETC1's SI: learn src on the
+egress port / forward per FDB + bump the egress port's MAC stat counters, TX-done
+MSI-X via ENETC1PSI0's table) — **the whole example runs end-to-end**: learns the MAC
+on each port, then forwards a frame to each port confirmed by the 512-1023-octet TX
+counter. Rung-3 validation of NTMP/FDB+search/VLAN/port/management/MSI-X/statistics
+against the real driver. See [[project-rt1180-netc-switch]] for the driver anchors,
 the compiler-verified BD/table byte offsets, and the OCRAM DMA gotcha.
 
 Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is

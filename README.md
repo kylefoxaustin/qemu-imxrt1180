@@ -266,17 +266,18 @@ defined there and means *visible to the guest*, never "we wrote a host log".
   passes). The **real NXP `netc_switch` SDK example** (the unmodified
   `fsl_netc_switch` driver) runs its whole **control-plane bring-up** on the model
   — `EP_Init` on the ENETC1 management SI, the seven port-MAC software resets,
-  per-port RTL8211F PHY link-up, `SWT_Init`/`SWT_ManagementTxRxConfig`, and — with
-  the switch **management TX frame path** now modelled (the `SWT_SendFrame` BD ring
-  on ENETC1's SI: DMA the frame, learn the source MAC on the directed egress port,
-  fire the TX-done MSI-X through ENETC1PSI0's own table) — the demo runs its whole
-  **MAC-learning phase end-to-end**, printing the MAC it learned bound to each
-  switch port. That validates the NTMP/FDB(+search)/VLAN/port/management/MSI-X
-  modeling against the real driver. It then reaches the "Frame forwarding" phase,
-  which drives the *endpoint* TX ring and polls per-port MAC statistics counters —
-  **not yet modelled**, along with true multi-physical-port routing and the
-  per-VLAN MAC-learning-options. Unmodelled tables fault honestly via the BD's
-  `resp.error`, never a silent ack.
+  per-port RTL8211F PHY link-up, `SWT_Init`/`SWT_ManagementTxRxConfig`, and both the
+  switch **management** and **endpoint** TX frame paths (on ENETC1's SI: DMA the
+  frame, learn the source MAC on the directed egress port / forward per the FDB and
+  bump the egress port's MAC statistics counters, firing the TX-done MSI-X through
+  ENETC1PSI0's own table) — **the whole example runs end-to-end**: it learns the MAC
+  bound to each switch port, then forwards a frame to each port and confirms it via
+  the per-port 512–1023-octet transmit counter. Rung-3 validation of the
+  NTMP/FDB(+search)/VLAN/port/management/MSI-X/statistics modeling against the real
+  driver. **Not yet modelled**: true multi-physical-port routing (the model has one
+  external wire port; the switch ports here are internal/loopback) and the per-VLAN
+  MAC-learning-options. Unmodelled tables fault honestly via the BD's `resp.error`,
+  never a silent ack.
 - **Cache** is a QEMU-architectural WONTFIX (no guest CPU cache to model); **MECC**
   is an optional RAS diagnostic.
 

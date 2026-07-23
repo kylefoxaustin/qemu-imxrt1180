@@ -93,6 +93,16 @@
 #define TXDESC_SMSO        (1u << 23)                   /* switch mgmt send option */
 #define TXDESC_PORT_SHIFT  16
 #define TXDESC_PORT_MASK   0x1Fu
+/* Regular ENDPOINT TX ring (ENETC1 SI ring 1): SWT frame-forwarding uses EP_SendFrame,
+ * whose frame the switch forwards per its FDB; the demo then polls the egress port
+ * MAC's 512-1023-octet transmit counter (PM0_T1023N @ ETH_LINK + 0x290). */
+#define R_EP_TX_BAR0       (ENETC1_SI0_OFF + 0x8210)
+#define R_EP_TX_BAR1       (ENETC1_SI0_OFF + 0x8214)
+#define R_EP_TX_PIR        (ENETC1_SI0_OFF + 0x8218)   /* doorbell (ring 1) */
+#define R_EP_TX_CIR        (ENETC1_SI0_OFF + 0x821C)
+#define R_EP_TX_LENR       (ENETC1_SI0_OFF + 0x8220)
+#define R_ENETC1_SIMSITRVR1 (ENETC1_SI0_OFF + 0xB04)
+#define ETH_LINK_T1023_OFF 0x290
 
 /*
  * Ethernet MAC/link (ETH_LINK) blocks: PMn_COMMAND_CONFIG.SWR is a self-clearing
@@ -431,6 +441,59 @@ static void netc_do_mgmt_tx(IMXRT1180NETCState *s)
     }
     netc_backing_write(s, R_MGMT_TX_CIR, cir, 4);
     netc_emit_msix_tbl(s, ENETC1_MSIX_TABLE, netc_reg(s, R_ENETC1_SIMSITRVR0));
+}
+
+/*
+ * Regular endpoint TX on the switch's SI (ENETC1 ring 1): the frame-forwarding
+ * phase sends a frame the switch forwards per its FDB.  Walk the BDs, form each
+ * frame, resolve its egress ports (FDB lookup), and count the frame out each
+ * egress switch port's MAC 512-1023-octet transmit counter (what the demo polls);
+ * then write the BDs back done and fire the TX-done MSI-X.
+ */
+static void netc_do_ep_tx(IMXRT1180NETCState *s)
+{
+    uint64_t base = (uint64_t)netc_reg(s, R_EP_TX_BAR0) |
+                    ((uint64_t)netc_reg(s, R_EP_TX_BAR1) << 32);
+    uint32_t tlen = netc_reg(s, R_EP_TX_LENR) & BDR_LEN_MASK;
+    uint32_t cir = netc_reg(s, R_EP_TX_CIR) & 0xFFFF;
+    uint32_t pir = netc_reg(s, R_EP_TX_PIR) & 0xFFFF;
+
+    if (tlen == 0) {
+        return;
+    }
+    while (cir != pir) {
+        hwaddr bd = base + (hwaddr)cir * 16;
+        uint8_t txbd[16], frame[NETC_FRAME_MAX];
+        uint64_t addr;
+        uint32_t flen, wb;
+
+        dma_memory_read(s->dma_as, bd, txbd, 16, MEMTXATTRS_UNSPECIFIED);
+        addr = ldq_le_p(txbd);
+        flen = lduw_le_p(txbd + 10);
+        if (flen == 0 || flen > NETC_FRAME_MAX) {
+            flen = lduw_le_p(txbd + 8);
+        }
+        if (flen > NETC_FRAME_MAX) {
+            flen = NETC_FRAME_MAX;
+        }
+        dma_memory_read(s->dma_as, addr, frame, flen, MEMTXATTRS_UNSPECIFIED);
+
+        if (flen >= 14) {
+            uint32_t egress = netc_switch_egress(s, frame, NETC_SW_DEFAULT_FID,
+                                                 NETC_SW_PORT_CPU);
+            for (unsigned p = 0; p < ARRAY_SIZE(netc_eth_link_bases); p++) {
+                if ((egress & (1u << p)) && flen >= 512 && flen <= 1023) {
+                    hwaddr c = netc_eth_link_bases[p] + ETH_LINK_T1023_OFF;
+                    netc_backing_write(s, c, netc_backing_read(s, c, 8) + 1, 8);
+                }
+            }
+        }
+        wb = cpu_to_le32(TXBD_WB_WRITTEN);
+        dma_memory_write(s->dma_as, bd + 8, &wb, 4, MEMTXATTRS_UNSPECIFIED);
+        cir = (cir + 1) % tlen;
+    }
+    netc_backing_write(s, R_EP_TX_CIR, cir, 4);
+    netc_emit_msix_tbl(s, ENETC1_MSIX_TABLE, netc_reg(s, R_ENETC1_SIMSITRVR1));
 }
 
 static void netc_do_tx(IMXRT1180NETCState *s)
@@ -1283,6 +1346,11 @@ static void netc_write(void *opaque, hwaddr off, uint64_t val, unsigned size)
         netc_backing_write(s, off, val, size);
         netc_do_mgmt_tx(s);
         return;
+    case R_EP_TX_PIR:
+        /* Switch endpoint TX producer index -> forward the frame + count egress. */
+        netc_backing_write(s, off, val, size);
+        netc_do_ep_tx(s);
+        return;
     default:
         netc_backing_write(s, off, val, size);
         return;
@@ -1294,9 +1362,9 @@ static const MemoryRegionOps netc_ops = {
     .write = netc_write,
     .endianness = DEVICE_LITTLE_ENDIAN,
     .valid.min_access_size = 1,
-    .valid.max_access_size = 4,
+    .valid.max_access_size = 8,   /* 64-bit MAC statistics counters (LDRD) */
     .impl.min_access_size = 1,
-    .impl.max_access_size = 4,
+    .impl.max_access_size = 4,     /* QEMU splits 8-byte accesses into two 4-byte */
 };
 
 /*
