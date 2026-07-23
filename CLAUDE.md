@@ -198,8 +198,12 @@ list. Model the first thing it blocks on, connect its IRQ via
 Broad peripheral coverage (see `PERIPHERALS.md` for the per-block table and the
 honest gaps). Working today:
 
-- **Real NXP SDK firmware runs** — 34/47 `driver_examples` byte-exact against the
-  unmodified `fsl_*` drivers.
+- **Real NXP SDK firmware runs** against the unmodified `fsl_*` drivers — from
+  `hello_world` through the audio, motor-control (cm7 `mc_pmsm`), and NETC-switch
+  (`netc_switch`, end-to-end) demos; see the README table + `tests/imxrt1180-corpus`.
+  (NOTE: the old "34/47 byte-exact" figure was unbacked — no tracked RT1180 example
+  scorecard exists; `docs/validation/*` was a stale MCXN947 copy, since removed.
+  Re-establishing an RT1180-specific scorecard is roadmap #3.)
 - **Audio streaming**: the stock `sai/edma_transfer` demo runs end-to-end — AUDIO
   PLL + WM8962 codec + SAI1-master + eDMA stream the SDK's `music[]` sine to a wav,
   a mathematically-exact 1 kHz tone at 48 kHz.

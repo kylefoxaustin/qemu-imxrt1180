@@ -36,8 +36,10 @@ flags. The M33 machine and every M33 test are untouched.
 ## What runs today
 
 Real NXP MCUXpresso SDK firmware runs against the **unmodified `fsl_*` drivers** —
-**34 / 47 `driver_examples` are byte-exact**, plus the stock audio and motor-control
-demos.
+from `hello_world` through the stock audio, motor-control, and Ethernet-switch
+demos. The table below is the tracked, reproducible evidence (each row cites the
+firmware or test that proves it); `tests/imxrt1180-corpus/run.sh` boots the prebuilt
+SDK demos and reports pass / run / fault.
 
 | Subsystem | Tier | Evidence |
 |-----------|------|----------|
@@ -52,7 +54,8 @@ demos.
 | **eFlexPWM + EQDC + LPADC + PWM→XBAR→ADC sync + dq PMSM plant** | ✅ | value-verified: phase current matches Ohm's law to one ADC count |
 | **LPADC A/B-side dual conversion** (`CMDL.CTYPE`) | ✅ | `tests/imxrt1180-adc-ab`, mutation-proven |
 | **Cortex-M7 boots + stock cm7 `mc_pmsm/pmsm_enc` FOC demo runs** | ✅ | closed-loop FOC holds a commanded speed on the virtual PMSM indefinitely, under `-icount` (see below) |
-| Ethernet (NETC / ENETC endpoint) | ✅ | real L2 over a QEMU netdev; 1180↔1180 byte-exact |
+| Ethernet endpoint (NETC / ENETC) | ✅ | real L2 over a QEMU netdev; 1180↔1180 byte-exact |
+| **NETC L2 switch (SW0)** | ✅ | the unmodified NXP `netc_switch` SDK example runs **end-to-end** (see below) |
 | FlexSPI NOR (`rom_device` XIP + real `m25p80`) | ✅ | erase→program→read-back byte-exact |
 
 See [PERIPHERALS.md](PERIPHERALS.md) for the full per-block coverage table and the
@@ -96,6 +99,38 @@ align` (RESFIFO alignment + honest overflow, mutation-proven).
 The **M33** motor path is fully value-verified (`tests/imxrt1180-motor`: rotor
 aligns at the predicted encoder count, phase current matches Ohm's law to one ADC
 count).
+
+## NETC switch: the real NXP switch driver runs end-to-end ✅
+
+The NETC block is more than an ENETC endpoint — it models the **SW0 L2 switch**, and
+the unmodified NXP `netc_switch` SDK example (the real `fsl_netc_switch` driver) runs
+**completely end-to-end** on the model. This is the project's strongest form of
+validation (rung-3: the real vendor driver, not register-poking):
+
+- **NTMP command-BD ring** — the driver programs the switch's tables over the command
+  BD ring (`CBDRPIR` doorbell → process BD → `CBDRCIR` completion). The **forwarding
+  database** (FDB, `{MAC,FID}→portBitmap`, incl. search-by-criteria) and the **VLAN
+  filter table** (`VID→{FID, port membership}`) round-trip add/query/update/delete.
+- **Source-MAC learning** — a frame ingressing the switch learns its source MAC into a
+  dynamic FDB entry, exactly as silicon populates its database from live traffic.
+- **Bidirectional forwarding** — the egress engine does the FDB ∩ VLAN-membership
+  lookup, floods an unknown-unicast/broadcast, and applies split-horizon; frames are
+  switched CPU↔wire in both directions (`tests/imxrt1180-netc-{fwd,rxfwd}`,
+  mutation-proven; the lab3 3-node broadcast segment still passes).
+- **PTP 1588 timer** — a nanosecond clock derived from the QEMU virtual clock, whose
+  rate the driver tunes via the addend (`tests/imxrt1180-netc-ptp`, mutation-proven).
+- **The whole `netc_switch` example, on the real driver** — `EP_Init` on the ENETC1
+  management SI, the seven port-MAC software resets, per-port RTL8211F PHY link-up,
+  `SWT_Init`/`SWT_ManagementTxRxConfig`, and both the management and endpoint TX frame
+  paths (firing the TX-done MSI-X through ENETC1PSI0's own table, 64-bit MAC
+  statistics): it **learns the MAC bound to each switch port, then forwards a frame to
+  each and confirms it via the per-port 512–1023-octet transmit counter**.
+
+Each in-model piece is pinned by a mutation-proven bare-metal test
+(`tests/imxrt1180-netc-{fdb,fwd,rxfwd,ptp}`). **Gap:** true multi-physical-port
+routing between *external* wires (a multi-netdev structural change) and the per-VLAN
+MAC-learning-options are not yet modelled — the switch ports the example exercises are
+internal/loopback.
 
 ## Interconnect (board-to-board) ✅
 
@@ -169,7 +204,8 @@ Two ways the **M7** comes up:
 - `hw/misc/imxrt1180_{rtwdog,s3mu,flexspi,src,trdc}.c` — watchdog, ELE MU, FlexSPI, M7-release, TRDC
 - `hw/{ssi,i2c}/imxrt1180_{lpspi,lpi2c}.c` — SPI / I2C
 - `hw/gpio/imxrt1180_rgpio.c` — GPIO
-- `tests/imxrt1180-*/` — bring-up, dual-core, cm7-boot, FOC, DMA, audio + saturation tests
+- `hw/net/imxrt1180_netc.c` — NETC: ENETC endpoint + the SW0 L2 switch (NTMP/FDB/VLAN, forwarding, PTP)
+- `tests/imxrt1180-*/` — bring-up, dual-core, cm7-boot, FOC, DMA, audio, and NETC switch (`netc-fdb/fwd/rxfwd/ptp`) tests
 - `include/hw/*/imxrt1180_*.h` — headers
 
 ## Cross-silicon: three SoCs on one wire ✅
@@ -241,43 +277,12 @@ defined there and means *visible to the guest*, never "we wrote a host log".
   > visible rather than quietly deleted.
 - **ASRC** (sample-rate converter) data path is not modelled (its AUDIO-PLL + codec
   blockers are now done).
-- **NETC switch (SW0)**: the **NTMP command-BD ring + L2 tables + source-MAC
-  learning** are modelled — the `fsl_netc_switch` driver programs the switch's
-  tables through the command BD ring (`CBDRPIR` doorbell → process BD → `CBDRCIR`
-  completion), and both the **forwarding database** (FDB, `{MAC,FID}→portBitmap`,
-  including search-by-criteria) and the **VLAN filter table** (VF, `VID→{FID, port
-  membership}`) round-trip add/query/delete. A frame ingressing the switch (CPU-injected on the management
-  port, or arriving from the wire) has its **source MAC learned** into a dynamic
-  FDB entry, exactly as silicon populates its database from live traffic
-  (`tests/imxrt1180-netc-fdb`, mutation-proven). The **PTP 1588 timer** (TMR0) is
-  a nanosecond clock derived from the QEMU virtual clock, whose rate the driver
-  tunes via the addend — the clock advances, doubling the addend doubles the rate,
-  and clearing `TE` freezes it (`tests/imxrt1180-netc-ptp`, mutation-proven,
-  `-icount`). And the switch **forwards**: a CPU-injected frame is egressed per the
-  FDB — the forwarding-decision engine does the FDB∩VLAN-membership lookup, floods
-  an unknown-unicast/broadcast, and applies split-horizon, so a frame reaches the
-  wire only when its destination resolves there (observed via the wire port's
-  `PM0_TFRMN` transmit counter; `tests/imxrt1180-netc-fwd`, mutation-proven).
-  Forwarding is **symmetric**: a frame arriving from the wire is delivered to the
-  CPU only when its destination resolves to the management port — a known unicast
-  destined elsewhere is switched away, while an unknown-unicast/broadcast floods
-  and is delivered (`tests/imxrt1180-netc-rxfwd` proves this over a QEMU mcast
-  socket with a sentinel-barrier oracle; the lab3 3-node broadcast segment still
-  passes). The **real NXP `netc_switch` SDK example** (the unmodified
-  `fsl_netc_switch` driver) runs its whole **control-plane bring-up** on the model
-  — `EP_Init` on the ENETC1 management SI, the seven port-MAC software resets,
-  per-port RTL8211F PHY link-up, `SWT_Init`/`SWT_ManagementTxRxConfig`, and both the
-  switch **management** and **endpoint** TX frame paths (on ENETC1's SI: DMA the
-  frame, learn the source MAC on the directed egress port / forward per the FDB and
-  bump the egress port's MAC statistics counters, firing the TX-done MSI-X through
-  ENETC1PSI0's own table) — **the whole example runs end-to-end**: it learns the MAC
-  bound to each switch port, then forwards a frame to each port and confirms it via
-  the per-port 512–1023-octet transmit counter. Rung-3 validation of the
-  NTMP/FDB(+search)/VLAN/port/management/MSI-X/statistics modeling against the real
-  driver. **Not yet modelled**: true multi-physical-port routing (the model has one
-  external wire port; the switch ports here are internal/loopback) and the per-VLAN
-  MAC-learning-options. Unmodelled tables fault honestly via the BD's `resp.error`,
-  never a silent ack.
+- **NETC switch (SW0)**: the switch — NTMP tables, source-MAC learning, PTP, and
+  bidirectional forwarding, with the real `netc_switch` SDK example running
+  end-to-end — is modelled (see the *NETC switch* section above). **Not yet
+  modelled**: true multi-physical-port routing between *external* wires (a
+  multi-netdev structural change) and the per-VLAN MAC-learning-options. Unmodelled
+  NTMP tables fault honestly via the BD's `resp.error`, never a silent ack.
 - **Cache** is a QEMU-architectural WONTFIX (no guest CPU cache to model); **MECC**
   is an optional RAS diagnostic.
 
@@ -299,15 +304,17 @@ and audio-streaming work above now cover.
 
 ## Roadmap
 
-1. **NETC switch path** — the SW0 NTMP command-BD ring, FDB + VLAN-filter tables,
-   source-MAC learning, the PTP 1588 timer, and **bidirectional** (CPU↔wire) FDB
-   forwarding now land; what remains is **true multi-physical-port routing** (more
-   than one wire port, needing a multi-netdev structure); finish the 3-node raw-L2
-   segment.
+1. **NETC switch path** — the SW0 NTMP tables, learning, PTP, and bidirectional
+   forwarding land, and the real `netc_switch` SDK example runs end-to-end (see
+   above); what remains is **true multi-physical-port routing** between external
+   wires (a multi-netdev structure) and finishing the 3-node raw-L2 segment.
 2. Saturation/thermal effects and a time-varying load profile in the motor plant;
    the ASRC data path.
-3. Value-golden a peripheral **through the real `fsl_*` driver** rather than by
-   poking registers — the one rung-3 clause we do not yet satisfy everywhere.
+3. Value-golden more peripherals **through the real `fsl_*` driver** rather than by
+   poking registers — the `netc_switch` bring-up now does this for the switch;
+   extend the same rung-3 discipline across the corpus, and build a tracked,
+   RT1180-specific example scorecard (the old `docs/validation` set was a stale
+   MCXN947 copy and has been removed).
 
 ## License
 
