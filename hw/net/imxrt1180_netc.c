@@ -63,12 +63,30 @@
 #define ENETC0_SI0_OFF     0xB00000
 #define R_SIPCAPR1         (ENETC0_SI0_OFF + 0x24)   /* NUM_MSIX[17:12] */
 
-/* ENETC0 Ethernet MAC/link block (0x60B15000): PMn_COMMAND_CONFIG.SWR is a
- * self-clearing software reset the driver spins on. */
+/* ENETC1 is the switch's MANAGEMENT endpoint (kNETC_ENETC1PSI0), used by the
+ * fsl_netc_switch example.  Its capability registers must report resources too,
+ * or EP_Init's BD-ring / MSI-X checks return kStatus_NETC_LackOfResource. */
+#define ENETC1_BASE_OFF    0xB50000
+#define R_ECAPR1_E1        (ENETC1_BASE_OFF + 0x4)
+#define R_ECAPR2_E1        (ENETC1_BASE_OFF + 0x8)
+#define ENETC1_SI0_OFF     0xB40000
+#define R_SIPCAPR1_E1      (ENETC1_SI0_OFF + 0x24)
+
+/*
+ * Ethernet MAC/link (ETH_LINK) blocks: PMn_COMMAND_CONFIG.SWR is a self-clearing
+ * software reset the driver spins on (NETC_PortSoftwareResetEthMac).  Every port
+ * MAC has one -- the two ENETC endpoint MACs AND the five switch (SW0) port MACs.
+ * Each block has PM0_COMMAND_CONFIG @ +0x008 and PM1_COMMAND_CONFIG @ +0x408.
+ */
 #define ENETC0_ETH_OFF     0xB15000
-#define R_PM0_CMD_CFG      (ENETC0_ETH_OFF + 0x008)
-#define R_PM1_CMD_CFG      (ENETC0_ETH_OFF + 0x408)
+#define PM0_CMD_CFG_OFF    0x008
+#define PM1_CMD_CFG_OFF    0x408
 #define PM_CMD_CFG_SWR     0x4000000u
+static const hwaddr netc_eth_link_bases[] = {
+    0xA05000, 0xA09000, 0xA0D000, 0xA11000, 0xA15000, /* SW0 ports 0..4 */
+    0xB15000,                                          /* ENETC0 MAC     */
+    0xB55000,                                          /* ENETC1 MAC     */
+};
 
 /* Capability values: 8 TX + 8 RX BD rings, plenty of MSI-X, 0 VSIs. */
 #define ECAPR1_VAL   ((6u << 12))                    /* NUM_MSIX=6, NUM_VSI=0 */
@@ -91,6 +109,10 @@
 #define PHY_BMCR_LOOPBACK  0x4000u   /* BMCR bit14: PHY local loopback */
 /* BMSR: link-up (0x4) + auto-neg-complete (0x20) + capability bits. */
 #define PHY_BMSR_VAL       0x782Du
+/* RTL8211F PHY-specific status (reg 0x1A), used by the switch ports' PHY driver:
+ * LINKSTATUS(0x4) | LINKDUPLEX(0x8, full) | LINKSPEED(0x30>>4 == 2 => 1000M). */
+#define PHY_RTL8211F_PHYSR  0x1A
+#define PHY_RTL8211F_PHYSR_VAL 0x002Cu
 
 /* PCI config header INIT_FLR bit (PCI_CFC_PCIE_DEV_CTL @+0x48). */
 #define PCI_DEVCTL_OFF     0x48
@@ -145,6 +167,19 @@ static bool netc_is_pci_flr(hwaddr off)
     return false;
 }
 
+/* Is off a PMn_COMMAND_CONFIG register of any ETH_LINK MAC block (whose SWR bit
+ * must self-clear so NETC_PortSoftwareResetEthMac's spin exits)? */
+static bool netc_is_pm_cmd_cfg(hwaddr off)
+{
+    for (size_t i = 0; i < ARRAY_SIZE(netc_eth_link_bases); i++) {
+        if (off == netc_eth_link_bases[i] + PM0_CMD_CFG_OFF ||
+            off == netc_eth_link_bases[i] + PM1_CMD_CFG_OFF) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /* ---- flat byte-backed register store ------------------------------------ */
 static uint64_t netc_backing_read(IMXRT1180NETCState *s, hwaddr off, unsigned size)
 {
@@ -171,6 +206,7 @@ static uint16_t netc_phy_read(IMXRT1180NETCState *s, uint32_t reg)
     case 1:  return PHY_BMSR_VAL;                     /* BMSR: link up */
     case 2:  return PHY_ID1_VAL;
     case 3:  return PHY_ID2_VAL;
+    case PHY_RTL8211F_PHYSR: return PHY_RTL8211F_PHYSR_VAL;  /* switch-port PHY: link up */
     default: return s->phy_regs[reg & 0x1F];
     }
 }
@@ -1010,19 +1046,23 @@ static uint64_t netc_read(void *opaque, hwaddr off, unsigned size)
     if (netc_ptp_read(s, off, &ptp)) {
         return ptp;                                     /* PTP 1588 timer register */
     }
+    if (netc_is_pm_cmd_cfg(off)) {
+        /* MAC software reset (SWR) self-clears for every ETH_LINK port MAC. */
+        return netc_backing_read(s, off, size) & ~(uint64_t)PM_CMD_CFG_SWR;
+    }
 
     switch (off) {
     case R_NETCSR:   return 0;                          /* STATE/ERROR clear */
     case R_NETCRR:   return netc_backing_read(s, off, size) & ~(uint64_t)NETCRR_SR;
     case R_ECAPR0:   return 0;
-    case R_ECAPR1:   return ECAPR1_VAL;
-    case R_ECAPR2:   return ECAPR2_VAL;
-    case R_SIPCAPR1: return SIPCAPR1_VAL;
+    case R_ECAPR1:
+    case R_ECAPR1_E1:   return ECAPR1_VAL;
+    case R_ECAPR2:
+    case R_ECAPR2_E1:   return ECAPR2_VAL;
+    case R_SIPCAPR1:
+    case R_SIPCAPR1_E1: return SIPCAPR1_VAL;
     case R_EMDIO_CFG: return netc_backing_read(s, off, size) & ~(uint64_t)EMDIO_CFG_BSY;
     case R_EMDIO_DATA: return netc_phy_read(s, s->mdio_reg);
-    case R_PM0_CMD_CFG:
-    case R_PM1_CMD_CFG:                                  /* MAC SWR self-clears */
-        return netc_backing_read(s, off, size) & ~(uint64_t)PM_CMD_CFG_SWR;
     default:
         return netc_backing_read(s, off, size);
     }

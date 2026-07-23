@@ -1226,6 +1226,17 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
      */
     imxrt1180_add_rdy_bit(s, "dcdc", 0x44520000, 0x1000,
                           0 /* REG0 */, 0x80000000 /* STS_DC_OK */);
+
+    /*
+     * BLK_CTRL_WAKEUPMIX (0x42420000): the block-control register file for the
+     * wakeup-power-domain.  The NETC integration config lives here -- NETC_PORT_
+     * MISC_CFG (0x24) and per-port NETC_LINK_CFG[0..4] (0x100..0x110, the MII
+     * mode/speed the fsl_netc_switch bring-up programs) -- and the driver writes
+     * these then reads them back.  Left unimplemented they read 0, so the config
+     * never sticks and the switch example wedges before it can forward.  Register-
+     * backed RW is the faithful behaviour for these config fields.
+     */
+    imxrt1180_add_rdy(s, "blk-ctrl-wakeupmix", 0x42420000, 0x1000);
 }
 
 static const Property imxrt1180_soc_properties[] = {

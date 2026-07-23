@@ -263,9 +263,15 @@ defined there and means *visible to the guest*, never "we wrote a host log".
   destined elsewhere is switched away, while an unknown-unicast/broadcast floods
   and is delivered (`tests/imxrt1180-netc-rxfwd` proves this over a QEMU mcast
   socket with a sentinel-barrier oracle; the lab3 3-node broadcast segment still
-  passes). **Not yet modelled**: true multi-physical-port routing (the model has
-  one wire port) and the per-VLAN MAC-learning-options. Unmodelled tables fault
-  honestly via the BD's `resp.error`, never a silent ack.
+  passes). The **real NXP `netc_switch` SDK example** (the unmodified
+  `fsl_netc_switch` driver) runs its whole **control-plane bring-up** on the model
+  — `EP_Init` on the ENETC1 management SI, the seven port-MAC software resets,
+  per-port RTL8211F PHY link-up, and **`SWT_Init` (switch + bridge + command-BD-ring
+  config) returns success** — validating the NTMP/FDB/VLAN/port modeling against
+  the real driver. **Not yet modelled**: true multi-physical-port routing (the
+  model has one wire port; the example's frame-forwarding data plane needs
+  switch-port netdevs) and the per-VLAN MAC-learning-options. Unmodelled tables
+  fault honestly via the BD's `resp.error`, never a silent ack.
 - **Cache** is a QEMU-architectural WONTFIX (no guest CPU cache to model); **MECC**
   is an optional RAS diagnostic.
 

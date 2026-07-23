@@ -255,8 +255,12 @@ virtual-clock-derived nanosecond clock whose rate the addend tunes; and the swit
 egress decision: CPU→wire observed via the wire port's `PM0_TFRMN` counter, wire→CPU
 proven over a QEMU mcast socket with a sentinel-barrier oracle) --
 `tests/imxrt1180-netc-{fdb,ptp,fwd,rxfwd}`, all mutation-proven; the lab3 3-node
-broadcast segment still passes. See [[project-rt1180-netc-switch]] for the driver
-anchors, the compiler-verified BD/table byte offsets, and the OCRAM DMA gotcha.
+broadcast segment still passes. **The real NXP `netc_switch` SDK example runs its
+whole control plane on the model** — EP_Init (ENETC1 mgmt SI), 7 port-MAC resets,
+per-port RTL8211F PHY link-up, and `SWT_Init` returns success (rung-3 validation of
+the NTMP/FDB/VLAN/port modeling); it stops at the frame-forwarding data plane, which
+needs switch-port netdevs. See [[project-rt1180-netc-switch]] for the driver anchors,
+the compiler-verified BD/table byte offsets, and the OCRAM DMA gotcha.
 
 Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is
 `0x88B6` on mcast `230.0.0.9:31337`); true **multi-physical-port** switch routing
