@@ -44,6 +44,8 @@
 | B | `driver_examples/edma4/wrap_transfer` | cm33 | **PASS** | "EDMA wrap transfer example finish" |
 | B | `driver_examples/edma4/interleave_transfer` | cm33 | **PASS** | "EDMA interleave transfer example finish" |
 | B | `driver_examples/edma4/memory_to_memory_trigger` | cm33 | **XBUILD** | triggered variant not wired for evkmimxrt1180 in SDK 26.06.00 (board CMake gap) |
+| B | `driver_examples/s3mu` | cm33 | **PASS** | "End of Example with SUCCESS!!" |
+| B | `driver_examples/cache` | cm33 | **XFAIL** | documented gap: ARCHITECTURAL: the demo requires a real write-back data cache to hide DMA data (checks memcmp DIFFERS before Invalidate/Clean). QEMU memory is coherent -- the maintenance ops are correctly no-ops (see XCACHE), so the demo's stale-cache premise never holds and it can't pass. NOT an XCACHE bug (flexspi proves XCACHE completion works) |
 | B | `ele_crypto/ele_crypto_hsm` | cm33 | **XFAIL** | documented gap: prints "ERROR: execution of commands on Security Sub-System failed!" at Load EdgeLock FW; ELE FW-load handshake not modeled (README ELE = partial) |
 | B | `driver_examples/wdog32` | cm33 | **XBUILD** | example not wired for evkmimxrt1180 in SDK 26.06.00 (board CMake gap, not a model fault) |
 | B | `motor_control/pmsm/mc_pmsm/pmsm_enc` | cm7 | **VALUE-PROVEN** | proof: closed-loop FOC spin (no console success string), pinned by tests/imxrt1180-cm7boot + adc-fifo-align (needs -icount) |
@@ -52,11 +54,11 @@
 
 | class | count |
 |---|---|
-| PASS (ran to success) | 13 |
+| PASS (ran to success) | 14 |
 | BANNER (reached app, blocked on external host) | 5 |
-| XFAIL (documented gap) | 2 |
+| XFAIL (documented gap) | 3 |
 | VALUE-PROVEN (pinned by a value-test) | 2 |
 | XBUILD (SDK build gap) | 2 |
 
-Coverage gate: Tier A 8/8, Tier B 16/16.
+Coverage gate: Tier A 8/8, Tier B 18/18.
 **Gate: PASS.**
