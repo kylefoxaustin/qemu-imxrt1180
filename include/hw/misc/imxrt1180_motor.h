@@ -44,9 +44,18 @@ struct IMXRT1180MotorState {
     double omega;   /* mechanical angular velocity (rad/s)     */
     double id;      /* d-axis stator current (A)               */
     double iq;      /* q-axis stator current (A)               */
+    double temp_c;  /* winding temperature (deg C)             */
 
     uint32_t rate_hz;    /* physics update rate (Hz)          */
     uint32_t load_mnm;   /* constant load torque (milli-N*m)  */
+
+    /* Optional winding-thermal model (Rs rises with I^2R heating). Off by
+     * default: the plant runs at the cold Rs and every existing golden holds.
+     * Enable with -global imxrt1180-motor.thermal=1. */
+    uint32_t thermal;        /* 0/1: enable Rs temperature dependence      */
+    uint32_t therm_rth_mcw;  /* thermal resistance, milli-degC per Watt    */
+    uint32_t therm_tau_ms;   /* thermal time constant tau=Rth*Cth, ms      */
+    uint32_t therm_amb_c;    /* ambient temperature, deg C                 */
 };
 
 #endif /* HW_MISC_IMXRT1180_MOTOR_H */

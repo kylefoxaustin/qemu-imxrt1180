@@ -15,8 +15,12 @@
  * MIMXRT1180-EVK).  Real electrical dynamics: a step of stator voltage ramps the
  * current with the L/R time constant, torque follows, and the rotor accelerates
  * against its inertia and load.  Enough for a field-oriented-control loop to
- * close and behave like the bench setup.  (A temperature/saturation-dependent
- * model and a time-varying load profile remain future work, flagged not faked.)
+ * close and behave like the bench setup.  An optional winding-thermal model
+ * (Rs rises with I^2R heating via the copper tempco; off by default, enable with
+ * -global imxrt1180-motor.thermal=1) makes a hard-working motor's phase current
+ * droop to a closed-form hot steady state -- value-verified by
+ * tests/imxrt1180-motor-thermal.  (Magnetic saturation and a time-varying load
+ * profile remain future work, flagged not faked.)
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -38,6 +42,11 @@
 #define M_B        0.0001     /* viscous damping (N*m*s)             */
 #define M_VBUS     24.0       /* DC-bus voltage (V)                  */
 #define M_IMAX     8.25       /* rated peak current (A)              */
+
+/* Copper resistance temperature coefficient (per deg C).  Rs is specified at the
+ * ambient temperature; the winding heats from its own I^2R loss and Rs rises with
+ * it.  M_RS above is thus the COLD value Rs(T_amb). */
+#define M_ALPHA_CU 0.00393
 
 /*
  * Encoder counts per revolution.  The mc_pmsm encoder driver configures the EQDC
@@ -170,17 +179,42 @@ static void motor_step(void *opaque)
     double vq = -valpha * sn + vbeta * c;
 
     /*
+     * Winding resistance.  Cold (thermal off) it is the datasheet Rs; with the
+     * thermal model on it rises with the winding temperature the I^2R loss drives
+     * (copper tempco), so a hard-working motor's phase current droops -- a real,
+     * closed-form-verifiable effect (tests/imxrt1180-motor-thermal).
+     */
+    double rs = M_RS;
+    if (s->thermal) {
+        rs = M_RS * (1.0 + M_ALPHA_CU * (s->temp_c - (double)s->therm_amb_c));
+    }
+
+    /*
      * dq stator-current dynamics (with cross-coupling + PM back-EMF):
      *   L_d did/dt = v_d - R i_d + w_e L_q i_q
      *   L_q diq/dt = v_q - R i_q - w_e L_d i_d - w_e psi_m
      */
     double omega_e = M_PP * s->omega;
-    double did = (vd - M_RS * s->id + omega_e * M_LQ * s->iq) / M_LD;
-    double diq = (vq - M_RS * s->iq - omega_e * M_LD * s->id
+    double did = (vd - rs * s->id + omega_e * M_LQ * s->iq) / M_LD;
+    double diq = (vq - rs * s->iq - omega_e * M_LD * s->id
                      - omega_e * M_PSI) / M_LQ;
     s->id += did * dt;
     s->iq += diq * dt;
     double id = s->id, iq = s->iq;
+
+    /*
+     * Winding thermal state: C_th dT/dt = P_loss - (T - T_amb)/R_th, with the
+     * copper loss P_loss = 1.5 (id^2 + iq^2) rs (the dq->3-phase power factor).
+     * Parameterised by R_th and tau = R_th*C_th, so dT/dt = (P*R_th - dT_rise)/tau.
+     * Steady state T_ss = T_amb + P_loss*R_th (independent of tau).
+     */
+    if (s->thermal && s->therm_tau_ms > 0) {
+        double rth = s->therm_rth_mcw / 1000.0;        /* degC/W  */
+        double tau = s->therm_tau_ms / 1000.0;         /* s       */
+        double p_loss = 1.5 * (id * id + iq * iq) * rs;
+        double dtr = s->temp_c - (double)s->therm_amb_c;
+        s->temp_c += (p_loss * rth - dtr) / tau * dt;
+    }
 
     /* Electromagnetic torque (magnet + reluctance/saliency), then mechanics. */
     double te = 1.5 * M_PP * (M_PSI * iq + (M_LD - M_LQ) * id * iq);
@@ -273,6 +307,7 @@ static void imxrt1180_motor_reset(DeviceState *dev)
     s->omega = 0.0;
     s->id = 0.0;
     s->iq = 0.0;
+    s->temp_c = (double)s->therm_amb_c;   /* winding starts at ambient */
     ptimer_transaction_begin(s->timer);
     ptimer_set_freq(s->timer, s->rate_hz);
     ptimer_set_limit(s->timer, 1, 1);
@@ -307,6 +342,11 @@ static const Property imxrt1180_motor_properties[] = {
     /* Constant mechanical load torque, in milli-N*m (a simple load profile). */
     DEFINE_PROP_UINT32("load-mnm", IMXRT1180MotorState, load_mnm, 0),
     DEFINE_PROP_UINT32("rate-hz", IMXRT1180MotorState, rate_hz, 0),
+    /* Winding-thermal model (off by default; see the struct comment). */
+    DEFINE_PROP_UINT32("thermal", IMXRT1180MotorState, thermal, 0),
+    DEFINE_PROP_UINT32("therm-rth-mcw", IMXRT1180MotorState, therm_rth_mcw, 5000),
+    DEFINE_PROP_UINT32("therm-tau-ms", IMXRT1180MotorState, therm_tau_ms, 30000),
+    DEFINE_PROP_UINT32("therm-amb-c", IMXRT1180MotorState, therm_amb_c, 25),
 };
 
 static void imxrt1180_motor_class_init(ObjectClass *klass, const void *data)
