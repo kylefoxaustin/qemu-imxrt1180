@@ -158,6 +158,9 @@ I2C (`i2c-link`) — the controllers are modelled; only the bridge wiring is lef
 - `tests/imxrt1180-motor-thermal` → the winding-thermal model: phase current droops
   from the cold Ohm's-law value to the **closed-form hot-Rs golden** as I²R heating
   raises Rs (di 4369→3214 to one count; mutation-proven).
+- `tests/imxrt1180-motor-load` → the speed-squared fan load: the free coast-down's
+  total angle matches `(J/k)·ln(1+k·ω₀/B)` across a **swept** golden (ω₀ and k both
+  varied, <1%; mutation-proven).
 - `tests/imxrt1180-corpus/run.sh` → boots every prebuilt SDK cm33 demo, reports
   pass / run / fault.
 - **[`docs/validation/SCORECARD.md`](docs/validation/SCORECARD.md)** → the tracked
@@ -319,11 +322,13 @@ and audio-streaming work above now cover.
    forwarding land, and the real `netc_switch` SDK example runs end-to-end (see
    above); what remains is **true multi-physical-port routing** between external
    wires (a multi-netdev structure) and finishing the 3-node raw-L2 segment.
-2. Deepen the motor plant: the **winding-thermal model is done** (Rs rises with
-   I²R heating, phase current droops to a closed-form hot steady state — opt-in
-   `-global imxrt1180-motor.thermal=1`, value-verified by
-   `tests/imxrt1180-motor-thermal`); **magnetic saturation** and a **time-varying
-   load profile** remain. Plus the ASRC data path.
+2. Deepen the motor plant: the **winding-thermal model** (Rs rises with I²R heating,
+   phase current droops to a closed-form hot steady state — `tests/imxrt1180-motor-thermal`)
+   and a **speed-squared fan/pump load** (coast-down angle matches
+   `(J/k)·ln(1+k·ω₀/B)` across a swept golden — `tests/imxrt1180-motor-load`) are
+   **done**, both opt-in via `-global imxrt1180-motor.*`. Idle is now a physically
+   correct free-wheel (tristated inverter, no braking current). **Magnetic
+   saturation** remains, plus the ASRC data path.
 3. Value-golden more peripherals **through the real `fsl_*` driver** rather than by
    poking registers — the `netc_switch` bring-up now does this for the switch;
    extend the same rung-3 discipline across the corpus. _(The tracked,

@@ -15,12 +15,17 @@
  * MIMXRT1180-EVK).  Real electrical dynamics: a step of stator voltage ramps the
  * current with the L/R time constant, torque follows, and the rotor accelerates
  * against its inertia and load.  Enough for a field-oriented-control loop to
- * close and behave like the bench setup.  An optional winding-thermal model
- * (Rs rises with I^2R heating via the copper tempco; off by default, enable with
- * -global imxrt1180-motor.thermal=1) makes a hard-working motor's phase current
- * droop to a closed-form hot steady state -- value-verified by
- * tests/imxrt1180-motor-thermal.  (Magnetic saturation and a time-varying load
- * profile remain future work, flagged not faked.)
+ * close and behave like the bench setup.  When the PWM is idle the inverter is
+ * tristated, so the rotor coasts FREELY (open stator, no braking current) under
+ * the mechanical load -- the physically-correct free-wheel.  Two optional plant
+ * refinements, off by default so every existing golden holds:
+ *   - a winding-THERMAL model (Rs rises with I^2R heating; -global
+ *     imxrt1180-motor.thermal=1) droops the phase current to a closed-form hot
+ *     steady state -- tests/imxrt1180-motor-thermal;
+ *   - a speed-SQUARED (fan/pump/windage) LOAD term (-global
+ *     imxrt1180-motor.load-fan-unms=k) whose coast-down angle has the closed form
+ *     theta = (J/k) ln(1 + k*w0/B) -- tests/imxrt1180-motor-load.
+ * (Magnetic saturation remains future work, flagged not faked.)
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -160,65 +165,89 @@ static void motor_step(void *opaque)
         return;                        /* dormant: motor idle, currents decayed */
     }
 
-    /* Phase voltages from the PWM duty (centred: 0.5 duty = 0 V). */
-    double va = 0, vb = 0, vc = 0;
-    if (run) {
-        va = (imxrt1180_pwm_duty(s->pwm, 0) / 1000.0 - 0.5) * M_VBUS;
-        vb = (imxrt1180_pwm_duty(s->pwm, 1) / 1000.0 - 0.5) * M_VBUS;
-        vc = (imxrt1180_pwm_duty(s->pwm, 2) / 1000.0 - 0.5) * M_VBUS;
-    }
-
-    /* Amplitude-invariant Clarke transform. */
-    double valpha = (2.0 * va - vb - vc) / 3.0;
-    double vbeta  = (vb - vc) / (2.0 * SQRT3_2);
-
-    /* Park transform into the rotor (dq) frame. */
+    /* Rotor electrical angle (needed by both the driven and the coasting path). */
     double theta_e = M_PP * s->theta;
     double c = cos(theta_e), sn = sin(theta_e);
-    double vd =  valpha * c + vbeta * sn;
-    double vq = -valpha * sn + vbeta * c;
 
-    /*
-     * Winding resistance.  Cold (thermal off) it is the datasheet Rs; with the
-     * thermal model on it rises with the winding temperature the I^2R loss drives
-     * (copper tempco), so a hard-working motor's phase current droops -- a real,
-     * closed-form-verifiable effect (tests/imxrt1180-motor-thermal).
-     */
-    double rs = M_RS;
-    if (s->thermal) {
-        rs = M_RS * (1.0 + M_ALPHA_CU * (s->temp_c - (double)s->therm_amb_c));
+    double id, iq, te;
+
+    if (run) {
+        /* Phase voltages from the PWM duty (centred: 0.5 duty = 0 V). */
+        double va = (imxrt1180_pwm_duty(s->pwm, 0) / 1000.0 - 0.5) * M_VBUS;
+        double vb = (imxrt1180_pwm_duty(s->pwm, 1) / 1000.0 - 0.5) * M_VBUS;
+        double vc = (imxrt1180_pwm_duty(s->pwm, 2) / 1000.0 - 0.5) * M_VBUS;
+
+        /* Amplitude-invariant Clarke, then Park into the rotor (dq) frame. */
+        double valpha = (2.0 * va - vb - vc) / 3.0;
+        double vbeta  = (vb - vc) / (2.0 * SQRT3_2);
+        double vd =  valpha * c + vbeta * sn;
+        double vq = -valpha * sn + vbeta * c;
+
+        /*
+         * Winding resistance.  Cold (thermal off) it is the datasheet Rs; with
+         * the thermal model on it rises with the winding temperature the I^2R loss
+         * drives (copper tempco), so a hard-working motor's phase current droops
+         * -- a real, closed-form-verifiable effect (tests/imxrt1180-motor-thermal).
+         */
+        double rs = M_RS;
+        if (s->thermal) {
+            rs = M_RS * (1.0 + M_ALPHA_CU * (s->temp_c - (double)s->therm_amb_c));
+        }
+
+        /*
+         * dq stator-current dynamics (with cross-coupling + PM back-EMF):
+         *   L_d did/dt = v_d - R i_d + w_e L_q i_q
+         *   L_q diq/dt = v_q - R i_q - w_e L_d i_d - w_e psi_m
+         */
+        double omega_e = M_PP * s->omega;
+        double did = (vd - rs * s->id + omega_e * M_LQ * s->iq) / M_LD;
+        double diq = (vq - rs * s->iq - omega_e * M_LD * s->id
+                         - omega_e * M_PSI) / M_LQ;
+        s->id += did * dt;
+        s->iq += diq * dt;
+        id = s->id;
+        iq = s->iq;
+
+        /*
+         * Winding thermal state: C_th dT/dt = P_loss - (T - T_amb)/R_th, copper
+         * loss P_loss = 1.5 (id^2 + iq^2) rs.  tau = R_th*C_th, so dT/dt =
+         * (P*R_th - dT_rise)/tau; steady state T_ss = T_amb + P_loss*R_th.
+         */
+        if (s->thermal && s->therm_tau_ms > 0) {
+            double rth = s->therm_rth_mcw / 1000.0;    /* degC/W  */
+            double tau = s->therm_tau_ms / 1000.0;     /* s       */
+            double p_loss = 1.5 * (id * id + iq * iq) * rs;
+            double dtr = s->temp_c - (double)s->therm_amb_c;
+            s->temp_c += (p_loss * rth - dtr) / tau * dt;
+        }
+
+        /* Electromagnetic torque (magnet + reluctance/saliency). */
+        te = 1.5 * M_PP * (M_PSI * iq + (M_LD - M_LQ) * id * iq);
+    } else {
+        /*
+         * PWM idle: the inverter is tristated, so the stator is open-circuit --
+         * no phase current can flow and there is no electromagnetic torque.  The
+         * rotor coasts FREELY under the mechanical load alone (a tristated
+         * inverter free-wheels; it does NOT dynamically brake).  Zeroing the
+         * currents here is what makes the coast-down a clean mechanical problem
+         * (tests/imxrt1180-motor-load).
+         */
+        s->id = 0.0;
+        s->iq = 0.0;
+        id = 0.0;
+        iq = 0.0;
+        te = 0.0;
     }
 
     /*
-     * dq stator-current dynamics (with cross-coupling + PM back-EMF):
-     *   L_d did/dt = v_d - R i_d + w_e L_q i_q
-     *   L_q diq/dt = v_q - R i_q - w_e L_d i_d - w_e psi_m
+     * Mechanics.  Load torque = constant term (load-mnm) + a speed-SQUARED
+     * (fan / pump / windage) term k*w*|w| (load-fan-unms, micro-N*m per (rad/s)^2)
+     * -- the physical shape of a rotating load, always opposing motion.  With the
+     * drive removed the rotor's total coast-down angle has a closed form,
+     * theta = (J/k) ln(1 + k*w0/B) -- value-verified by tests/imxrt1180-motor-load.
      */
-    double omega_e = M_PP * s->omega;
-    double did = (vd - rs * s->id + omega_e * M_LQ * s->iq) / M_LD;
-    double diq = (vq - rs * s->iq - omega_e * M_LD * s->id
-                     - omega_e * M_PSI) / M_LQ;
-    s->id += did * dt;
-    s->iq += diq * dt;
-    double id = s->id, iq = s->iq;
-
-    /*
-     * Winding thermal state: C_th dT/dt = P_loss - (T - T_amb)/R_th, with the
-     * copper loss P_loss = 1.5 (id^2 + iq^2) rs (the dq->3-phase power factor).
-     * Parameterised by R_th and tau = R_th*C_th, so dT/dt = (P*R_th - dT_rise)/tau.
-     * Steady state T_ss = T_amb + P_loss*R_th (independent of tau).
-     */
-    if (s->thermal && s->therm_tau_ms > 0) {
-        double rth = s->therm_rth_mcw / 1000.0;        /* degC/W  */
-        double tau = s->therm_tau_ms / 1000.0;         /* s       */
-        double p_loss = 1.5 * (id * id + iq * iq) * rs;
-        double dtr = s->temp_c - (double)s->therm_amb_c;
-        s->temp_c += (p_loss * rth - dtr) / tau * dt;
-    }
-
-    /* Electromagnetic torque (magnet + reluctance/saliency), then mechanics. */
-    double te = 1.5 * M_PP * (M_PSI * iq + (M_LD - M_LQ) * id * iq);
-    double t_load = s->load_mnm / 1000.0;
+    double t_load = s->load_mnm / 1000.0
+                    + (s->load_fan_unms / 1.0e6) * s->omega * fabs(s->omega);
     s->omega += (te - M_B * s->omega - t_load) / M_J * dt;
     s->theta += s->omega * dt;
 
@@ -304,7 +333,7 @@ static void imxrt1180_motor_reset(DeviceState *dev)
     IMXRT1180MotorState *s = IMXRT1180_MOTOR(dev);
 
     s->theta = 0.0;
-    s->omega = 0.0;
+    s->omega = (double)s->init_mrads / 1000.0;  /* 0 normally; !=0 -> coast-down */
     s->id = 0.0;
     s->iq = 0.0;
     s->temp_c = (double)s->therm_amb_c;   /* winding starts at ambient */
@@ -341,6 +370,10 @@ static const VMStateDescription vmstate_imxrt1180_motor = {
 static const Property imxrt1180_motor_properties[] = {
     /* Constant mechanical load torque, in milli-N*m (a simple load profile). */
     DEFINE_PROP_UINT32("load-mnm", IMXRT1180MotorState, load_mnm, 0),
+    /* Speed-squared (fan/pump/windage) load, micro-N*m per (rad/s)^2. */
+    DEFINE_PROP_UINT32("load-fan-unms", IMXRT1180MotorState, load_fan_unms, 0),
+    /* Initial rotor speed (milli-rad/s): 0 = at rest; seeds a coast-down test. */
+    DEFINE_PROP_UINT32("init-mrads", IMXRT1180MotorState, init_mrads, 0),
     DEFINE_PROP_UINT32("rate-hz", IMXRT1180MotorState, rate_hz, 0),
     /* Winding-thermal model (off by default; see the struct comment). */
     DEFINE_PROP_UINT32("thermal", IMXRT1180MotorState, thermal, 0),

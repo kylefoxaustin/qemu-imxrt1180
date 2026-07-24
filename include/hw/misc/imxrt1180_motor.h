@@ -46,8 +46,11 @@ struct IMXRT1180MotorState {
     double iq;      /* q-axis stator current (A)               */
     double temp_c;  /* winding temperature (deg C)             */
 
-    uint32_t rate_hz;    /* physics update rate (Hz)          */
-    uint32_t load_mnm;   /* constant load torque (milli-N*m)  */
+    uint32_t rate_hz;    /* physics update rate (Hz)               */
+    uint32_t load_mnm;   /* constant load torque (milli-N*m)       */
+    uint32_t load_fan_unms; /* speed^2 (fan) load, micro-N*m/(rad/s)^2 */
+    uint32_t init_mrads;    /* initial rotor speed (milli-rad/s): 0 = rest,
+                             * nonzero seeds a coast-down                */
 
     /* Optional winding-thermal model (Rs rises with I^2R heating). Off by
      * default: the plant runs at the cold Rs and every existing golden holds.
