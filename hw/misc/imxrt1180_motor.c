@@ -24,8 +24,11 @@
  *     steady state -- tests/imxrt1180-motor-thermal;
  *   - a speed-SQUARED (fan/pump/windage) LOAD term (-global
  *     imxrt1180-motor.load-fan-unms=k) whose coast-down angle has the closed form
- *     theta = (J/k) ln(1 + k*w0/B) -- tests/imxrt1180-motor-load.
- * (Magnetic saturation remains future work, flagged not faked.)
+ *     theta = (J/k) ln(1 + k*w0/B) -- tests/imxrt1180-motor-load;
+ *   - MAGNETIC SATURATION (-global imxrt1180-motor.sat-isat-ma=i_sat): the
+ *     incremental inductance falls with current, Ld_eff = Ld0/(1 + |id|/i_sat),
+ *     so the current-rise time constant shrinks at high current -- verified by
+ *     the d-axis rise-time ratio (tests/imxrt1180-motor-sat).
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -195,14 +198,30 @@ static void motor_step(void *opaque)
         }
 
         /*
+         * Magnetic saturation: the incremental inductance falls as current rises
+         * (the iron saturates), Ld_eff = Ld0/(1 + |id|/i_sat).  Off by default
+         * (i_sat = 0 -> constant Ld0/Lq0).  This is exact for the di/dt term the
+         * current transient rides on; it is also applied to the w_e cross-coupling
+         * terms as a first approximation -- tests/imxrt1180-motor-sat exercises the
+         * w=0 d-axis transient, where only the di/dt inductance appears, so the
+         * approximation is untested and flagged, not faked.
+         */
+        double ld = M_LD, lq = M_LQ;
+        if (s->sat_isat_ma) {
+            double isat = s->sat_isat_ma / 1000.0;
+            ld = M_LD / (1.0 + fabs(s->id) / isat);
+            lq = M_LQ / (1.0 + fabs(s->iq) / isat);
+        }
+
+        /*
          * dq stator-current dynamics (with cross-coupling + PM back-EMF):
          *   L_d did/dt = v_d - R i_d + w_e L_q i_q
          *   L_q diq/dt = v_q - R i_q - w_e L_d i_d - w_e psi_m
          */
         double omega_e = M_PP * s->omega;
-        double did = (vd - rs * s->id + omega_e * M_LQ * s->iq) / M_LD;
-        double diq = (vq - rs * s->iq - omega_e * M_LD * s->id
-                         - omega_e * M_PSI) / M_LQ;
+        double did = (vd - rs * s->id + omega_e * lq * s->iq) / ld;
+        double diq = (vq - rs * s->iq - omega_e * ld * s->id
+                         - omega_e * M_PSI) / lq;
         s->id += did * dt;
         s->iq += diq * dt;
         id = s->id;
@@ -374,6 +393,8 @@ static const Property imxrt1180_motor_properties[] = {
     DEFINE_PROP_UINT32("load-fan-unms", IMXRT1180MotorState, load_fan_unms, 0),
     /* Initial rotor speed (milli-rad/s): 0 = at rest; seeds a coast-down test. */
     DEFINE_PROP_UINT32("init-mrads", IMXRT1180MotorState, init_mrads, 0),
+    /* Magnetic saturation current (mA): 0 = off (constant Ld0/Lq0). */
+    DEFINE_PROP_UINT32("sat-isat-ma", IMXRT1180MotorState, sat_isat_ma, 0),
     DEFINE_PROP_UINT32("rate-hz", IMXRT1180MotorState, rate_hz, 0),
     /* Winding-thermal model (off by default; see the struct comment). */
     DEFINE_PROP_UINT32("thermal", IMXRT1180MotorState, thermal, 0),

@@ -51,6 +51,8 @@ struct IMXRT1180MotorState {
     uint32_t load_fan_unms; /* speed^2 (fan) load, micro-N*m/(rad/s)^2 */
     uint32_t init_mrads;    /* initial rotor speed (milli-rad/s): 0 = rest,
                              * nonzero seeds a coast-down                */
+    uint32_t sat_isat_ma;   /* magnetic saturation current (mA): 0 = off,
+                             * Ld_eff = Ld0/(1 + |id|/i_sat)             */
 
     /* Optional winding-thermal model (Rs rises with I^2R heating). Off by
      * default: the plant runs at the cold Rs and every existing golden holds.

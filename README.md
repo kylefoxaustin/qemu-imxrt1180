@@ -161,6 +161,10 @@ I2C (`i2c-link`) — the controllers are modelled; only the bridge wiring is lef
 - `tests/imxrt1180-motor-load` → the speed-squared fan load: the free coast-down's
   total angle matches `(J/k)·ln(1+k·ω₀/B)` across a **swept** golden (ω₀ and k both
   varied, <1%; mutation-proven).
+- `tests/imxrt1180-motor-sat` → magnetic saturation: the d-axis current-rise
+  time-constant *ratio* (small vs large step) matches the saturating-inductance
+  **closed form** across a swept `i_sat` golden (linear→1.0, saturating→<1, <1%;
+  SysTick-timed under `-icount`; mutation-proven).
 - `tests/imxrt1180-corpus/run.sh` → boots every prebuilt SDK cm33 demo, reports
   pass / run / fault.
 - **[`docs/validation/SCORECARD.md`](docs/validation/SCORECARD.md)** → the tracked
@@ -322,13 +326,15 @@ and audio-streaming work above now cover.
    forwarding land, and the real `netc_switch` SDK example runs end-to-end (see
    above); what remains is **true multi-physical-port routing** between external
    wires (a multi-netdev structure) and finishing the 3-node raw-L2 segment.
-2. Deepen the motor plant: the **winding-thermal model** (Rs rises with I²R heating,
-   phase current droops to a closed-form hot steady state — `tests/imxrt1180-motor-thermal`)
-   and a **speed-squared fan/pump load** (coast-down angle matches
-   `(J/k)·ln(1+k·ω₀/B)` across a swept golden — `tests/imxrt1180-motor-load`) are
-   **done**, both opt-in via `-global imxrt1180-motor.*`. Idle is now a physically
-   correct free-wheel (tristated inverter, no braking current). **Magnetic
-   saturation** remains, plus the ASRC data path.
+2. **Motor-plant deepening — DONE** (all three, opt-in via `-global imxrt1180-motor.*`,
+   each value+mutation-proven): the **winding-thermal model** (Rs rises with I²R
+   heating → closed-form hot steady state, `tests/imxrt1180-motor-thermal`); a
+   **speed-squared fan/pump load** (coast-down angle `(J/k)·ln(1+k·ω₀/B)`, swept
+   golden, `tests/imxrt1180-motor-load`); and **magnetic saturation** (incremental
+   inductance `Ld₀/(1+|id|/i_sat)` → the d-axis current-rise ratio matches the
+   saturating closed form across a swept golden, `tests/imxrt1180-motor-sat`). Idle
+   is a physically-correct free-wheel (tristated inverter, no braking current). Next
+   on the plant: the ASRC data path.
 3. Value-golden more peripherals **through the real `fsl_*` driver** rather than by
    poking registers — the `netc_switch` bring-up now does this for the switch;
    extend the same rung-3 discipline across the corpus. _(The tracked,
