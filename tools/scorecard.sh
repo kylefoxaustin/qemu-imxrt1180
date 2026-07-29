@@ -28,7 +28,7 @@ set -u
 
 # --- expected coverage (bump these when you add/remove manifest rows) ----------
 EXPECTED_A=8
-EXPECTED_B=18
+EXPECTED_B=19
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 QEMU="${QEMU:-$ROOT/build/qemu-system-arm}"

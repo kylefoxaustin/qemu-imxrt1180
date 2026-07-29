@@ -278,8 +278,11 @@ The **ASRC data path is now modelled** (`hw/audio/imxrt1180_asrc.c`): the m2m
 ASRSTR AIDEA/AODFA) with a REAL linear-interp resampler at the ASRCDR1-decoded
 ratio — value-proven byte-exact (`tests/imxrt1180-asrc`, 1:2 upsample of a ramp,
 mutation-proven), flagged as linear-interp not the silicon polyphase FIR. The stock
-`asrc_m2m_polling` converts 48k→32k correctly but hangs in its 2nd SAI playback (a
-separate SAI/eDMA large-transfer / reconfig gap).
+`asrc_m2m_polling` converts 48k→32k correctly but hangs in its 2nd SAI playback — a
+separate **SAI mid-stream rate-reconfig** gap (confirmed: after `SAI_TxSetBitClockRate`
+reopens the audio output voice at the new rate it stops draining the TX FIFO — TFR
+stuck full, FRF never re-asserts — a QEMU-audio-backend interaction, not fixed by a
+fresh voice, and not ASRC).
 
 Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is
 `0x88B6` on mcast `230.0.0.9:31337`); true **multi-physical-port** switch routing

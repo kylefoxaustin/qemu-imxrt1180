@@ -48,6 +48,7 @@
 | B | `driver_examples/cache` | cm33 | **XFAIL** | documented gap: ARCHITECTURAL: the demo requires a real write-back data cache to hide DMA data (checks memcmp DIFFERS before Invalidate/Clean). QEMU memory is coherent -- the maintenance ops are correctly no-ops (see XCACHE), so the demo's stale-cache premise never holds and it can't pass. NOT an XCACHE bug (flexspi proves XCACHE completion works) |
 | B | `ele_crypto/ele_crypto_hsm` | cm33 | **XFAIL** | documented gap: prints "ERROR: execution of commands on Security Sub-System failed!" at Load EdgeLock FW; ELE FW-load handshake not modeled (README ELE = partial) |
 | B | `driver_examples/wdog32` | cm33 | **XBUILD** | example not wired for evkmimxrt1180 in SDK 26.06.00 (board CMake gap, not a model fault) |
+| B | `driver_examples/asrc/asrc_m2m_polling` | cm33 | **XFAIL** | documented gap: ASRC converts 48k->32k correctly (data path value-proven by tests/imxrt1180-asrc); hangs in the 2nd SAI playback -- a SAI mid-stream rate-reconfig gap where the reopened audio voice stops draining the TX FIFO (QEMU-audio-backend, not ASRC) |
 | B | `motor_control/pmsm/mc_pmsm/pmsm_enc` | cm7 | **VALUE-PROVEN** | proof: closed-loop FOC spin (no console success string), pinned by tests/imxrt1180-cm7boot + adc-fifo-align (needs -icount) |
 
 ## Tally (MEASURED — classes are NOT summed into a single headline)
@@ -56,9 +57,9 @@
 |---|---|
 | PASS (ran to success) | 14 |
 | BANNER (reached app, blocked on external host) | 5 |
-| XFAIL (documented gap) | 3 |
+| XFAIL (documented gap) | 4 |
 | VALUE-PROVEN (pinned by a value-test) | 2 |
 | XBUILD (SDK build gap) | 2 |
 
-Coverage gate: Tier A 8/8, Tier B 18/18.
+Coverage gate: Tier A 8/8, Tier B 19/19.
 **Gate: PASS.**
