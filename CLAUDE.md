@@ -273,10 +273,18 @@ counter. Rung-3 validation of NTMP/FDB+search/VLAN/port/management/MSI-X/statist
 against the real driver. See [[project-rt1180-netc-switch]] for the driver anchors,
 the compiler-verified BD/table byte offsets, and the OCRAM DMA gotcha.
 
+The **ASRC data path is now modelled** (`hw/audio/imxrt1180_asrc.c`): the m2m
+`ASRC_TransferBlocking` handshake (INIRQ init poll + ASRDIx→resampler→ASRDOx via
+ASRSTR AIDEA/AODFA) with a REAL linear-interp resampler at the ASRCDR1-decoded
+ratio — value-proven byte-exact (`tests/imxrt1180-asrc`, 1:2 upsample of a ramp,
+mutation-proven), flagged as linear-interp not the silicon polyphase FIR. The stock
+`asrc_m2m_polling` converts 48k→32k correctly but hangs in its 2nd SAI playback (a
+separate SAI/eDMA large-transfer / reconfig gap).
+
 Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is
 `0x88B6` on mcast `230.0.0.9:31337`); true **multi-physical-port** switch routing
-(more than one wire port, needs a multi-netdev structure); the ASRC sample-rate-
-converter data path (its Audio-PLL + codec blockers are now done).
+(more than one wire port, needs a multi-netdev structure); the ASRC's polyphase-FIR
+fidelity + true-async ratio + the SAI 2nd-playback gap above.
 
 ## Fleet
 

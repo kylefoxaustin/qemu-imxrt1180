@@ -161,6 +161,9 @@ I2C (`i2c-link`) — the controllers are modelled; only the bridge wiring is lef
 - `tests/imxrt1180-motor-load` → the speed-squared fan load: the free coast-down's
   total angle matches `(J/k)·ln(1+k·ω₀/B)` across a **swept** golden (ω₀ and k both
   varied, <1%; mutation-proven).
+- `tests/imxrt1180-asrc` → the ASRC sample-rate converter's data path: a 1:2
+  upsample of a ramp matches the **exact linear-interpolation golden** byte-for-byte
+  (mutation-proven). The conversion is a real resampling, not un-computed data.
 - `tests/imxrt1180-motor-sat` → magnetic saturation: the d-axis current-rise
   time-constant *ratio* (small vs large step) matches the saturating-inductance
   **closed form** across a swept `i_sat` golden (linear→1.0, saturating→<1, <1%;
@@ -216,6 +219,7 @@ Two ways the **M7** comes up:
 - `hw/misc/imxrt1180_{anadig,ccm}.c` — clock tree (PLLs incl. AUDIO PLL, roots, gates)
 - `hw/misc/imxrt1180_{pwm,eqdc,adc,motor,xbar}.c` — the motor-control frontier (eFlexPWM, encoder, LPADC, dq PMSM plant, XBAR)
 - `hw/{misc/imxrt1180_sai,audio/wm8962}.c` — SAI + WM8962 codec (audio streaming)
+- `hw/audio/imxrt1180_asrc.c` — ASRC sample-rate converter (m2m data path, real linear-interp resampling)
 - `hw/timer/imxrt1180_{tmr,lptmr}.c` — QuadTimer + LPTMR
 - `hw/misc/imxrt1180_{rtwdog,s3mu,flexspi,src,trdc}.c` — watchdog, ELE MU, FlexSPI, M7-release, TRDC
 - `hw/misc/imxrt1180_xcache.c` — platform cache controllers (XCACHE_PC/PS): maintenance completion so `fsl_cache` polls retire

@@ -25,6 +25,7 @@
 #include "hw/audio/wm8962.h"        /* TYPE_WM8962 */
 #include "hw/misc/imxrt1180_periphrdy.h"
 #include "hw/misc/imxrt1180_xcache.h"
+#include "hw/audio/imxrt1180_asrc.h"
 #include "system/address-spaces.h"   /* get_system_memory() */
 #include "system/system.h"           /* serial_hd() */
 
@@ -1221,6 +1222,16 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         object_property_add_child(OBJECT(s), "xcache", OBJECT(xc));
         sysbus_realize_and_unref(SYS_BUS_DEVICE(xc), &error_fatal);
         sysbus_mmio_map(SYS_BUS_DEVICE(xc), 0, 0x44400000);
+    }
+
+    /* ASRC — asynchronous sample-rate converter (audio), NS @0x429A0000, IRQ 235. */
+    {
+        DeviceState *a = qdev_new(TYPE_IMXRT1180_ASRC);
+        object_property_add_child(OBJECT(s), "asrc", OBJECT(a));
+        sysbus_realize_and_unref(SYS_BUS_DEVICE(a), &error_fatal);
+        sysbus_mmio_map(SYS_BUS_DEVICE(a), 0, 0x429A0000);
+        sysbus_connect_irq(SYS_BUS_DEVICE(a), 0,
+            qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]), 235));
     }
     for (int i = 0; i < 6; i++) {          /* MSGINTR1..6 message-interrupt routers */
         if (!sysbus_realize(SYS_BUS_DEVICE(&s->msgintr[i]), errp)) {
