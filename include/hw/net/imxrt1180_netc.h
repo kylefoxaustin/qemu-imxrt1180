@@ -28,6 +28,13 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180NETCState, IMXRT1180_NETC)
 #define IMXRT1180_NETC_FDB_SIZE 64
 #define IMXRT1180_NETC_VF_SIZE  32
 
+/* Switch external (wire) ports: SW0 ports 0..3 are physical, port 4 is the CPU.
+ * Each wire port can be backed by its own netdev, so the switch routes frames
+ * between different physical wires (multi-physical-port).  Port 0 uses the
+ * default `-nic`/`-netdev` (back-compat); ports 1..3 attach to netdevs named
+ * "netc-port1".."netc-port3" when present, else stay unplugged. */
+#define IMXRT1180_NETC_N_WIRE   4
+
 /* One L2 forwarding-database entry (MAC + filtering-ID -> destination ports). */
 typedef struct IMXRT1180NETCFdbEntry {
     bool     valid;
@@ -50,6 +57,13 @@ typedef struct IMXRT1180NETCVlanEntry {
     uint32_t cfge[4];          /* raw cfge: portMembership, fid/mlo/mfo, etaBitmap, baseETEID */
 } IMXRT1180NETCVlanEntry;
 
+/* Per-NIC opaque: lets a wire port's receive callback recover which switch port
+ * (and which device) the inbound frame arrived on. */
+typedef struct {
+    IMXRT1180NETCState *s;
+    int port;
+} IMXRT1180NETCPort;
+
 struct IMXRT1180NETCState {
     /*< private >*/
     SysBusDevice parent_obj;
@@ -58,11 +72,13 @@ struct IMXRT1180NETCState {
     AddressSpace *dma_as;      /* system memory, for BD/frame DMA */
     uint8_t *backing;          /* flat RW register store over the region */
 
-    /* L2 Ethernet backend: TX egresses here (unless the PHY is in local
-     * loopback), and inbound frames are delivered into the RX ring. */
-    NICState *nic;
+    /* L2 Ethernet backend, one per wire port: a frame egressing switch port p
+     * is sent on nic[p]; an inbound frame on nic[p] ingresses on switch port p.
+     * port_ctx[p] is the per-NIC opaque so the receive callback knows its port. */
+    NICState *nic[IMXRT1180_NETC_N_WIRE];
+    NICConf conf[IMXRT1180_NETC_N_WIRE];
+    IMXRT1180NETCPort port_ctx[IMXRT1180_NETC_N_WIRE];
     uint64_t rx_ring_full_drops;   /* frames the wire delivered with no free BD */
-    NICConf conf;
 
     /* EMDIO / behavioural PHY responder */
     uint32_t mdio_reg;         /* PHY register addressed by the last EMDIO_CTL */

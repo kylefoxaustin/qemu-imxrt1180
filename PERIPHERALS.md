@@ -416,13 +416,17 @@ the whole corpus); GPT `CR.SWR` self-clear + TPM `CONTROLS[]` backing (fsl-audit
 TMPSNS calibration → `tempsensor` reports 25.0 C.
 
 Known gaps (honest — firmware ran and reported these):
-- **netc** ✅ (ENETC endpoint): the NETC PCIe Ethernet block is modelled at
-  0x6000_0000 — IERB/PCI/capability register semantics, a behavioural EMDIO +
-  RTL8201 PHY (link-up), and a TX->RX buffer-descriptor MAC loopback with MSI-X
-  completion via the MSGINTR router. NXP's netc_txrx_transfer runs end-to-end
-  (20/20 frames, byte-exact). NOT yet modelled: the L2 switch path (SW0_*, FDB),
-  multiple/virtual Station Interfaces, and the PTP 1588 timer — follow-on work
-  toward the full TSN stack (see `ref-rt1180-tsn-stack`).
+- **netc** ✅ (ENETC endpoint + SW0 switch): the NETC PCIe Ethernet block is
+  modelled at 0x6000_0000 — IERB/PCI/capability register semantics, a behavioural
+  EMDIO + RTL8201/RTL8211F PHY (link-up), and a TX->RX buffer-descriptor MAC
+  loopback with MSI-X completion via the MSGINTR router. NXP's netc_txrx_transfer
+  runs end-to-end (20/20 frames, byte-exact). The **L2 switch path is now
+  modelled**: NTMP command-BD ring + FDB (add/query/search/delete) + VLAN-filter
+  table + source-MAC learning + PTP 1588 timer (TMR0) + bidirectional CPU↔wire
+  forwarding + **multi-physical-port wire↔wire routing** (ports 0..3 each on their
+  own netdev); the real `netc_switch` SDK example runs end-to-end. NOT yet modelled:
+  the per-VLAN mlo learning gate (learning is unconditional). See
+  `project-rt1180-netc-switch` and `ref-rt1180-tsn-stack`.
 - **asrc** (assert): the two shared blockers are now DONE — the **Audio PLL** is
   modelled (`AUDIO_PLL.CTRL0/NUMER/DENOM` compute a real frequency; the CCM row) and
   the **WM8962 codec** answers I2C, which together already unblocked `sai/edma_transfer`

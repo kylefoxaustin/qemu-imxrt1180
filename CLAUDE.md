@@ -284,10 +284,23 @@ reopens the audio output voice at the new rate it stops draining the TX FIFO —
 stuck full, FRF never re-asserts — a QEMU-audio-backend interaction, not fixed by a
 fresh voice, and not ASRC).
 
+**Multi-physical-port switch routing** is now modelled: SW0 wire ports 0..3 each
+carry their own netdev (`NICState *nic[4]` + per-NIC `IMXRT1180NETCPort` opaque so
+a receive callback knows its ingress port), and a frame ingressing one physical
+wire is switched out the wire(s) its FDB entry resolves to — split-horizon drops
+the ingress port. Port 0 stays the default `-nic`/`-netdev` (every single-port
+setup unchanged); ports 1..3 attach via `-netdev socket,...,id=netc-portN`. Proven
+wire→wire byte-exact by `tests/imxrt1180-netc-portfwd` (a frame injected on wire
+port 1 is observed, unchanged, on wire port 2; mutation-proven). **The test links
+each wire point-to-point (`socket,udp=`), NOT shared-mcast**: QEMU hardcodes
+`IP_MULTICAST_LOOP=1` (`net/socket.c`), so a switch flooding onto a shared mcast
+group re-ingests its own flood and storms — a *real* loop, but not the topology
+under test; point-to-point never loops QEMU's egress back in. (The model is
+faithful either way: a switch on a reflective segment genuinely storms.)
+
 Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is
-`0x88B6` on mcast `230.0.0.9:31337`); true **multi-physical-port** switch routing
-(more than one wire port, needs a multi-netdev structure); the ASRC's polyphase-FIR
-fidelity + true-async ratio + the SAI 2nd-playback gap above.
+`0x88B6` on mcast `230.0.0.9:31337`); the ASRC's polyphase-FIR fidelity +
+true-async ratio + the SAI 2nd-playback gap above.
 
 ## Fleet
 

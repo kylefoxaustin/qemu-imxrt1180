@@ -461,6 +461,20 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
      * loopback) exercised by the netc_txrx_transfer example.
      */
     qemu_configure_nic_device(DEVICE(&s->netc), true, NULL);
+    /*
+     * Switch wire ports 1..3: attach each to a netdev named "netc-portN" when the
+     * user supplies one (e.g. -netdev socket,...,id=netc-port2), so the switch
+     * routes between independent physical wires.  Absent -> the port stays
+     * unplugged.  Port 0 is the default -nic (configured above).
+     */
+    for (int wp = 1; wp < IMXRT1180_NETC_N_WIRE; wp++) {
+        g_autofree char *id = g_strdup_printf("netc-port%d", wp);
+        g_autofree char *prop = g_strdup_printf("netdev%d", wp);
+        NetClientState *nd = qemu_find_netdev(id);
+        if (nd) {
+            qdev_prop_set_netdev(DEVICE(&s->netc), prop, nd);
+        }
+    }
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->netc), errp)) {
         return;
     }

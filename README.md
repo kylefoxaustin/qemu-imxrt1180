@@ -127,10 +127,13 @@ validation (rung-3: the real vendor driver, not register-poking):
   each and confirms it via the per-port 512–1023-octet transmit counter**.
 
 Each in-model piece is pinned by a mutation-proven bare-metal test
-(`tests/imxrt1180-netc-{fdb,fwd,rxfwd,ptp}`). **Gap:** true multi-physical-port
-routing between *external* wires (a multi-netdev structural change) and the per-VLAN
-MAC-learning-options are not yet modelled — the switch ports the example exercises are
-internal/loopback.
+(`tests/imxrt1180-netc-{fdb,fwd,rxfwd,ptp}`). **Multi-physical-port routing between
+external wires is now modelled**: SW0 wire ports 0..3 each carry their own netdev,
+and a frame ingressing one physical wire is switched out the wire(s) its FDB entry
+resolves to (`tests/imxrt1180-netc-portfwd` proves wire→wire byte-exact,
+mutation-proven). Port 0 is the default `-nic`; ports 1..3 attach via
+`-netdev socket,...,id=netc-portN`. **Gap:** the per-VLAN MAC-learning-options are
+not yet modelled.
 
 ## Interconnect (board-to-board) ✅
 
@@ -299,12 +302,13 @@ defined there and means *visible to the guest*, never "we wrote a host log".
   > visible rather than quietly deleted.
 - **ASRC** (sample-rate converter) data path is not modelled (its AUDIO-PLL + codec
   blockers are now done).
-- **NETC switch (SW0)**: the switch — NTMP tables, source-MAC learning, PTP, and
-  bidirectional forwarding, with the real `netc_switch` SDK example running
-  end-to-end — is modelled (see the *NETC switch* section above). **Not yet
-  modelled**: true multi-physical-port routing between *external* wires (a
-  multi-netdev structural change) and the per-VLAN MAC-learning-options. Unmodelled
-  NTMP tables fault honestly via the BD's `resp.error`, never a silent ack.
+- **NETC switch (SW0)**: the switch — NTMP tables, source-MAC learning, PTP,
+  bidirectional forwarding, **and multi-physical-port routing between external
+  wires** (ports 0..3 each on their own netdev; `tests/imxrt1180-netc-portfwd`
+  proves wire→wire byte-exact) — is modelled, with the real `netc_switch` SDK
+  example running end-to-end (see the *NETC switch* section above). **Not yet
+  modelled**: the per-VLAN MAC-learning-options. Unmodelled NTMP tables fault
+  honestly via the BD's `resp.error`, never a silent ack.
 - **Cache** is a QEMU-architectural WONTFIX (no guest CPU cache to model); **MECC**
   is an optional RAS diagnostic.
 
@@ -326,10 +330,11 @@ and audio-streaming work above now cover.
 
 ## Roadmap
 
-1. **NETC switch path** — the SW0 NTMP tables, learning, PTP, and bidirectional
-   forwarding land, and the real `netc_switch` SDK example runs end-to-end (see
-   above); what remains is **true multi-physical-port routing** between external
-   wires (a multi-netdev structure) and finishing the 3-node raw-L2 segment.
+1. **NETC switch path — DONE** — the SW0 NTMP tables, learning, PTP, bidirectional
+   forwarding, **and multi-physical-port routing between external wires** (ports
+   0..3 each on their own netdev; wire→wire byte-exact via
+   `tests/imxrt1180-netc-portfwd`) all land, and the real `netc_switch` SDK example
+   runs end-to-end (see above); what remains is finishing the 3-node raw-L2 segment.
 2. **Motor-plant deepening — DONE** (all three, opt-in via `-global imxrt1180-motor.*`,
    each value+mutation-proven): the **winding-thermal model** (Rs rises with I²R
    heating → closed-form hot steady state, `tests/imxrt1180-motor-thermal`); a

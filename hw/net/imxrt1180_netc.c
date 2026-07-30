@@ -103,6 +103,7 @@
 #define R_EP_TX_LENR       (ENETC1_SI0_OFF + 0x8220)
 #define R_ENETC1_SIMSITRVR1 (ENETC1_SI0_OFF + 0xB04)
 #define ETH_LINK_T1023_OFF 0x290
+#define ETH_LINK_TFRMN_OFF 0x220   /* PMn TX frames-OK (R_SW_P0_TFRMN = base[0]+0x220) */
 
 /*
  * Ethernet MAC/link (ETH_LINK) blocks: PMn_COMMAND_CONFIG.SWR is a self-clearing
@@ -496,6 +497,33 @@ static void netc_do_ep_tx(IMXRT1180NETCState *s)
     netc_emit_msix_tbl(s, ENETC1_MSIX_TABLE, netc_reg(s, R_ENETC1_SIMSITRVR1));
 }
 
+/*
+ * Forward a frame out every WIRE port named in the egress bitmap that has a
+ * connected netdev, and count it on that port's MAC (PMn frames-transmitted-OK).
+ * This is the multi-physical-port routing: a frame the switch resolves to port p
+ * goes out nic[p]'s own wire.  Split-horizon (never egress the ingress port) is
+ * already applied by netc_switch_egress, so a frame is not echoed back where it
+ * came from.  Ports with no netdev attached are skipped (an unplugged cable).
+ */
+static void netc_egress_to_wires(IMXRT1180NETCState *s, const uint8_t *frame,
+                                 uint32_t flen, uint32_t egress)
+{
+    for (int p = 0; p < IMXRT1180_NETC_N_WIRE; p++) {
+        NetClientState *q;
+        hwaddr c;
+        if (!(egress & (1u << p))) {
+            continue;
+        }
+        q = qemu_get_queue(s->nic[p]);
+        if (!q->peer) {
+            continue;                  /* port unplugged: nothing reaches a wire */
+        }
+        qemu_send_packet(q, frame, flen);
+        c = netc_eth_link_bases[p] + ETH_LINK_TFRMN_OFF;
+        netc_backing_write(s, c, netc_backing_read(s, c, 8) + 1, 8);
+    }
+}
+
 static void netc_do_tx(IMXRT1180NETCState *s)
 {
     uint64_t base = (uint64_t)netc_reg(s, R_TBBAR0) | ((uint64_t)netc_reg(s, R_TBBAR1) << 32);
@@ -547,15 +575,15 @@ static void netc_do_tx(IMXRT1180NETCState *s)
              * An unprogrammed FDB floods, so plain endpoint TX still reaches the
              * wire exactly as before.
              */
+            /*
+             * A CPU-injected frame ingresses on the management port; the switch
+             * forwards it out the wire port(s) its destination resolves to -- each
+             * on its OWN netdev.  Unknown-unicast / broadcast floods every wire
+             * port; a known unicast egresses just the one its FDB entry names.
+             */
             uint32_t egress = netc_switch_egress(s, frame, NETC_SW_DEFAULT_FID,
                                                  NETC_SW_PORT_CPU);
-            if (egress & (1u << NETC_SW_PORT_WIRE)) {
-                qemu_send_packet(qemu_get_queue(s->nic), frame, flen);
-                /* count it out the wire port's MAC (PM0_TFRMN, aFramesTransmittedOK) */
-                netc_backing_write(s, R_SW_P0_TFRMN,
-                                   netc_backing_read(s, R_SW_P0_TFRMN, 8) + 1, 8);
-            }
-            /* else: forwarded elsewhere / dropped by the switch -- not to the wire */
+            netc_egress_to_wires(s, frame, flen, egress);
         }
         cir = (cir + 1) % tlen;
     }
@@ -566,7 +594,8 @@ static void netc_do_tx(IMXRT1180NETCState *s)
 /* ---- Ethernet backend (netdev) ------------------------------------------ */
 static bool netc_can_receive(NetClientState *nc)
 {
-    IMXRT1180NETCState *s = qemu_get_nic_opaque(nc);
+    IMXRT1180NETCPort *pc = qemu_get_nic_opaque(nc);
+    IMXRT1180NETCState *s = pc->s;
     /*
      * READY MEANS "THE GUEST HAS ENABLED THE RING", NOT "THE GUEST HAS SIZED IT".
      *
@@ -596,18 +625,25 @@ static bool netc_can_receive(NetClientState *nc)
 
 static ssize_t netc_receive(NetClientState *nc, const uint8_t *buf, size_t size)
 {
-    IMXRT1180NETCState *s = qemu_get_nic_opaque(nc);
+    IMXRT1180NETCPort *pc = qemu_get_nic_opaque(nc);
+    IMXRT1180NETCState *s = pc->s;
+    int in_port = pc->port;
     uint32_t len = size > NETC_FRAME_MAX ? NETC_FRAME_MAX : (uint32_t)size;
 
-    /* Switch ingress on the physical (wire) port: learn the source MAC, then
-     * forward.  The frame reaches the CPU only if its destination resolves to the
-     * management port -- an unknown unicast / broadcast floods (so it is delivered,
-     * as a plain endpoint expects), but a known unicast destined to another port is
-     * switched away and NOT handed to the CPU. */
+    /* Switch ingress on wire port `in_port`: learn the source MAC, then forward.
+     * The frame reaches the CPU only if its destination resolves to the management
+     * port -- an unknown unicast / broadcast floods (so it is delivered, as a plain
+     * endpoint expects), but a known unicast destined to another port is switched
+     * away and NOT handed to the CPU.  (Wire->wire egress to other ports' netdevs
+     * is Stage 2; Stage 1 keeps CPU delivery identical to the single-port path.) */
     if (len >= 14) {
         uint32_t egress;
-        netc_switch_learn(s, buf + 6, NETC_SW_DEFAULT_FID, NETC_SW_PORT_WIRE);
-        egress = netc_switch_egress(s, buf, NETC_SW_DEFAULT_FID, NETC_SW_PORT_WIRE);
+        netc_switch_learn(s, buf + 6, NETC_SW_DEFAULT_FID, in_port);
+        egress = netc_switch_egress(s, buf, NETC_SW_DEFAULT_FID, in_port);
+        /* Wire->wire: forward out the OTHER wire ports the destination resolves to
+         * (split-horizon already dropped in_port).  This is the switch routing a
+         * frame from one physical wire to another. */
+        netc_egress_to_wires(s, buf, len, egress);
         if (!(egress & (1u << NETC_SW_PORT_CPU))) {
             return size;                 /* switched away from the CPU port */
         }
@@ -1307,7 +1343,9 @@ static void netc_write(void *opaque, hwaddr off, uint64_t val, unsigned size)
      */
     if (off == R_RBMR && (val & RBMR_EN)) {
         netc_backing_write(s, off, val, size);
-        qemu_flush_queued_packets(qemu_get_queue(s->nic));
+        for (int fp = 0; fp < IMXRT1180_NETC_N_WIRE; fp++) {
+            qemu_flush_queued_packets(qemu_get_queue(s->nic[fp]));
+        }
         return;
     }
 
@@ -1321,7 +1359,9 @@ static void netc_write(void *opaque, hwaddr off, uint64_t val, unsigned size)
      */
     if (off == R_RBCIR) {
         netc_backing_write(s, off, val, size);
-        qemu_flush_queued_packets(qemu_get_queue(s->nic));
+        for (int fp = 0; fp < IMXRT1180_NETC_N_WIRE; fp++) {
+            qemu_flush_queued_packets(qemu_get_queue(s->nic[fp]));
+        }
         return;
     }
 
@@ -1460,11 +1500,22 @@ static void netc_realize(DeviceState *dev, Error **errp)
                           TYPE_IMXRT1180_NETC, IMXRT1180_NETC_SIZE);
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
 
-    qemu_macaddr_default_if_unset(&s->conf.macaddr);
-    s->nic = qemu_new_nic(&netc_net_info, &s->conf,
-                          object_get_typename(OBJECT(dev)), dev->id,
-                          &dev->mem_reentrancy_guard, s);
-    qemu_format_nic_info_str(qemu_get_queue(s->nic), s->conf.macaddr.a);
+    /*
+     * One NIC per wire port.  Port 0 is backed by the default `-nic`/`-netdev`
+     * (its conf[0] was set by qemu_configure_nic_device in the SoC), keeping every
+     * existing single-port setup working unchanged; ports 1..3 attach to netdevs
+     * named "netc-portN" when the user supplies them, else stay unplugged.  The
+     * per-NIC opaque is port_ctx[p] so the receive callback recovers its port.
+     */
+    for (int p = 0; p < IMXRT1180_NETC_N_WIRE; p++) {
+        s->port_ctx[p].s = s;
+        s->port_ctx[p].port = p;
+        qemu_macaddr_default_if_unset(&s->conf[p].macaddr);
+        s->nic[p] = qemu_new_nic(&netc_net_info, &s->conf[p],
+                                 object_get_typename(OBJECT(dev)), dev->id,
+                                 &dev->mem_reentrancy_guard, &s->port_ctx[p]);
+        qemu_format_nic_info_str(qemu_get_queue(s->nic[p]), s->conf[p].macaddr.a);
+    }
 }
 
 static void netc_unrealize(DeviceState *dev)
@@ -1526,7 +1577,11 @@ static const VMStateDescription vmstate_netc = {
 };
 
 static const Property netc_properties[] = {
-    DEFINE_NIC_PROPERTIES(IMXRT1180NETCState, conf),
+    DEFINE_NIC_PROPERTIES(IMXRT1180NETCState, conf[0]),
+    /* Wire ports 1..3 attach to their own netdev via netdev1..netdev3. */
+    DEFINE_PROP_NETDEV("netdev1", IMXRT1180NETCState, conf[1].peers),
+    DEFINE_PROP_NETDEV("netdev2", IMXRT1180NETCState, conf[2].peers),
+    DEFINE_PROP_NETDEV("netdev3", IMXRT1180NETCState, conf[3].peers),
 };
 
 static void netc_class_init(ObjectClass *klass, const void *data)
