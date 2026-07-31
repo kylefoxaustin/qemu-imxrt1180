@@ -109,49 +109,101 @@ static double pair_ratio_out_per_in(IMXRT1180ASRCState *s)
     return src_factor * in_period / out_period;
 }
 
-/* Run the streaming linear-interpolation resampler for pair `p` after an input
- * frame (all channels of one sample instant) has been pushed. */
+/*
+ * FIR resampler kernel.  HALF taps each side (16-tap window); the input history
+ * ring must hold at least 2*HALF frames.
+ */
+#define ASRC_FIR_HALF  8
+
+/*
+ * A windowed-sinc lowpass interpolation kernel evaluated at fractional offset `x`
+ * (in input samples) with cutoff `fc` (cycles per input sample), Hann-windowed over
+ * [-HALF, HALF].
+ *
+ *   ⭐ THIS IS NOT NXP's POLYPHASE FILTER.  The silicon ASRC runs a specific
+ *   multi-tap polyphase FIR whose coefficients are not in the RM or the SDK, so the
+ *   output SAMPLE VALUES cannot bit-match hardware and this file does not claim to.
+ *   What this DOES model faithfully is the CLASS of algorithm -- a real
+ *   anti-imaging / anti-aliasing bandlimited resampler, not the crude linear
+ *   interpolation it replaces: the cutoff tracks the ratio so a DOWN-conversion
+ *   rejects content above the output Nyquist instead of aliasing it into the band
+ *   (the whole reason the hardware uses a FIR).  Tested against DSP first
+ *   principles (unity DC gain, stopband rejection), never against silicon values.
+ */
+static double asrc_winsinc(double x, double fc)
+{
+    double a, s, w;
+
+    if (fabs(x) >= (double)ASRC_FIR_HALF) {
+        return 0.0;
+    }
+    w = 0.5 * (1.0 + cos(M_PI * x / (double)ASRC_FIR_HALF));   /* Hann window */
+    a = 2.0 * fc * x;
+    s = (a == 0.0) ? 1.0 : sin(M_PI * a) / (M_PI * a);         /* sinc(2*fc*x) */
+    return 2.0 * fc * s * w;
+}
+
+/*
+ * Run the streaming polyphase windowed-sinc resampler for pair `p` after input
+ * frames have been pushed into in_fifo.  Each output frame at input-position
+ * `out_pos` is the normalized windowed-sinc convolution of the surrounding input
+ * frames; normalizing by the tap-sum makes the DC gain EXACTLY 1 (a constant in is
+ * a constant out) regardless of the window.  The cutoff `fc` is the output Nyquist
+ * when down-converting (anti-aliasing) and the input Nyquist when up-converting
+ * (anti-imaging).  Output lags input by ~HALF frames (the filter's group delay), so
+ * the first HALF outputs are an edge transient and callers skip them.
+ */
 static void asrc_resample(IMXRT1180ASRCState *s, unsigned p)
 {
     IMXRT1180ASRCPair *pr = &s->pair[p];
     uint32_t ch = pr->channels ? pr->channels : 2;
     double ratio = pair_ratio_out_per_in(s);   /* output frames per input frame */
+    double step, fc;
+
     if (ratio <= 0) {
         ratio = 1.0;
     }
-    double step = 1.0 / ratio;                  /* input advance per output frame */
+    step = 1.0 / ratio;
+    fc = (ratio < 1.0) ? 0.5 * ratio : 0.5;    /* min(in, out) Nyquist */
 
-    /* need a whole input frame (ch samples) buffered to form `curr` */
     while (fifo_fill(pr->in_head, pr->in_tail) >= ch) {
-        int32_t curr[2] = {0, 0};
+        /* consume one input frame into the per-channel history ring */
+        uint32_t slot = (uint32_t)(pr->in_count & (IMXRT1180_ASRC_HIST - 1));
         for (uint32_t c = 0; c < ch && c < 2; c++) {
-            curr[c] = pr->in_fifo[pr->in_head];
+            pr->hist[c][slot] = pr->in_fifo[pr->in_head];
             pr->in_head = (pr->in_head + 1) & (IMXRT1180_ASRC_FIFO - 1);
         }
-        if (!pr->have_prev) {
-            pr->prev[0] = curr[0];
-            pr->prev[1] = curr[1];
-            pr->have_prev = true;
-            continue;
+        pr->in_count++;
+        if (!pr->started) {
+            pr->out_pos = 0.0;
+            pr->started = true;
         }
-        /* emit output frames at fractional positions in [phase, 1) between the
-         * previous and current input frame (phase carries across frames). */
-        double phase = (double)pr->phase / 4294967296.0;   /* Q32 -> [0,1) */
-        while (phase < 1.0) {
+
+        /* emit every output whose right-hand context (HALF frames past out_pos) is
+         * now available; the left side is zero-padded at the very start. */
+        while ((double)pr->in_count - 1.0 >= pr->out_pos + (double)ASRC_FIR_HALF) {
+            int64_t i0 = (int64_t)floor(pr->out_pos);
+            double frac = pr->out_pos - (double)i0;
+
             for (uint32_t c = 0; c < ch && c < 2; c++) {
-                double v = (double)pr->prev[c] * (1.0 - phase)
-                         + (double)curr[c] * phase;
-                int32_t o = (int32_t)lrint(v);
+                double sum = 0.0, wsum = 0.0;
+                for (int k = -(ASRC_FIR_HALF - 1); k <= ASRC_FIR_HALF; k++) {
+                    double g = asrc_winsinc(frac - (double)k, fc);
+                    int64_t f = i0 + k;
+                    int32_t sample = (f >= 0 && (uint64_t)f < pr->in_count)
+                        ? pr->hist[c][(uint32_t)((uint64_t)f & (IMXRT1180_ASRC_HIST - 1))]
+                        : 0;
+                    sum  += (double)sample * g;
+                    wsum += g;
+                }
                 if (fifo_fill(pr->out_head, pr->out_tail) < IMXRT1180_ASRC_FIFO - 1) {
+                    int32_t o = (wsum != 0.0) ? (int32_t)lrint(sum / wsum) : 0;
                     pr->out_fifo[pr->out_tail] = o;
                     pr->out_tail = (pr->out_tail + 1) & (IMXRT1180_ASRC_FIFO - 1);
                 }
             }
-            phase += step;
+            pr->out_pos += step;
         }
-        pr->phase = (uint64_t)((phase - 1.0) * 4294967296.0);
-        pr->prev[0] = curr[0];
-        pr->prev[1] = curr[1];
     }
 }
 
@@ -248,7 +300,10 @@ static void asrc_write(void *opaque, hwaddr off, uint64_t val, unsigned size)
             if (v & (1u << (ASRCTR_ATSA_SHIFT + p))) {
                 IMXRT1180ASRCPair *pr = &s->pair[p];
                 pr->in_head = pr->in_tail = pr->out_head = pr->out_tail = 0;
-                pr->phase = 0; pr->have_prev = false;
+                pr->in_count = 0;
+                pr->out_pos = 0.0;
+                pr->started = false;
+                memset(pr->hist, 0, sizeof(pr->hist));
             }
         }
         s->regs[off / 4] = v;

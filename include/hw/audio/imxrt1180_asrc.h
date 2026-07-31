@@ -28,9 +28,10 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180ASRCState, IMXRT1180_ASRC)
 #define IMXRT1180_ASRC_PAIRS     3          /* A, B, C */
 #define IMXRT1180_ASRC_FIFO      256        /* model FIFO depth (samples/pair) */
 #define IMXRT1180_ASRC_N_SAI     4          /* SAI1..4, selectable clock sources */
+#define IMXRT1180_ASRC_HIST      32         /* input-history ring for the FIR    */
 
 typedef struct {
-    /* Streaming linear-interpolation resampler state, one per channel pair. */
+    /* Streaming polyphase windowed-sinc resampler state, one per channel pair. */
     uint32_t in_rate, out_rate;             /* Hz, from SetChannelPairConfig     */
     uint32_t channels;                      /* 1 or 2                            */
     /* input ring (interleaved samples) */
@@ -39,10 +40,12 @@ typedef struct {
     /* output ring (interleaved resampled samples) */
     int32_t  out_fifo[IMXRT1180_ASRC_FIFO];
     uint32_t out_head, out_tail;
-    /* phase accumulator: fractional input-sample position, per channel-frame */
-    uint64_t phase;                         /* Q32 fraction into the frame       */
-    int32_t  prev[2];                       /* previous input frame (per channel)*/
-    bool     have_prev;
+    /* per-channel input history, indexed by absolute input-frame number mod HIST,
+     * so the FIR kernel can reach several samples either side of an output point */
+    int32_t  hist[2][IMXRT1180_ASRC_HIST];
+    uint64_t in_count;                      /* input frames consumed into hist   */
+    double   out_pos;                       /* next output's input-frame position*/
+    bool     started;                       /* history primed enough to emit     */
 } IMXRT1180ASRCPair;
 
 struct IMXRT1180ASRCState {

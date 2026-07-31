@@ -286,10 +286,20 @@ clocks, SPDIF, the SAI clock roots, MIC/MQS) are flagged, not fabricated.
 
 The **ASRC data path is modelled** (`hw/audio/imxrt1180_asrc.c`): the m2m
 `ASRC_TransferBlocking` handshake (INIRQ init poll + ASRDIx→resampler→ASRDOx via
-ASRSTR AIDEA/AODFA) with a REAL linear-interp resampler at the ASRCDR1-decoded
-ratio — value-proven byte-exact (`tests/imxrt1180-asrc`, 1:2 upsample of a ramp,
-mutation-proven), flagged as linear-interp not the silicon polyphase FIR. **The stock
-`asrc_m2m_polling` now runs end-to-end** (both SAI playbacks + the 48k→32k convert;
+ASRSTR AIDEA/AODFA) with a **real polyphase windowed-sinc FIR resampler** — a genuine
+bandlimited anti-imaging/anti-aliasing filter (Hann-windowed 16-tap sinc, cutoff
+tracking the ratio, per-output tap-sum normalized to unity DC gain), NOT the crude
+linear interpolation it replaced. It is still **NOT NXP's exact polyphase taps** (those
+are unpublished, so output *values* cannot bit-match silicon — flagged, not faked); what
+IS faithful is the algorithm CLASS. Tested against DSP first principles, never against
+silicon (`tests/imxrt1180-asrc`, mutation-proven): (1) **unity DC gain** — a constant in
+is a constant out, byte-exact; and (2) **stop-band rejection** — a full-scale Nyquist
+tone down-converted 2:1 is rejected to ~-56 dB (|out|≈15 for amplitude 10000), where
+linear interpolation would alias it to DC at full scale (~10000) — the falsifiable
+justification for the FIR over linear interp. (The FIR also reproduces a linear ramp
+byte-exact in its interior — a normalized symmetric kernel is exact on lines — which
+`tests/imxrt1180-asrc-async` uses.) **The stock
+`asrc_m2m_polling` runs end-to-end** (both SAI playbacks + the 48k→32k convert;
 scorecard row PASS).
 
 The earlier "hangs in the 2nd SAI playback — a SAI mid-stream rate-reconfig gap" was
@@ -325,8 +335,9 @@ under test; point-to-point never loops QEMU's egress back in. (The model is
 faithful either way: a switch on a reflective segment genuinely storms.)
 
 Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is
-`0x88B6` on mcast `230.0.0.9:31337`); the ASRC's polyphase-FIR fidelity (its
-true-async *ratio* now resolves SAI-bit-clock sources — done).
+`0x88B6` on mcast `230.0.0.9:31337`). (The ASRC's resampler is now a bandlimited
+polyphase windowed-sinc FIR and its true-async ratio resolves SAI-bit-clock sources —
+both done; only NXP's exact FIR taps remain unmodelled, and those are unpublished.)
 
 ## Fleet
 

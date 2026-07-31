@@ -164,9 +164,12 @@ I2C (`i2c-link`) — the controllers are modelled; only the bridge wiring is lef
 - `tests/imxrt1180-motor-load` → the speed-squared fan load: the free coast-down's
   total angle matches `(J/k)·ln(1+k·ω₀/B)` across a **swept** golden (ω₀ and k both
   varied, <1%; mutation-proven).
-- `tests/imxrt1180-asrc` → the ASRC sample-rate converter's data path: a 1:2
-  upsample of a ramp matches the **exact linear-interpolation golden** byte-for-byte
-  (mutation-proven). The conversion is a real resampling, not un-computed data.
+- `tests/imxrt1180-asrc` → the ASRC's polyphase windowed-sinc resampler, against DSP
+  first principles (mutation-proven): **unity DC gain** (constant in → constant out,
+  byte-exact) and **stop-band rejection** (a Nyquist tone down-converted 2:1 is rejected
+  to ~-56 dB, where linear interpolation would alias it to full-scale DC). A real
+  bandlimited resampler, not un-computed data — and not the crude interpolation it
+  replaced.
 - `tests/imxrt1180-motor-sat` → magnetic saturation: the d-axis current-rise
   time-constant *ratio* (small vs large step) matches the saturating-inductance
   **closed form** across a swept `i_sat` golden (linear→1.0, saturating→<1, <1%;
@@ -222,7 +225,7 @@ Two ways the **M7** comes up:
 - `hw/misc/imxrt1180_{anadig,ccm}.c` — clock tree (PLLs incl. AUDIO PLL, roots, gates)
 - `hw/misc/imxrt1180_{pwm,eqdc,adc,motor,xbar}.c` — the motor-control frontier (eFlexPWM, encoder, LPADC, dq PMSM plant, XBAR)
 - `hw/{misc/imxrt1180_sai,audio/wm8962}.c` — SAI + WM8962 codec (audio streaming)
-- `hw/audio/imxrt1180_asrc.c` — ASRC sample-rate converter (m2m data path, real linear-interp resampling)
+- `hw/audio/imxrt1180_asrc.c` — ASRC sample-rate converter (m2m data path, real polyphase windowed-sinc FIR resampling)
 - `hw/timer/imxrt1180_{tmr,lptmr}.c` — QuadTimer + LPTMR
 - `hw/misc/imxrt1180_{rtwdog,s3mu,flexspi,src,trdc}.c` — watchdog, ELE MU, FlexSPI, M7-release, TRDC
 - `hw/misc/imxrt1180_xcache.c` — platform cache controllers (XCACHE_PC/PS): maintenance completion so `fsl_cache` polls retire
@@ -302,12 +305,15 @@ defined there and means *visible to the guest*, never "we wrote a host log".
   > visible rather than quietly deleted.
 - **ASRC** (sample-rate converter): the m2m data path **is modelled**
   (`hw/audio/imxrt1180_asrc.c`) — the `ASRC_TransferBlocking` handshake (INIRQ init
-  poll + ASRDIx→resampler→ASRDOx via ASRSTR AIDEA/AODFA) with a **real
-  linear-interpolation resampler** at the ASRCDR1-decoded ratio, value-proven
-  byte-exact (`tests/imxrt1180-asrc`, mutation-proven). Flagged as linear-interp,
-  not the silicon polyphase FIR. The stock `asrc_m2m_polling` **runs end-to-end**
-  (both SAI playbacks + the 48k→32k convert; scorecard PASS) after the SAI TX FIFO
-  gained an fs-paced drain (below).
+  poll + ASRDIx→resampler→ASRDOx via ASRSTR AIDEA/AODFA) with a **real polyphase
+  windowed-sinc FIR resampler** (a genuine bandlimited anti-imaging/anti-aliasing
+  filter, unity DC gain, cutoff tracking the ratio), at the ratio
+  `(outSrcHz/inSrcHz)·(ASRCDR1 divider ratio)`. Proven against DSP first principles —
+  unity DC gain + Nyquist-tone stop-band rejection (`tests/imxrt1180-asrc`,
+  mutation-proven). **Not** NXP's exact polyphase taps (unpublished, so sample *values*
+  won't bit-match silicon — flagged, not faked); the algorithm *class* is faithful. The
+  stock `asrc_m2m_polling` **runs end-to-end** (both SAI playbacks + the 48k→32k convert;
+  scorecard PASS) after the SAI TX FIFO gained an fs-paced drain (below).
 - **NETC switch (SW0)**: the switch — NTMP tables, source-MAC learning, PTP,
   bidirectional forwarding, **and multi-physical-port routing between external
   wires** (ports 0..3 each on their own netdev; `tests/imxrt1180-netc-portfwd`
@@ -349,12 +355,13 @@ and audio-streaming work above now cover.
    inductance `Ld₀/(1+|id|/i_sat)` → the d-axis current-rise ratio matches the
    saturating closed form across a swept golden, `tests/imxrt1180-motor-sat`). Idle
    is a physically-correct free-wheel (tristated inverter, no braking current).
-   The **ASRC sample-rate-converter data path is also modelled** (m2m linear-interp
-   resampler, value-proven byte-exact — `tests/imxrt1180-asrc`), and the stock
-   `asrc_m2m_polling` example now runs end-to-end (the SAI TX FIFO drains at the
-   codec's real fs, not the 100 Hz audio-callback cadence — see the SAI note below);
-   what remains there is the ASRC's polyphase-FIR fidelity (its true-async *ratio*
-   now resolves the SAI-bit-clock sources — `tests/imxrt1180-asrc-async`).
+   The **ASRC sample-rate-converter data path is also modelled** (m2m **polyphase
+   windowed-sinc FIR** resampler — unity-DC-gain + Nyquist-rejection proven,
+   `tests/imxrt1180-asrc`), and the stock `asrc_m2m_polling` example now runs
+   end-to-end (the SAI TX FIFO drains at the codec's real fs, not the 100 Hz
+   audio-callback cadence — see the SAI note below); its true-async *ratio* resolves the
+   SAI-bit-clock sources (`tests/imxrt1180-asrc-async`). All that remains is NXP's exact
+   FIR taps, which are unpublished (so bit-matching silicon isn't possible).
 3. Value-golden more peripherals **through the real `fsl_*` driver** rather than by
    poking registers — the `netc_switch` bring-up now does this for the switch;
    extend the same rung-3 discipline across the corpus. _(The tracked,
