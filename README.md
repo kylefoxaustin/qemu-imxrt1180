@@ -300,8 +300,14 @@ defined there and means *visible to the guest*, never "we wrote a host log".
   > un-written buffer — firmware would have seeded a crypto stack with un-computed
   > data and believed it succeeded. Fixed 2026-07-12. The false claim is left
   > visible rather than quietly deleted.
-- **ASRC** (sample-rate converter) data path is not modelled (its AUDIO-PLL + codec
-  blockers are now done).
+- **ASRC** (sample-rate converter): the m2m data path **is modelled**
+  (`hw/audio/imxrt1180_asrc.c`) — the `ASRC_TransferBlocking` handshake (INIRQ init
+  poll + ASRDIx→resampler→ASRDOx via ASRSTR AIDEA/AODFA) with a **real
+  linear-interpolation resampler** at the ASRCDR1-decoded ratio, value-proven
+  byte-exact (`tests/imxrt1180-asrc`, mutation-proven). Flagged as linear-interp,
+  not the silicon polyphase FIR. The stock `asrc_m2m_polling` converts 48k→32k
+  correctly but hangs in its **2nd** SAI playback — a separate SAI mid-stream
+  rate-reconfig gap (a QEMU-audio-backend interaction, not ASRC).
 - **NETC switch (SW0)**: the switch — NTMP tables, source-MAC learning, PTP,
   bidirectional forwarding, **and multi-physical-port routing between external
   wires** (ports 0..3 each on their own netdev; `tests/imxrt1180-netc-portfwd`
@@ -342,8 +348,11 @@ and audio-streaming work above now cover.
    golden, `tests/imxrt1180-motor-load`); and **magnetic saturation** (incremental
    inductance `Ld₀/(1+|id|/i_sat)` → the d-axis current-rise ratio matches the
    saturating closed form across a swept golden, `tests/imxrt1180-motor-sat`). Idle
-   is a physically-correct free-wheel (tristated inverter, no braking current). Next
-   on the plant: the ASRC data path.
+   is a physically-correct free-wheel (tristated inverter, no braking current).
+   The **ASRC sample-rate-converter data path is also modelled** (m2m linear-interp
+   resampler, value-proven byte-exact — `tests/imxrt1180-asrc`); what remains there
+   is its polyphase-FIR fidelity + true-async ratio and the SAI mid-stream
+   rate-reconfig gap that blocks the stock `asrc_m2m_polling`'s 2nd playback.
 3. Value-golden more peripherals **through the real `fsl_*` driver** rather than by
    poking registers — the `netc_switch` bring-up now does this for the switch;
    extend the same rung-3 discipline across the corpus. _(The tracked,

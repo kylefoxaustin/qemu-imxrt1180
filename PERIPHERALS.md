@@ -427,12 +427,17 @@ Known gaps (honest — firmware ran and reported these):
   own netdev); the real `netc_switch` SDK example runs end-to-end. NOT yet modelled:
   the per-VLAN mlo learning gate (learning is unconditional). See
   `project-rt1180-netc-switch` and `ref-rt1180-tsn-stack`.
-- **asrc** (assert): the two shared blockers are now DONE — the **Audio PLL** is
-  modelled (`AUDIO_PLL.CTRL0/NUMER/DENOM` compute a real frequency; the CCM row) and
-  the **WM8962 codec** answers I2C, which together already unblocked `sai/edma_transfer`
-  (above). What remains for `asrc` specifically is the **ASRC sample-rate-converter
-  data path** itself (a distinct block, not modelled) — a real data path, not a
-  point fix, so still deferred rather than faked.
+- **asrc** ✅ (m2m data path modelled): the shared blockers were done first — the
+  **Audio PLL** (`AUDIO_PLL.CTRL0/NUMER/DENOM` compute a real frequency; the CCM row)
+  and the **WM8962 codec** (answers I2C) — which unblocked `sai/edma_transfer`. The
+  ASRC block itself is now modelled (`hw/audio/imxrt1180_asrc.c`): the
+  `ASRC_TransferBlocking` handshake (INIRQ init poll + ASRDIx→resampler→ASRDOx via
+  ASRSTR AIDEA/AODFA) with a **real linear-interpolation resampler** at the
+  ASRCDR1-decoded ratio — value-proven byte-exact (`tests/imxrt1180-asrc`,
+  mutation-proven), flagged as linear-interp not the silicon polyphase FIR. The stock
+  `asrc_m2m_polling` converts 48k→32k correctly but hangs in its **2nd** SAI playback
+  — a separate **SAI mid-stream rate-reconfig** gap (the reopened audio voice stops
+  draining the TX FIFO; a QEMU-audio-backend interaction, not ASRC).
 - **cache** (self-test fail — *documented QEMU architectural limitation, WONTFIX*):
   the XCACHE example demonstrates cache *incoherence* — CPU caches a value, eDMA
   overwrites physical RAM behind it, and the test proves the CPU read the stale
