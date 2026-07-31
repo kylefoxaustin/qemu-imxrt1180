@@ -277,12 +277,27 @@ The **ASRC data path is now modelled** (`hw/audio/imxrt1180_asrc.c`): the m2m
 `ASRC_TransferBlocking` handshake (INIRQ init poll + ASRDIx→resampler→ASRDOx via
 ASRSTR AIDEA/AODFA) with a REAL linear-interp resampler at the ASRCDR1-decoded
 ratio — value-proven byte-exact (`tests/imxrt1180-asrc`, 1:2 upsample of a ramp,
-mutation-proven), flagged as linear-interp not the silicon polyphase FIR. The stock
-`asrc_m2m_polling` converts 48k→32k correctly but hangs in its 2nd SAI playback — a
-separate **SAI mid-stream rate-reconfig** gap (confirmed: after `SAI_TxSetBitClockRate`
-reopens the audio output voice at the new rate it stops draining the TX FIFO — TFR
-stuck full, FRF never re-asserts — a QEMU-audio-backend interaction, not fixed by a
-fresh voice, and not ASRC).
+mutation-proven), flagged as linear-interp not the silicon polyphase FIR. **The stock
+`asrc_m2m_polling` now runs end-to-end** (both SAI playbacks + the 48k→32k convert;
+scorecard row PASS).
+
+The earlier "hangs in the 2nd SAI playback — a SAI mid-stream rate-reconfig gap" was
+a **mis-diagnosis**: the real cause was SAI TX *throughput*. The SAI drained its TX
+FIFO only on QEMU's audio-backend SW-voice callback, which fires at the *audiodev
+timer rate* (default 100 Hz), and each call could move only as many words as the FIFO
+holds (≤16). 100 × 16 ≪ fs — a 16-word FIFO cannot bridge a 100 Hz callback to a
+48 kHz stream, so any large *interrupt-driven* transfer crawled (the DMA `edma_transfer`
+demo hid it: its completion is DMA-done, not drain-paced). Fix: a virtual-clock
+**drain_timer** (`hw/misc/imxrt1180_sai.c`) that pulls the FIFO at exactly fs·Δt words
+per tick — the codec's real pull — so the backend's own RateCtl (not the callback
+cadence) governs, and the stream runs at real fs. A **codec-pipeline grace** then holds
+the guest-visible "FIFO empty" (TFR pointers / FWF) for ~50 ms after the last word so
+the backend flushes its own buffered tail to the wav before the guest exits via
+semihosting — without it the fs-paced drain empties the FIFO faster than the backend
+writes and the wav loses ~1 output-chunk off the tail. Both `sai/edma_transfer` and
+the two byte-exact wav gates (`tests/imxrt1180-sai-{dma,audiopll}`) stay green;
+the drain_timer is mutation-proven load-bearing (disarm it → `asrc_m2m_polling`
+hangs again).
 
 **Multi-physical-port switch routing** is now modelled: SW0 wire ports 0..3 each
 carry their own netdev (`NICState *nic[4]` + per-NIC `IMXRT1180NETCPort` opaque so
@@ -300,7 +315,7 @@ faithful either way: a switch on a reflective segment genuinely storms.)
 
 Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is
 `0x88B6` on mcast `230.0.0.9:31337`); the ASRC's polyphase-FIR fidelity +
-true-async ratio + the SAI 2nd-playback gap above.
+true-async ratio.
 
 ## Fleet
 

@@ -305,9 +305,9 @@ defined there and means *visible to the guest*, never "we wrote a host log".
   poll + ASRDIx→resampler→ASRDOx via ASRSTR AIDEA/AODFA) with a **real
   linear-interpolation resampler** at the ASRCDR1-decoded ratio, value-proven
   byte-exact (`tests/imxrt1180-asrc`, mutation-proven). Flagged as linear-interp,
-  not the silicon polyphase FIR. The stock `asrc_m2m_polling` converts 48k→32k
-  correctly but hangs in its **2nd** SAI playback — a separate SAI mid-stream
-  rate-reconfig gap (a QEMU-audio-backend interaction, not ASRC).
+  not the silicon polyphase FIR. The stock `asrc_m2m_polling` **runs end-to-end**
+  (both SAI playbacks + the 48k→32k convert; scorecard PASS) after the SAI TX FIFO
+  gained an fs-paced drain (below).
 - **NETC switch (SW0)**: the switch — NTMP tables, source-MAC learning, PTP,
   bidirectional forwarding, **and multi-physical-port routing between external
   wires** (ports 0..3 each on their own netdev; `tests/imxrt1180-netc-portfwd`
@@ -350,9 +350,10 @@ and audio-streaming work above now cover.
    saturating closed form across a swept golden, `tests/imxrt1180-motor-sat`). Idle
    is a physically-correct free-wheel (tristated inverter, no braking current).
    The **ASRC sample-rate-converter data path is also modelled** (m2m linear-interp
-   resampler, value-proven byte-exact — `tests/imxrt1180-asrc`); what remains there
-   is its polyphase-FIR fidelity + true-async ratio and the SAI mid-stream
-   rate-reconfig gap that blocks the stock `asrc_m2m_polling`'s 2nd playback.
+   resampler, value-proven byte-exact — `tests/imxrt1180-asrc`), and the stock
+   `asrc_m2m_polling` example now runs end-to-end (the SAI TX FIFO drains at the
+   codec's real fs, not the 100 Hz audio-callback cadence — see the SAI note below);
+   what remains there is the ASRC's polyphase-FIR fidelity + true-async ratio.
 3. Value-golden more peripherals **through the real `fsl_*` driver** rather than by
    poking registers — the `netc_switch` bring-up now does this for the switch;
    extend the same rung-3 discipline across the corpus. _(The tracked,

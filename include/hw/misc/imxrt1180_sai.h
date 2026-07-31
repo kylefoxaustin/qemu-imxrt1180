@@ -28,6 +28,7 @@
 
 #include "hw/core/sysbus.h"
 #include "qemu/audio.h"
+#include "qemu/timer.h"
 #include "qom/object.h"
 
 #define TYPE_IMXRT1180_SAI "imxrt1180-sai"
@@ -69,6 +70,26 @@ struct IMXRT1180SAIState {
     AudioBackend *audio_be;
     SWVoiceOut *voice;
     uint32_t voice_hz;      /* the rate the voice is currently open at (0 = closed) */
+
+    /*
+     * The codec pulls samples out of the TX FIFO at the bit clock -- continuously,
+     * at fs -- with no host involvement.  QEMU's audio backend instead notifies a
+     * SW-voice callback at the *audiodev timer* rate (default 100 Hz), and each
+     * call can only move as many words as the FIFO holds (<= 16).  100 x 16 is far
+     * below fs, so a 16-word FIFO cannot bridge a 100 Hz callback to a 48 kHz
+     * stream: an interrupt-driven transfer starves and crawls.  This periodic
+     * virtual-clock timer models the codec's own fs-paced pull -- it drains the
+     * FIFO often enough that the backend's RateCtl (not the callback cadence) is
+     * the governor, so the stream runs at real fs.  Armed while TX is active.
+     */
+    QEMUTimer *drain_timer;
+    int64_t  drain_last_ns;   /* QEMU_CLOCK_VIRTUAL at the last drain tick        */
+    uint64_t drain_acc;       /* fractional words carried, in units of words*1e9  */
+    int64_t  drain_out_ns;    /* virtual time the last word was clocked to the sink;
+                               * the codec-pipeline grace holds "FIFO empty" back
+                               * from the guest for a short window past this, so the
+                               * host audio backend can flush its own buffered tail
+                               * to the wav before the guest exits (see the .c).    */
 };
 
 #endif /* HW_MISC_IMXRT1180_SAI_H */

@@ -207,13 +207,14 @@ static uint32_t imxrt1180_sai_tx_hz(IMXRT1180SAIState *s, uint32_t *nchan,
 static void imxrt1180_sai_update_irq(IMXRT1180SAIState *s);
 
 /*
- * Drain the TX FIFO into the audio backend.  This is the only place samples
+ * Drain up to `budget_bytes` worth of the TX FIFO into the audio backend, and
+ * return the number of WORDS that actually left.  This is the only place samples
  * leave the model, and it is the reason the wav file has anything in it.
  *
  * ⭐ audio_be_write() MAY ACCEPT FEWER BYTES THAN OFFERED, and the number it
- * accepts is NOT bounded by the `free_bytes` the callback was handed -- that is
- * the mixeng buffer's free space, not a promise about the voice's write path.
- * This code used to advance tx_rptr/tx_count for every sample it COPIED and then
+ * accepts is NOT bounded by the `budget_bytes` we were handed -- that is the
+ * mixeng buffer's free space, not a promise about the voice's write path.  This
+ * code used to advance tx_rptr/tx_count for every sample it COPIED and then
  * ignore the return value, so any sample the backend declined was gone from the
  * FIFO forever.  It stayed hidden only because the OLD (wrong) FRF kept the FIFO
  * near-full, so the drain size happened to match what the backend took; once FRF
@@ -221,23 +222,17 @@ static void imxrt1180_sai_update_irq(IMXRT1180SAIState *s);
  * and 456 of 4096 samples vanished -- byte-exactly, every run.
  *
  * So: COMMIT ONLY WHAT WAS ACCEPTED.  A sample the backend did not take stays in
- * the FIFO for the next callback -- which is exactly "the codec has not consumed
- * it yet", the honest model of a full downstream.
+ * the FIFO -- which is exactly "the codec has not consumed it yet", the honest
+ * model of a full downstream (and the backend's own RateCtl paces this to fs).
  */
-static void imxrt1180_sai_audio_cb(void *opaque, int free_bytes)
+static size_t imxrt1180_sai_drain(IMXRT1180SAIState *s, int budget_bytes)
 {
-    IMXRT1180SAIState *s = IMXRT1180_SAI(opaque);
-    uint32_t tcsr = s->regs[SAI_TCSR >> 2];
     int16_t buf[IMXRT1180_SAI_FIFO_MAX];
-    size_t n = 0;
+    size_t n = 0, accepted = 0;
 
-    if (!(tcsr & CSR_TE)) {
-        return;
-    }
-
-    /* PEEK up to a callback's worth -- do NOT advance the read pointer yet. */
-    while (n < ARRAY_SIZE(buf) && (int)((n + 1) * sizeof(int16_t)) <= free_bytes &&
-           n < s->tx_count) {
+    /* PEEK up to the budget -- do NOT advance the read pointer yet. */
+    while (n < ARRAY_SIZE(buf) &&
+           (int)((n + 1) * sizeof(int16_t)) <= budget_bytes && n < s->tx_count) {
         /*
          * A 32-bit FIFO word carries one word of audio.  For the 16-bit case the
          * SDK writes the sample right-justified, so the low half IS the sample.
@@ -249,26 +244,92 @@ static void imxrt1180_sai_audio_cb(void *opaque, int free_bytes)
 
     if (n) {
         int wrote = audio_be_write(s->audio_be, s->voice, buf, n * sizeof(int16_t));
-        size_t accepted = (wrote > 0) ? (size_t)wrote / sizeof(int16_t) : 0;
-
-        /* COMMIT only the samples the backend actually took. */
+        accepted = (wrote > 0) ? (size_t)wrote / sizeof(int16_t) : 0;
         s->tx_rptr = (s->tx_rptr + accepted) % IMXRT1180_SAI_FIFO_MAX;
         s->tx_count -= accepted;
-    } else if (free_bytes > 0) {
-        /*
-         * The transmitter is enabled, the codec wants a sample, and the FIFO is
-         * empty.  That is an UNDERRUN, and it is exactly what the guest's FEF flag
-         * exists to say.  Tell the guest -- do not paper over it with silence.
-         */
-        s->regs[SAI_TCSR >> 2] |= CSR_FEF;
+    }
+    return accepted;
+}
+
+/*
+ * The audio backend's SW-voice callback fires at the audiodev timer rate when the
+ * mixeng has free space.  The FIFO drain is owned by the fs-paced drain_timer
+ * below (the codec's real pull), NOT by this callback -- draining here too would
+ * empty the FIFO faster than fs, spuriously tripping FEF and letting the guest
+ * outrun the backend's wall-clock pacing (truncating a wav).  So this is a no-op;
+ * audio_be_write() from the timer feeds the backend directly.
+ */
+static void imxrt1180_sai_audio_cb(void *opaque, int free_bytes)
+{
+    (void)opaque;
+    (void)free_bytes;
+}
+
+/*
+ * The codec's own fs-paced pull (see the drain_timer comment in the header).  We
+ * fire every SAI_DRAIN_TICK_NS of virtual time and drain EXACTLY the number of
+ * words the bit clock would have clocked out since the last tick (fs * elapsed,
+ * with the sub-word remainder carried in drain_acc).  Pacing the FIFO to fs -- not
+ * to "as fast as the backend accepts" -- is what keeps the guest at real fs: fast
+ * enough that the 100 Hz callback no longer throttles it, but never faster than
+ * the codec, so the wav stays byte-exact.  (Underrun->FEF is not modelled here: a
+ * paced drain can't cleanly tell genuine starvation from a clean end-of-stream,
+ * and the old callback's empty-check FEF was spurious; overrun->FEF, a write to a
+ * full FIFO, is unaffected and still fires in the TDR write path.)
+ */
+#define SAI_DRAIN_TICK_NS 200000   /* 200 us; fs*200us ~= 9.6 words at 48 kHz */
+
+static void imxrt1180_sai_drain_tick(void *opaque)
+{
+    IMXRT1180SAIState *s = IMXRT1180_SAI(opaque);
+    int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+    uint32_t fs = s->voice_hz;
+    uint64_t want;
+
+    if (!(s->regs[SAI_TCSR >> 2] & CSR_TE) || !s->voice || fs == 0) {
+        return;                 /* disarmed: tx_update re-arms when TX resumes */
     }
 
-    /*
-     * The FIFO just drained: FRF/FWF and the TX DMA request must be re-evaluated
-     * so a DMA-driven stream re-arms and refills.  Without this the level-held
-     * request line, having fallen when the FIFO filled, would never rise again.
-     */
-    imxrt1180_sai_update_irq(s);
+    /* Words the codec would have consumed since the last tick, fs-paced. */
+    s->drain_acc += (uint64_t)(now - s->drain_last_ns) * fs;
+    want = s->drain_acc / NANOSECONDS_PER_SECOND;
+    s->drain_acc -= want * NANOSECONDS_PER_SECOND;
+    s->drain_last_ns = now;
+
+    if (want) {
+        if (imxrt1180_sai_drain(s, (int)(want * sizeof(int16_t))) > 0) {
+            s->drain_out_ns = now;   /* a word just clocked toward the sink */
+        }
+        imxrt1180_sai_update_irq(s);
+    }
+    timer_mod(s->drain_timer, now + SAI_DRAIN_TICK_NS);
+}
+
+/*
+ * CODEC-PIPELINE GRACE.  When the FIFO SRAM has just emptied, the last words have
+ * left the FIFO but the host audio backend still holds them in its own output
+ * buffer, which it flushes to the wav on its ~100 Hz timer.  A guest that polls
+ * TFR for "FIFO empty" and then exits via semihosting would terminate QEMU before
+ * that flush ran -- losing up to one backend chunk off the tail of the file (the
+ * FIFO-empty test firmware waits for exactly this, and it was byte-exact until the
+ * fs-paced drain made the FIFO empty faster than the backend writes).
+ *
+ * On silicon the serializer clocks the tail out in well under a sample period and
+ * "FIFO empty" genuinely means "the codec got everything"; the backend's chunked
+ * output is a host artifact.  So for a short window after the last word is clocked
+ * we report the FIFO as NOT-yet-empty, which keeps the guest's drain-wait spinning
+ * (advancing wall time) just long enough for the backend to write the tail.
+ */
+#define SAI_DRAIN_GRACE_NS 50000000   /* 50 ms: several backend flush ticks */
+
+static bool imxrt1180_sai_tx_draining(IMXRT1180SAIState *s)
+{
+    if (!(s->regs[SAI_TCSR >> 2] & CSR_TE) || !s->voice || s->voice_hz == 0 ||
+        s->tx_count != 0 || s->drain_out_ns == 0) {
+        return false;
+    }
+    return qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) - s->drain_out_ns
+           < SAI_DRAIN_GRACE_NS;
 }
 
 /* (Re)open the audio voice whenever the rate the guest programmed changes. */
@@ -310,6 +371,23 @@ static void imxrt1180_sai_tx_update(IMXRT1180SAIState *s)
 
     if (s->voice) {
         audio_be_set_active_out(s->audio_be, s->voice, enabled && hz);
+    }
+
+    /*
+     * Arm the fs-paced drain while TX is actively rendering; disarm otherwise so
+     * an idle SAI costs nothing.  Only (re)seed the pacing clock when arming from
+     * idle -- if the timer is already pending, leave drain_last_ns/drain_acc alone
+     * so an unrelated register poke does not reset the fs accounting mid-stream.
+     */
+    if (enabled && hz && s->voice) {
+        int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+        if (!timer_pending(s->drain_timer)) {
+            s->drain_last_ns = now;
+            s->drain_acc = 0;
+        }
+        timer_mod(s->drain_timer, now + SAI_DRAIN_TICK_NS);
+    } else {
+        timer_del(s->drain_timer);
     }
 }
 
@@ -391,7 +469,9 @@ static uint64_t imxrt1180_sai_read(void *opaque, hwaddr off, unsigned size)
             if (s->tx_count <= watermark) {
                 v |= CSR_FRF;
             }
-            if (s->tx_count == 0) {
+            /* FWF = FIFO empty -- but hold it back during the codec-pipeline grace
+             * so a driver polling FWF for "drain done" waits for the real flush. */
+            if (s->tx_count == 0 && !imxrt1180_sai_tx_draining(s)) {
                 v |= CSR_FWF;
             }
         }
@@ -401,11 +481,18 @@ static uint64_t imxrt1180_sai_read(void *opaque, hwaddr off, unsigned size)
         v &= ~(CSR_FRF | CSR_FWF | CSR_FEF);
         return v;
     case SAI_TFR0:
-    case SAI_TFR0 + 4:
+    case SAI_TFR0 + 4: {
         /* REAL pointers now. They used to both read 0 -- "FIFO always empty" --
          * which told a driver it could push forever. */
-        return ((s->tx_rptr & 0x3Fu) << TFR_RFP_SHIFT) |
-               ((s->tx_wptr & 0x3Fu) << TFR_WFP_SHIFT);
+        uint32_t rfp = s->tx_rptr & 0x3Fu;
+        /* During the codec-pipeline grace the SRAM is empty (rptr == wptr) but the
+         * tail is still being flushed downstream; report rptr != wptr so a driver
+         * waiting on "rptr == wptr" keeps spinning until the flush completes. */
+        if (imxrt1180_sai_tx_draining(s)) {
+            rfp = (s->tx_wptr + IMXRT1180_SAI_FIFO_MAX - 1u) & 0x3Fu;
+        }
+        return (rfp << TFR_RFP_SHIFT) | ((s->tx_wptr & 0x3Fu) << TFR_WFP_SHIFT);
+    }
     case SAI_RFR0:
     case SAI_RFR0 + 4:
         return 0;   /* RX FIFO empty (RX path not modelled) */
@@ -515,7 +602,13 @@ static void imxrt1180_sai_reset(DeviceState *dev)
     memset(s->regs, 0, sizeof(s->regs));
     s->tx_count = s->tx_rptr = s->tx_wptr = 0;
     s->voice_hz = 0;
+    s->drain_last_ns = 0;
+    s->drain_acc = 0;
+    s->drain_out_ns = 0;
     qemu_set_irq(s->dma_tx_req, false);
+    if (s->drain_timer) {
+        timer_del(s->drain_timer);
+    }
     if (s->audio_be && s->voice) {
         audio_be_set_active_out(s->audio_be, s->voice, false);
     }
@@ -554,6 +647,10 @@ static void imxrt1180_sai_realize(DeviceState *dev, Error **errp)
     if (!audio_be_check(&s->audio_be, NULL)) {
         s->audio_be = NULL;
     }
+
+    /* The codec's fs-paced FIFO pull; armed by tx_update while TX is active. */
+    s->drain_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL,
+                                  imxrt1180_sai_drain_tick, s);
 }
 
 static const Property imxrt1180_sai_props[] = {
