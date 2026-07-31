@@ -6,7 +6,9 @@
 #include "qemu/osdep.h"
 #include "qemu/log.h"
 #include "hw/core/irq.h"
+#include "hw/core/qdev-properties.h"
 #include "hw/audio/imxrt1180_asrc.h"
+#include "hw/misc/imxrt1180_sai.h"
 #include "migration/vmstate.h"
 #include <math.h>
 
@@ -43,9 +45,38 @@ static inline uint32_t fifo_fill(uint32_t head, uint32_t tail)
     return (tail - head) & (IMXRT1180_ASRC_FIFO - 1);
 }
 
-/* Decode pair A's in:out sample-rate ratio (out per in) from ASRCDR1.  The
- * source clock cancels when in and out share it (the m2m example) -- exact
- * there, a first approximation for true-async sources (flagged). */
+/*
+ * Resolve an ASRCSR clock-source select (kASRC_ClockSource* value) to its actual
+ * frequency in Hz, or 0 if this model cannot (RX bit clocks, SPDIF, the SAIx clock
+ * ROOTs, MIC/MQS -- none of whose live rate we model).  Only the SAIn TX bit clocks
+ * (selects 0/2/4/6) are resolvable, via the linked SAI devices.  0 is honest: the
+ * caller must fall back, not fabricate a frequency.
+ */
+static uint32_t asrc_src_hz(IMXRT1180ASRCState *s, uint32_t sel)
+{
+    /* kASRC_ClockSourceBitClock{0,2,4,6}_SAI{1,2,3,4}_TX = 0,2,4,6. */
+    if (sel <= 6 && (sel & 1u) == 0) {
+        DeviceState *sai = s->sai[sel / 2];
+        return sai ? imxrt1180_sai_tx_bclk_hz(sai) : 0;
+    }
+    return 0;   /* RX / SPDIF / clock-root / MIC / MQS: not modelled */
+}
+
+/*
+ * Decode pair A's in:out sample-rate ratio (output frames per input frame).
+ *
+ *   in_rate  = inSrcHz  / (in_div  * 2^in_presc)
+ *   out_rate = outSrcHz / (out_div * 2^out_presc)
+ *   ratio    = out_rate/in_rate = (outSrcHz/inSrcHz) * in_period/out_period
+ *
+ * The ASRCDR dividers give in_period/out_period.  The (outSrcHz/inSrcHz) factor is
+ * 1 when input and output share ONE clock source -- exactly true for every m2m
+ * example (ASRCSR AICSA == AOCSA), so the sources cancel with no need to know their
+ * frequency.  For a TRUE-ASYNC conversion (different sources) the factor is real
+ * and this resolves it from the two SAI TX bit clocks.  If a differing source is
+ * one we cannot resolve, we flag it and fall back to the divider ratio rather than
+ * invent a frequency.
+ */
 static double pair_ratio_out_per_in(IMXRT1180ASRCState *s)
 {
     uint32_t dr = s->regs[ASRCDR1 / 4];
@@ -55,10 +86,27 @@ static double pair_ratio_out_per_in(IMXRT1180ASRCState *s)
     uint32_t out_div   = ((dr >> 15) & 0x7) + 1;
     double in_period  = (double)in_div  * (double)(1u << in_presc);
     double out_period = (double)out_div * (double)(1u << out_presc);
+    double src_factor = 1.0;
+    uint32_t sr = s->regs[ASRCSR / 4];
+    uint32_t in_sel  =  sr        & 0xF;   /* ASRCSR.AICSA */
+    uint32_t out_sel = (sr >> 12) & 0xF;   /* ASRCSR.AOCSA */
+
     if (out_period <= 0) {
         return 1.0;
     }
-    return in_period / out_period;         /* out_rate/in_rate = in_per/out_per */
+    if (in_sel != out_sel) {
+        uint32_t in_hz = asrc_src_hz(s, in_sel), out_hz = asrc_src_hz(s, out_sel);
+        if (in_hz && out_hz) {
+            src_factor = (double)out_hz / (double)in_hz;   /* true-async factor */
+        } else {
+            qemu_log_mask(LOG_UNIMP, "imxrt1180-asrc: async clock sources in=%u "
+                          "out=%u -- only SAIn TX bit clocks are resolvable, so the "
+                          "in:out frequency factor is not modelled here; using the "
+                          "ASRCDR divider ratio alone (in_hz=%u out_hz=%u)\n",
+                          in_sel, out_sel, in_hz, out_hz);
+        }
+    }
+    return src_factor * in_period / out_period;
 }
 
 /* Run the streaming linear-interpolation resampler for pair `p` after an input
@@ -249,12 +297,26 @@ static const VMStateDescription vmstate_asrc = {
     },
 };
 
+/* SAIn TX bit clocks are selectable ASRC clock sources (ASRCSR); the SoC wires
+ * these so a true-async conversion can resolve both sources' frequencies. */
+static const Property asrc_props[] = {
+    DEFINE_PROP_LINK("sai1", IMXRT1180ASRCState, sai[0], TYPE_IMXRT1180_SAI,
+                     DeviceState *),
+    DEFINE_PROP_LINK("sai2", IMXRT1180ASRCState, sai[1], TYPE_IMXRT1180_SAI,
+                     DeviceState *),
+    DEFINE_PROP_LINK("sai3", IMXRT1180ASRCState, sai[2], TYPE_IMXRT1180_SAI,
+                     DeviceState *),
+    DEFINE_PROP_LINK("sai4", IMXRT1180ASRCState, sai[3], TYPE_IMXRT1180_SAI,
+                     DeviceState *),
+};
+
 static void asrc_class_init(ObjectClass *k, const void *d)
 {
     DeviceClass *dc = DEVICE_CLASS(k);
     dc->realize = asrc_realize;
     device_class_set_legacy_reset(dc, asrc_reset);
     dc->vmsd = &vmstate_asrc;
+    device_class_set_props(dc, asrc_props);
 }
 
 static const TypeInfo asrc_types[] = {{

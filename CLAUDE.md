@@ -273,7 +273,18 @@ counter. Rung-3 validation of NTMP/FDB+search/VLAN/port/management/MSI-X/statist
 against the real driver. See [[project-rt1180-netc-switch]] for the driver anchors,
 the compiler-verified BD/table byte offsets, and the OCRAM DMA gotcha.
 
-The **ASRC data path is now modelled** (`hw/audio/imxrt1180_asrc.c`): the m2m
+The **ASRC ratio now models true-async sources** (`hw/audio/imxrt1180_asrc.c`): the
+output-per-input ratio is `(outSrcHz/inSrcHz)·(in_period/out_period)`, where the
+divider ratio comes from ASRCDR1 and the source factor from the two ASRCSR-selected
+clock sources. When input and output share one source (every m2m example, AICSA==AOCSA)
+the factor is exactly 1; when they differ (input clocked by one SAI, output by another)
+the model resolves each SAIn TX bit clock (via a link to the SAI's
+`imxrt1180_sai_tx_bclk_hz`) and applies the real factor — value+mutation-proven by
+`tests/imxrt1180-asrc-async` (a 1:2 upsample driven PURELY by SAI2/SAI1 bit clocks with
+equal dividers; force the factor to 1 and it fails). Unresolvable sources (RX bit
+clocks, SPDIF, the SAI clock roots, MIC/MQS) are flagged, not fabricated.
+
+The **ASRC data path is modelled** (`hw/audio/imxrt1180_asrc.c`): the m2m
 `ASRC_TransferBlocking` handshake (INIRQ init poll + ASRDIx→resampler→ASRDOx via
 ASRSTR AIDEA/AODFA) with a REAL linear-interp resampler at the ASRCDR1-decoded
 ratio — value-proven byte-exact (`tests/imxrt1180-asrc`, 1:2 upsample of a ramp,
@@ -314,8 +325,8 @@ under test; point-to-point never loops QEMU's egress back in. (The model is
 faithful either way: a switch on a reflective segment genuinely storms.)
 
 Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is
-`0x88B6` on mcast `230.0.0.9:31337`); the ASRC's polyphase-FIR fidelity +
-true-async ratio.
+`0x88B6` on mcast `230.0.0.9:31337`); the ASRC's polyphase-FIR fidelity (its
+true-async *ratio* now resolves SAI-bit-clock sources — done).
 
 ## Fleet
 

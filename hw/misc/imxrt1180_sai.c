@@ -204,6 +204,30 @@ static uint32_t imxrt1180_sai_tx_hz(IMXRT1180SAIState *s, uint32_t *nchan,
     return bclk / (words * bits);
 }
 
+/*
+ * PUBLIC: the TX bit-clock frequency (Hz) this SAI drives -- MCLK/(2*(DIV+1)) --
+ * or 0 if it is a bit-clock SLAVE (BCD=0) or has no MCLK.  The ASRC can select a
+ * SAI's TX bit clock as its input/output sample-rate-conversion reference, and
+ * for a TRUE-ASYNC conversion (input on one SAI, output on another) it needs the
+ * two sources' actual frequencies -- not just the divider ratio.  0 means "not a
+ * resolvable master clock", and the caller must NOT fabricate one.
+ */
+uint32_t imxrt1180_sai_tx_bclk_hz(DeviceState *dev)
+{
+    IMXRT1180SAIState *s = IMXRT1180_SAI(dev);
+    uint32_t tcr2 = s->regs[SAI_TCR2 >> 2];
+    uint32_t mclk;
+
+    if (!TCR2_BCD(tcr2)) {
+        return 0;                 /* slave: the divider drives nothing -- see tx_hz */
+    }
+    mclk = imxrt1180_ccm_periph_hz(s->ccm, s->clk_root, "imxrt1180-sai");
+    if (!mclk) {
+        return 0;
+    }
+    return mclk / (2u * (TCR2_DIV(tcr2) + 1u));
+}
+
 static void imxrt1180_sai_update_irq(IMXRT1180SAIState *s);
 
 /*

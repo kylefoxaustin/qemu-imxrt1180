@@ -1242,6 +1242,14 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     {
         DeviceState *a = qdev_new(TYPE_IMXRT1180_ASRC);
         object_property_add_child(OBJECT(s), "asrc", OBJECT(a));
+        /* SAI1..4 TX bit clocks are selectable ASRC clock sources; wire them so a
+         * true-async conversion (input/output on different SAIs) resolves both
+         * source frequencies rather than only the ASRCDR divider ratio. */
+        for (int i = 0; i < IMXRT1180_ASRC_N_SAI && i < IMXRT1180_NUM_SAI; i++) {
+            g_autofree char *ln = g_strdup_printf("sai%d", i + 1);
+            object_property_set_link(OBJECT(a), ln, OBJECT(&s->sai[i]),
+                                     &error_abort);
+        }
         sysbus_realize_and_unref(SYS_BUS_DEVICE(a), &error_fatal);
         sysbus_mmio_map(SYS_BUS_DEVICE(a), 0, 0x429A0000);
         sysbus_connect_irq(SYS_BUS_DEVICE(a), 0,

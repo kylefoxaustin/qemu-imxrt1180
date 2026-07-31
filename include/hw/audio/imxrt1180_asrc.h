@@ -27,6 +27,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180ASRCState, IMXRT1180_ASRC)
 #define IMXRT1180_ASRC_NUM_REGS  (IMXRT1180_ASRC_SIZE / 4)
 #define IMXRT1180_ASRC_PAIRS     3          /* A, B, C */
 #define IMXRT1180_ASRC_FIFO      256        /* model FIFO depth (samples/pair) */
+#define IMXRT1180_ASRC_N_SAI     4          /* SAI1..4, selectable clock sources */
 
 typedef struct {
     /* Streaming linear-interpolation resampler state, one per channel pair. */
@@ -50,6 +51,14 @@ struct IMXRT1180ASRCState {
     qemu_irq irq;
     uint32_t regs[IMXRT1180_ASRC_NUM_REGS];
     IMXRT1180ASRCPair pair[IMXRT1180_ASRC_PAIRS];
+
+    /*
+     * Links to SAI1..4, whose TX bit clocks are selectable ASRC clock sources
+     * (ASRCSR AICSx/AOCSx).  A true-async conversion (input clocked by one SAI,
+     * output by another) needs both sources' real frequencies, not just the
+     * ASRCDR divider ratio; these let the model resolve them.  NULL = unwired.
+     */
+    DeviceState *sai[IMXRT1180_ASRC_N_SAI];
 };
 
 #endif /* HW_AUDIO_IMXRT1180_ASRC_H */

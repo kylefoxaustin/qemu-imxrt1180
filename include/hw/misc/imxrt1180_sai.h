@@ -92,4 +92,11 @@ struct IMXRT1180SAIState {
                                * to the wav before the guest exits (see the .c).    */
 };
 
+/*
+ * The TX bit-clock frequency (Hz) this SAI drives as a master (MCLK/(2*(DIV+1))),
+ * or 0 if it is a slave / has no MCLK.  Exposed for the ASRC, which may use a
+ * SAI's TX bit clock as its sample-rate-conversion reference.
+ */
+uint32_t imxrt1180_sai_tx_bclk_hz(DeviceState *dev);
+
 #endif /* HW_MISC_IMXRT1180_SAI_H */

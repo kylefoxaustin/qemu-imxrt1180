@@ -353,7 +353,8 @@ and audio-streaming work above now cover.
    resampler, value-proven byte-exact — `tests/imxrt1180-asrc`), and the stock
    `asrc_m2m_polling` example now runs end-to-end (the SAI TX FIFO drains at the
    codec's real fs, not the 100 Hz audio-callback cadence — see the SAI note below);
-   what remains there is the ASRC's polyphase-FIR fidelity + true-async ratio.
+   what remains there is the ASRC's polyphase-FIR fidelity (its true-async *ratio*
+   now resolves the SAI-bit-clock sources — `tests/imxrt1180-asrc-async`).
 3. Value-golden more peripherals **through the real `fsl_*` driver** rather than by
    poking registers — the `netc_switch` bring-up now does this for the switch;
    extend the same rung-3 discipline across the corpus. _(The tracked,
