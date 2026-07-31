@@ -6,9 +6,13 @@ QEMU  ?= ../../build/qemu-system-arm
 all: sai.elf
 sai.elf: sai.c sai.ld
 	$(CC) $(CF) -T sai.ld sai.c -o $@
+# The firmware demands the harness ARM its rate selector (0x20001000) and then
+# renders the verdict from OUTSIDE the guest (the wav), so the real test is
+# check.py -- exactly as the sibling sai-audiopll / sai-dma tests run.  Launching
+# the ELF bare (no -device loader) makes the firmware correctly FAIL "rate selector
+# never armed": a diagnostic, not the test.  `run` must run the test.
 run: all
-	$(QEMU) -M mimxrt1180-evk -audio none -display none -monitor none -kernel sai.elf \
-	  -serial null -semihosting-config enable=on,target=native
+	python3 check.py
 clean:
 	rm -f sai.elf
 .PHONY: all run clean
