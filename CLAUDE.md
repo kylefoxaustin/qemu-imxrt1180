@@ -339,10 +339,20 @@ group re-ingests its own flood and storms — a *real* loop, but not the topolog
 under test; point-to-point never loops QEMU's egress back in. (The model is
 faithful either way: a switch on a reflective segment genuinely storms.)
 
-Open: the 3-node raw-L2 segment with mcxn947qemu + 95emulator (our node is
-`0x88B6` on mcast `230.0.0.9:31337`). (The ASRC's resampler is now a bandlimited
-polyphase windowed-sinc FIR and its true-async ratio resolves SAI-bit-clock sources —
-both done; only NXP's exact FIR taps remain unmodelled, and those are unpublished.)
+The **3-node cross-silicon raw-L2 segment is CLOSED both ways** (2026-08-02). Shared
+hub AND switched fabric: RT1180 (`0x88B6`) ran live as the L2 **switch fabric**
+(`tools/netc-switch-fabric.sh --host`) between three other silicon's MACs — mcx
+`0x88B5`, imx95 `0x88B7`, 91 `0x88B8`, each on its own p2p wire port — and every
+endpoint body-VERIFIED both others through our learn/flood/forward (2/2 all round, 0
+CORRUPT, 0 replay). Four silicon models on one switched segment. Along the way our
+byte-exact v2-beacon-body spec fixed mcx's presence-only gap, and the reboot-vs-replay
+per-boot-nonce contract was proven live across three impls. See [[project-rt1180-3node-lab]].
+
+Open: the scorecard's live gap list — **MCMGR core1 image-info** (`multicore_trigger`,
+dual-core, the most tractable), the **ELE FW-load** handshake (`ele_crypto_hsm`), and
+roadmap #3 (value-golden more peripherals through the real `fsl_*` drivers). The
+ASRC resampler is a bandlimited polyphase windowed-sinc FIR and its true-async ratio
+resolves SAI-bit-clock sources — both done; only NXP's unpublished FIR taps remain.
 
 ## Fleet
 
