@@ -130,10 +130,13 @@ Each in-model piece is pinned by a mutation-proven bare-metal test
 (`tests/imxrt1180-netc-{fdb,fwd,rxfwd,ptp}`). **Multi-physical-port routing between
 external wires is now modelled**: SW0 wire ports 0..3 each carry their own netdev,
 and a frame ingressing one physical wire is switched out the wire(s) its FDB entry
-resolves to (`tests/imxrt1180-netc-portfwd` proves wire→wire byte-exact,
-mutation-proven). Port 0 is the default `-nic`; ports 1..3 attach via
-`-netdev socket,...,id=netc-portN`. **Gap:** the per-VLAN MAC-learning-options are
-not yet modelled.
+resolves to (`tests/imxrt1180-netc-portfwd` proves wire→wire byte-exact) — including
+**broadcast flooding** across ports (`tests/imxrt1180-netc-flood`: a broadcast on
+wire port 1 floods out both port 0 and port 2, split-horizon keeping it off the
+ingress wire), the mechanism for RT1180 acting as the L2 switch fabric of a
+cross-silicon segment. Both mutation-proven. Port 0 is the default `-nic`; ports 1..3
+attach via `-netdev socket,...,id=netc-portN`. **Gap:** the per-VLAN
+MAC-learning-options are not yet modelled.
 
 ## Interconnect (board-to-board) ✅
 

@@ -327,7 +327,12 @@ wire is switched out the wire(s) its FDB entry resolves to — split-horizon dro
 the ingress port. Port 0 stays the default `-nic`/`-netdev` (every single-port
 setup unchanged); ports 1..3 attach via `-netdev socket,...,id=netc-portN`. Proven
 wire→wire byte-exact by `tests/imxrt1180-netc-portfwd` (a frame injected on wire
-port 1 is observed, unchanged, on wire port 2; mutation-proven). **The test links
+port 1 is observed, unchanged, on wire port 2; mutation-proven) — and the
+**broadcast-flood** path by `tests/imxrt1180-netc-flood` (a broadcast on wire port 1
+is flooded out BOTH port 0 and port 2, split-horizon keeping it off the ingress
+wire; mutation-proven). That flood is the data-plane mechanism a cross-silicon
+*switched* segment needs — RT1180 as the L2 fabric between two other silicon's MACs,
+each on its own wire port, rather than all nodes on one shared hub. **The tests link
 each wire point-to-point (`socket,udp=`), NOT shared-mcast**: QEMU hardcodes
 `IP_MULTICAST_LOOP=1` (`net/socket.c`), so a switch flooding onto a shared mcast
 group re-ingests its own flood and storms — a *real* loop, but not the topology
