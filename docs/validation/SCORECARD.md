@@ -51,16 +51,17 @@
 | B | `driver_examples/asrc/asrc_m2m_polling` | cm33 | **PASS** | "ASRC m2m polling example finished" |
 | B | `motor_control/pmsm/mc_pmsm/pmsm_enc` | cm7 | **VALUE-PROVEN** | proof: closed-loop FOC spin (no console success string), pinned by tests/imxrt1180-cm7boot + adc-fifo-align (needs -icount) |
 | B | `multicore_examples/multicore_manager/primary` | cm33 | **PASS** | "The secondary core application has been started." |
+| B | `multicore_examples/rpmsg_lite_pingpong/primary` | cm33 | **PASS** | "Message: Size=4, DATA = 101" |
 
 ## Tally (MEASURED — classes are NOT summed into a single headline)
 
 | class | count |
 |---|---|
-| PASS (ran to success) | 16 |
+| PASS (ran to success) | 17 |
 | BANNER (reached app, blocked on external host) | 5 |
 | XFAIL (documented gap) | 3 |
 | VALUE-PROVEN (pinned by a value-test) | 2 |
 | XBUILD (SDK build gap) | 2 |
 
-Coverage gate: Tier A 8/8, Tier B 20/20.
+Coverage gate: Tier A 8/8, Tier B 21/21.
 **Gate: PASS.**
