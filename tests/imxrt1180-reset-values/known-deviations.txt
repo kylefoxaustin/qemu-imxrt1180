@@ -51,7 +51,6 @@ BLK_CTRL_S_AONMIX          EDGELOCK_RESET_REQ_MASK # block not modelled; the cat
 BLK_CTRL_S_AONMIX          IOMUXC_AON_DOMAIN_CFG  # block not modelled; the catch-all answers 0
 BLK_CTRL_S_AONMIX          IOMUXC_DOMAIN_CFG      # block not modelled; the catch-all answers 0
 BLK_CTRL_S_AONMIX          M33_CFG                # block not modelled; the catch-all answers 0
-BLK_CTRL_S_AONMIX          M7_CFG                 # block not modelled; the catch-all answers 0
 BLK_CTRL_WAKEUPMIX         AXI_ATTR_CFG           # block not modelled; the catch-all answers 0
 BLK_CTRL_WAKEUPMIX         ECAT_MISC_CFG          # block not modelled; the catch-all answers 0
 BLK_CTRL_WAKEUPMIX         EMC_B1_IO_CTRL         # block not modelled; the catch-all answers 0

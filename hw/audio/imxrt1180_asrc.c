@@ -228,6 +228,18 @@ static uint64_t asrc_read(void *opaque, hwaddr off, unsigned size)
     switch (off) {
     case ASRSTR: {
         uint32_t v = 0;
+        /*
+         * AIDEA (input has room) / AODFA (output ready) describe a RUNNING
+         * converter's FIFOs.  While the module is disabled they are meaningless,
+         * and the RM's ASRSTR reset value is 0x0 -- but an empty input FIFO reads
+         * as "has room", so reporting them unconditionally makes a freshly-reset
+         * ASRC (ASRCEN=0) hand the guest 0x7, a value the silicon never produces.
+         * Gate on ASRCEN: the fsl_asrc driver enables the module before it ever
+         * polls ASRSTR, so this is invisible to it and correct at reset.
+         */
+        if (!(s->regs[ASRCTR / 4] & ASRCTR_ASRCEN)) {
+            return 0;
+        }
         for (unsigned p = 0; p < IMXRT1180_ASRC_PAIRS; p++) {
             IMXRT1180ASRCPair *pr = &s->pair[p];
             uint32_t owm = (s->regs[ASRMCRA / 4] >> ASRMCR_OUTFIFO_SHIFT)
