@@ -51,20 +51,22 @@ WIRING=(
   -nic    "socket,udp=127.0.0.1:45001,localaddr=127.0.0.1:45002"
   -netdev "socket,udp=127.0.0.1:45011,localaddr=127.0.0.1:45012,id=netc-port1"
   -netdev "socket,udp=127.0.0.1:45021,localaddr=127.0.0.1:45022,id=netc-port2"
+  -netdev "socket,udp=127.0.0.1:45031,localaddr=127.0.0.1:45032,id=netc-port3"
 )
 
 if [ "$MODE" = "--host" ]; then
     echo ">> RT1180 switch fabric UP. Wire ports (peers attach with the MIRROR udp/localaddr):"
     echo "   port 1 (mcx  0x88B5): peer -netdev socket,udp=127.0.0.1:45012,localaddr=127.0.0.1:45011,id=<id>"
     echo "   port 2 (imx95 0x88B7): peer -netdev socket,udp=127.0.0.1:45022,localaddr=127.0.0.1:45021,id=<id>"
+    echo "   port 3 (imx93 0x88B9): peer -netdev socket,udp=127.0.0.1:45032,localaddr=127.0.0.1:45031,id=<id>"
     echo "   port 0 (spare 0x88B8): peer -nic    socket,udp=127.0.0.1:45002,localaddr=127.0.0.1:45001"
     echo ">> Ctrl-C to stop."
     exec "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none \
         -kernel "$FW" -semihosting-config enable=on,target=native "${WIRING[@]}" -serial stdio
 fi
 
-# ---- self-test: our switch floods from EVERY wire port to the other two ------------
-echo ">> self-test: RT1180 switch floods a beacon from each of ports 0/1/2 to the other two"
+# ---- self-test: our switch floods from EVERY wire port to the others ---------------
+echo ">> self-test: RT1180 switch floods a beacon from each of ports 0/1/2/3 to the others"
 "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none \
     -kernel "$FW" -semihosting-config enable=on,target=native "${WIRING[@]}" \
     -serial null </dev/null >/tmp/fabric.qemu 2>&1 &
@@ -75,9 +77,9 @@ python3 - <<'PY'
 import socket, struct, sys, time
 HOST="127.0.0.1"
 # (our-localaddr Q, our-send-dest PY) per wire port -- we bind PY and send to Q.
-PORTS = {0:(45001,45002), 1:(45011,45012), 2:(45021,45022)}
+PORTS = {0:(45001,45002), 1:(45011,45012), 2:(45021,45022), 3:(45031,45032)}
 SRC   = {0:bytes.fromhex("020000000000"), 1:bytes.fromhex("02000000000b"),
-         2:bytes.fromhex("020000000007")}
+         2:bytes.fromhex("020000000007"), 3:bytes.fromhex("020000000093")}
 BCAST=b"\xff"*6; ET=0x88C2; BODY=b"FABRIC-FLOOD"
 def frame(src): return BCAST+src+struct.pack(">H",ET)+BODY
 sk={}
@@ -93,9 +95,10 @@ def drain(p):
                 got.add(d[6:12])
     except BlockingIOError: pass
     return got
+ports=sorted(PORTS)
 ok=True
-for ing in (0,1,2):
-    others=[p for p in (0,1,2) if p!=ing]
+for ing in ports:
+    others=[p for p in ports if p!=ing]
     seen={p:False for p in others}
     dl=time.time()+8
     while time.time()<dl and not all(seen.values()):
@@ -106,7 +109,7 @@ for ing in (0,1,2):
     res=all(seen.values())
     print("  ingress port %d -> flood to %s : %s" % (ing, others, "OK" if res else ("MISSING "+str([p for p in others if not seen[p]]))))
     ok = ok and res
-print("FABRIC-SELFTEST: PASS - the RT1180 switch floods from every wire port to the other two"
+print("FABRIC-SELFTEST: PASS - the RT1180 switch floods from every wire port to all the others"
       if ok else "FABRIC-SELFTEST: FAIL")
 sys.exit(0 if ok else 1)
 PY
