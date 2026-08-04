@@ -230,6 +230,26 @@ honest gaps). Working today:
   dual conversion; and the plant's DC-bus + phase-current encoding aligned to the
   driver's Q15·12/11 convention. Peripheral IRQs route to the boot core. M33 machine
   + tests untouched (`tests/imxrt1180-cm7boot`, mutation-proven).
+- **Dual-core AMP boot (M33 primary → M7 secondary)**: the stock NXP
+  **`multicore_manager` runs end-to-end** — the M33 prints "Hello World from the
+  Primary Core!", zeroes + copies the M7 image to `0x303C0000`, and the M7 boots and
+  signals back over the MU (the primary's blocking wait on the app-ready event
+  retires: "The secondary core application has been started" — a *live* M33↔M7
+  exchange, not a claimed start). Three fixes made it boot, each found by chasing the
+  next blocker: (1) the **AMP two-gate release** — SRC.SCR.BT_RELEASE_M7 leaves the M7
+  held until `M7_CFG.WAIT` (CPUWAIT) is also cleared, which the SDK does only after
+  the image is in place (`tests/imxrt1180-cm7wait`); (2) **eDMA4 software-START
+  completes in virtual time, not instantly** — InitCM7DMA does START → W1C-clear
+  CH_CSR[DONE] → poll, so an instant (or next-BH) completion sets DONE before the
+  clear and the poll hangs; the transfer now finishes on a QEMU_CLOCK_VIRTUAL timer so
+  it is in flight across the clear, deterministic under `-icount`
+  (`tests/imxrt1180-edma-swstart-order`); (3) the **ELE/S3MU kick-CM7** command
+  `0x17d20106` answers SUCCESS (0xE1D20206 + 0xD6) — a coordination command whose
+  outcome (the CM7 boots) the model genuinely reproduces, so SUCCESS is truthful, not
+  a fabricated crypto result (`tests/imxrt1180-ele-corestart`). All mutation-proven;
+  scorecard row `multicore_manager` PASS (Tier B, sysbuild). See
+  [[project-rt1180-rpmsg-arc]] — this is steps 2+3 of the RPMsg arc; the full RPMsg
+  vring ping-pong (step 4) builds on this working MU event path.
 - **Ethernet (NETC/ENETC)**: real L2 over a QEMU socket netdev; 1180↔1180 verified
   byte-exact.
 - **FlexSPI NOR**: `rom_device` XIP window + a real `m25p80`; storage-write-verified
@@ -348,11 +368,18 @@ CORRUPT, 0 replay). Four silicon models on one switched segment. Along the way o
 byte-exact v2-beacon-body spec fixed mcx's presence-only gap, and the reboot-vs-replay
 per-boot-nonce contract was proven live across three impls. See [[project-rt1180-3node-lab]].
 
-Open: the scorecard's live gap list — **MCMGR core1 image-info** (`multicore_trigger`,
-dual-core, the most tractable), the **ELE FW-load** handshake (`ele_crypto_hsm`), and
-roadmap #3 (value-golden more peripherals through the real `fsl_*` drivers). The
-ASRC resampler is a bandlimited polyphase windowed-sinc FIR and its true-async ratio
-resolves SAI-bit-clock sources — both done; only NXP's unpublished FIR taps remain.
+Open: the scorecard's live gap list — the **ELE FW-load** handshake (`ele_crypto_hsm`)
+and roadmap #3 (value-golden more peripherals through the real `fsl_*` drivers). The
+**MCMGR core-start path is now DONE** (dual-core AMP boot above — `multicore_manager`
+runs end-to-end); the remaining `multicore_trigger` XFAIL is a *different*,
+architectural gap — its `BOARD_GetCore1ImageAddrSize` parses an AHAB boot **container**
+the boot ROM leaves at FlexSPI `0x38001000`, which our `-kernel` direct-load bypasses
+(same class as the FlexSPI IP-command / XIP XFAILs; a PASS would require fabricating a
+container). The next dual-core step is the **RPMsg-lite vring ping-pong**
+([[project-rt1180-rpmsg-arc]] step 4), which builds on the now-working MU event path.
+The ASRC resampler is a bandlimited polyphase windowed-sinc FIR and its true-async
+ratio resolves SAI-bit-clock sources — both done; only NXP's unpublished FIR taps
+remain.
 
 ## Fleet
 
