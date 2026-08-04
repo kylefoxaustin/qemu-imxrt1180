@@ -26,6 +26,16 @@ struct IMXRT1180SRCState {
     uint32_t blk_regs[IMXRT1180_SRC_WIN / 4];
 
     bool     cm7_running;
+    /*
+     * The M7 boot is a TWO-gate handshake (RM: "on POR the M7 is held in reset AND
+     * CPUWAIT is high"): the M33 releases the reset (SRC.SCR.BT_RELEASE_M7) AND
+     * clears CPUWAIT (M7_CFG.WAIT).  The core starts only once BOTH are satisfied,
+     * in either order -- a bare-metal test writes M7_CFG with WAIT=0 then SCR, while
+     * the SDK Prepare_CM7 sets SCR with WAIT still 1 (image not copied yet) and the
+     * later MCMGR_StartCore clears WAIT.  This remembers a release seen while WAIT
+     * was still high, so clearing WAIT afterwards starts the core.
+     */
+    bool     m7_release_pending;
     ARMCPU  *cm7;             /* the Cortex-M7 (cpu1); set by the SoC */
 };
 

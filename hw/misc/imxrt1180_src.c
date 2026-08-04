@@ -30,6 +30,7 @@
 
 #define BLK_M7_CFG           0x80
 #define M7_CFG_INITVTOR_MASK 0xFFFFFF80u
+#define M7_CFG_WAIT_MASK     0x10u        /* CPUWAIT: 1 = held (POR default), 0 = go */
 
 /* Keep cs->halted / PSCI power_state / halt_reason consistent (MCX's note:
  * arm_cpu_has_work() asserts a PSCI_OFF core is HALT_PSCI on its first WFI). */
@@ -63,6 +64,21 @@ static void imxrt1180_src_start_cm7_bh(void *opaque)
     s->cm7_running = true;
 }
 
+/*
+ * Start the M7 iff BOTH gates are open: a release has been requested
+ * (SRC.SCR.BT_RELEASE_M7) AND CPUWAIT is low (M7_CFG.WAIT == 0).  Either write can
+ * be the one that completes the pair, so both handlers call this.  The start is
+ * deferred to a bottom-half off cpu0's execution context.
+ */
+static void imxrt1180_src_maybe_start_m7(IMXRT1180SRCState *s)
+{
+    if (s->m7_release_pending && s->cm7 && !s->cm7_running &&
+        !(s->blk_regs[BLK_M7_CFG / 4] & M7_CFG_WAIT_MASK)) {
+        aio_bh_schedule_oneshot(qemu_get_aio_context(),
+                                imxrt1180_src_start_cm7_bh, s);
+    }
+}
+
 /* ---- SRC_GENERAL block --------------------------------------------------- */
 static uint64_t imxrt1180_src_read(void *opaque, hwaddr offset, unsigned size)
 {
@@ -76,11 +92,15 @@ static void imxrt1180_src_write(void *opaque, hwaddr offset,
     IMXRT1180SRCState *s = IMXRT1180_SRC(opaque);
 
     s->src_regs[offset / 4] = value;
-    if (offset == SRC_SCR && (value & SCR_BT_RELEASE_M7) &&
-        s->cm7 && !s->cm7_running) {
-        /* Defer the M7 start off cpu0's execution context. */
-        aio_bh_schedule_oneshot(qemu_get_aio_context(),
-                                imxrt1180_src_start_cm7_bh, s);
+    if (offset == SRC_SCR && (value & SCR_BT_RELEASE_M7)) {
+        /*
+         * Reset released.  The core still WAITs until CPUWAIT (M7_CFG.WAIT) is
+         * cleared -- remember the release so a later WAIT-clear starts it (the
+         * Prepare_CM7 path releases here with the image not yet copied and WAIT
+         * still high; a bare-metal test cleared WAIT first, so this starts now).
+         */
+        s->m7_release_pending = true;
+        imxrt1180_src_maybe_start_m7(s);
     }
 }
 
@@ -106,6 +126,11 @@ static void imxrt1180_blk_write(void *opaque, hwaddr offset,
 {
     IMXRT1180SRCState *s = IMXRT1180_SRC(opaque);
     s->blk_regs[offset / 4] = value;
+    if (offset == BLK_M7_CFG) {
+        /* Clearing CPUWAIT here (MCMGR_StartCore, after the image is in place)
+         * is the second gate -- start the M7 if a release is already pending. */
+        imxrt1180_src_maybe_start_m7(s);
+    }
 }
 
 static const MemoryRegionOps imxrt1180_blk_ops = {
@@ -153,7 +178,14 @@ static void imxrt1180_src_reset(DeviceState *dev)
         s->blk_regs[(0x00 + i * 4) / 4] = 0xFFFFFFFF;   /* CM33_IRQ_MASK[i] */
         s->blk_regs[(0x20 + i * 4) / 4] = 0xFFFFFFFF;   /* CM7_IRQ_MASK[i]  */
     }
+    /*
+     * M7_CFG.WAIT (CPUWAIT, bit 4) resets HIGH: "on POR the M7 is held in reset and
+     * CPUWAIT is high" (RM).  The core does not run until the M33 both releases the
+     * reset (SCR) and clears this bit.
+     */
+    s->blk_regs[BLK_M7_CFG / 4] = M7_CFG_WAIT_MASK;
     s->cm7_running = false;
+    s->m7_release_pending = false;
 }
 
 static void imxrt1180_src_realize(DeviceState *dev, Error **errp)
