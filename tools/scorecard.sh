@@ -28,7 +28,7 @@ set -u
 
 # --- expected coverage (bump these when you add/remove manifest rows) ----------
 EXPECTED_A=8
-EXPECTED_B=19
+EXPECTED_B=20
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 QEMU="${QEMU:-$ROOT/build/qemu-system-arm}"
@@ -69,15 +69,25 @@ tierA_image() { # example -> path to prebuilt bin (echo), rc!=0 if none
 }
 
 tierB_build() { # example core -> echoes ELF path, rc!=0 on build fail
-    local ex="$1" core="$2" tag bd
+    local ex="$1" core="$2" tag bd sysb=""
     tag="$(echo "${ex}_${core}" | tr '/' '_')"
     # Persistent build dir so west rebuilds incrementally across runs (override
     # with SCORECARD_BUILD_ROOT=... ; wipe it to force a clean build).
     bd="${SCORECARD_BUILD_ROOT:-/tmp/rt1180-scorecard-build}/b_$tag"
-    ( cd "$SDK_ROOT" && "$VENV/bin/west" build -b evkmimxrt1180 --toolchain armgcc \
+    # Multicore examples are a SYSBUILD: the secondary (cm7) core is built and
+    # incbin'd into the primary (cm33) image, which then copies + starts it. The
+    # SDK's sysbuild floor is cmake >= 3.25 (older cmake build-fails -> the row
+    # shows FAIL(build); Tier B is opt-in and needs a modern toolchain anyway).
+    case "$ex" in *multicore_examples/*) sysb="--sysbuild";; esac
+    ( cd "$SDK_ROOT" && "$VENV/bin/west" build $sysb -b evkmimxrt1180 --toolchain armgcc \
         "examples/$ex" -Dcore_id="$core" --config debug -d "$bd" ) \
         >"$WORK/build_$tag.log" 2>&1 || return 1
-    local elf; elf="$(ls "$bd"/*.elf 2>/dev/null | head -1)"
+    local elf
+    if [ -n "$sysb" ]; then
+        elf="$(ls "$bd"/primary/*.elf 2>/dev/null | head -1)"   # primary carries the secondary
+    else
+        elf="$(ls "$bd"/*.elf 2>/dev/null | head -1)"
+    fi
     [ -n "$elf" ] && echo "$elf"
 }
 
@@ -95,6 +105,11 @@ while IFS=$'\t' read -r tier example core kind oracle oracle_src note; do
 
     verdict="?"; detail=""; icon="•"
     run_extra=""; [ "$core" = cm7 ] && run_extra="-icount shift=3"
+    # Multicore boot needs -icount: the M33's InitCM7DMA zeroes the M7 TCM with a
+    # software-START eDMA transfer, then clears+polls CH_CSR[DONE]; the transfer
+    # must stay in flight across that clear, which is deterministic only under
+    # -icount (tests/imxrt1180-edma-swstart-order pins it).
+    case "$example" in *multicore_examples/*) run_extra="-icount shift=2";; esac
 
     # kinds that never run firmware
     case "$kind" in
