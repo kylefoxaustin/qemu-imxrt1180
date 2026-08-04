@@ -79,6 +79,30 @@ static long sh(long op, void *arg)
 }
 static void puts_(const char *s) { sh(SYS_WRITE0, (void *)s); }
 
+/*
+ * TCD_CSR[START] is a service request whose minor loop completes ASYNCHRONOUSLY
+ * (the model defers it, as silicon runs it in-flight over real bus cycles). So we
+ * POLL for completion exactly as the stock fsl_edma driver does, rather than read
+ * state back in the instruction after the START -- an instant-completion assumption
+ * is precisely the fidelity bug that hung the SDK's InitCM7DMA. The bound turns a
+ * genuine never-completes into a loud FAIL instead of a hang.
+ */
+#define WAIT_BOUND 20000000u
+static int wait_done(void)
+{
+    for (uint32_t i = 0; i < WAIT_BOUND; i++) {
+        if (CH_CSR & CSR_DONE) { return 1; }
+    }
+    return 0;
+}
+static int wait_citer_reaches(unsigned target)
+{
+    for (uint32_t i = 0; i < WAIT_BOUND; i++) {
+        if ((TCD_CITER & 0x7FFFu) == target) { return 1; }
+    }
+    return 0;
+}
+
 static volatile uint32_t src[4] = { 0x11111111, 0x22222222, 0x33333333, 0x44444444 };
 static volatile uint32_t dst[4];
 
@@ -107,7 +131,7 @@ void reset_handler(void)
     TCD_BITER  = 1;
     TCD_CSR    = TCD_START;   /* trigger the transfer */
 
-    int ok = (CH_CSR & CSR_DONE) &&
+    int ok = wait_done() &&
              dst[0] == 0x11111111 && dst[1] == 0x22222222 &&
              dst[2] == 0x33333333 && dst[3] == 0x44444444;
     if (!ok) {
@@ -132,6 +156,13 @@ void reset_handler(void)
 
     TCD_CSR = TCD_START;                  /* request #1 of 4 */
 
+    /* Exactly ONE minor loop must run: wait for CITER to fall from 4 to 3, no
+     * further. (A whole-major-loop model would blow straight past to 0.) */
+    if (ok && !wait_citer_reaches(3u)) {
+        puts_("eDMA: FAIL - phase2: first START did not run one minor loop "
+              "(CITER never reached 3)\r\n");
+        ok = 0;
+    }
     if (ok && dst2[0] != 0xA1A1A1A1u) {
         puts_("eDMA: FAIL - phase2: first START moved nothing\r\n");
         ok = 0;
@@ -160,13 +191,14 @@ void reset_handler(void)
     TCD_CSR = TCD_START;
     TCD_CSR = TCD_START;
 
+    /* The 4th START completes the major loop -> DONE. Poll for it (async). */
+    if (ok && !wait_done()) {
+        puts_("eDMA: FAIL - phase2: major loop complete but DONE not set\r\n");
+        ok = 0;
+    }
     if (ok && !(dst2[0] == 0xA1A1A1A1u && dst2[1] == 0xB2B2B2B2u &&
                 dst2[2] == 0xC3C3C3C3u && dst2[3] == 0xD4D4D4D4u)) {
         puts_("eDMA: FAIL - phase2: 4 STARTs did not copy the buffer byte-exact\r\n");
-        ok = 0;
-    }
-    if (ok && !(CH_CSR & CSR_DONE)) {
-        puts_("eDMA: FAIL - phase2: major loop complete but DONE not set\r\n");
         ok = 0;
     }
     if (ok && (TCD_CITER & 0x7FFFu) != 4u) {

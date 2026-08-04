@@ -102,6 +102,19 @@ typedef struct IMXRT1180EDMAChan {
     uint32_t tcd_saddr, tcd_slast, tcd_daddr, tcd_dlast;
     uint32_t tcd_nbytes;
     uint16_t tcd_soff, tcd_attr, tcd_doff, tcd_citer, tcd_csr, tcd_biter;
+
+    /*
+     * Deferred software service requests (TCD_CSR[START]).  A START does NOT run
+     * the minor loop inline: it bumps this counter and schedules the service BH,
+     * so the transfer completes AFTER the triggering MMIO write returns -- exactly
+     * as a real in-flight eDMA transfer does.  This is load-bearing: the SDK's
+     * InitCM7DMA issues START, then W1C-clears CH_CSR[DONE] to drop a *stale* flag,
+     * then polls DONE for THIS transfer.  A synchronous START sets DONE before that
+     * clear, the clear wipes the fresh flag, and the poll hangs forever.  A COUNTER
+     * (not a bool) because a channel with CITER=N is driven by N back-to-back STARTs
+     * that may all land before the BH runs -- each must still buy exactly one loop.
+     */
+    uint32_t sw_start_pending;
 } IMXRT1180EDMAChan;
 
 struct IMXRT1180EDMAState {
@@ -117,7 +130,10 @@ struct IMXRT1180EDMAState {
     unsigned     link_depth;  /* channel-link recursion guard (a channel may link
                                * to ITSELF -- RM 5.5.3) */
     bool         req[IMXRT1180_EDMA_NUM_REQ];
-    QEMUBH      *bh;          /* services requests OUTSIDE MMIO dispatch */
+    QEMUBH      *bh;          /* services HARDWARE requests OUTSIDE MMIO dispatch */
+    QEMUTimer   *sw_timer;    /* completes SOFTWARE (TCD_CSR[START]) transfers after
+                              * a modelled duration, so they are in-flight across a
+                              * driver's clear-then-poll of CH_CSR[DONE] (see the .c) */
 
     uint32_t num_channels;        /* active channels (DMA3=32, DMA4=64) */
     uint32_t mp_csr;

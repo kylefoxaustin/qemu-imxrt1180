@@ -5,11 +5,32 @@
  */
 #include "qemu/osdep.h"
 #include "qemu/log.h"
+#include "qemu/timer.h"
 #include "hw/dma/imxrt1180_edma.h"
 #include "hw/core/irq.h"
 #include "hw/core/qdev-properties.h"
 #include "migration/vmstate.h"
 #include "system/address-spaces.h"
+
+/*
+ * A software service request (TCD_CSR[START]) does NOT complete instantly: the
+ * transfer takes real bus time on silicon, and firmware depends on it.  The SDK's
+ * InitCM7DMA issues START, then W1C-clears CH_CSR[DONE] to drop any STALE flag,
+ * then polls DONE for THIS transfer -- a sequence that is only correct while the
+ * transfer is still IN FLIGHT across the clear.  An instant (BH-at-next-TB)
+ * completion sets DONE before the clear, the clear wipes it, and the poll hangs
+ * forever.  So we complete on a QEMU_CLOCK_VIRTUAL timer after a first-order
+ * duration -- long enough that the transfer is genuinely mid-flight while the
+ * driver clears the stale flag and enters its poll (the same class of fix as the
+ * LPADC RESFIFO "instant conversion racing the ISR").
+ *
+ * The RATE below is a modelled AXI-ish first order (eDMA4 ~240 MHz x 64-bit) and is
+ * NOT asserted by any test -- only the ORDERING property is (tests/imxrt1180-edma-
+ * swstart-order).  The floor keeps even a tiny transfer in flight past the handful
+ * of instructions between the driver's START and its DONE-clear.
+ */
+#define EDMA_SW_NS_PER_BYTE   1u        /* ~1 GB/s: first-order, not a golden */
+#define EDMA_SW_MIN_NS        1000u     /* ordering floor (see above) */
 
 /* Management-page registers. */
 #define R_MP_CSR  0x00
@@ -318,6 +339,26 @@ static void edma_service_bh(void *opaque)
     } while (progressed && ++guard < 100000);
 }
 
+/*
+ * Software service requests complete here, off a virtual-time timer -- NOT at the
+ * next TB boundary like the hardware-request BH.  That deferral-in-VIRTUAL-TIME is
+ * the whole point: the transfer must still be running while the driver clears a
+ * stale CH_CSR[DONE] and enters its poll.  Drain every channel's pending STARTs (a
+ * COUNTER, so N back-to-back STARTs each buy exactly one minor loop).
+ */
+static void edma_sw_complete(void *opaque)
+{
+    IMXRT1180EDMAState *s = opaque;
+
+    for (unsigned n = 0; n < s->num_channels; n++) {
+        IMXRT1180EDMAChan *c = &s->ch[n];
+        while (c->sw_start_pending > 0) {
+            c->sw_start_pending--;
+            (void)edma_minor_loop(s, n);
+        }
+    }
+}
+
 /* A peripheral asserted/deasserted its DMA request line. */
 static void edma_req_set(void *opaque, int src, int level)
 {
@@ -333,20 +374,18 @@ static void edma_req_set(void *opaque, int src, int level)
 }
 
 /*
- * A SOFTWARE service request: TCD_CSR[START].
+ * A SOFTWARE service request is TCD_CSR[START]: ONE MINOR LOOP, exactly like a
+ * hardware request -- RM 5.4: "software and the TCDn_CSR[START] field follows the
+ * same basic flow as peripheral requests", and fsl_edma.h's
+ * EDMA_TriggerChannelStart(): "This function starts a MINOR LOOP transfer." A
+ * channel with CITER=N needs N of these.  (It used to drain the WHOLE major loop;
+ * see the retraction in the header -- every test we had used CITER=1, where the two
+ * are indistinguishable.)
  *
- * ONE MINOR LOOP, exactly like a hardware request -- RM 5.4: "software and the
- * TCDn_CSR[START] field follows the same basic flow as peripheral requests", and
- * fsl_edma.h's EDMA_TriggerChannelStart(): "This function starts a MINOR LOOP
- * transfer." A channel with CITER=N needs N of these.
- *
- * This used to drain the WHOLE major loop. See the retraction in the header --
- * every test we had used CITER=1, where the two are indistinguishable.
+ * It is serviced DEFERRED, in edma_service_bh via sw_start_pending, not inline from
+ * the TCD_CSR write -- so the transfer completes after that write returns.  See the
+ * sw_start_pending comment in the header for why (InitCM7DMA's clear-then-poll).
  */
-static void edma_start(IMXRT1180EDMAState *s, int n)
-{
-    (void)edma_minor_loop(s, n);
-}
 
 static uint64_t edma_read(void *opaque, hwaddr off, unsigned size)
 {
@@ -475,10 +514,26 @@ static void edma_write(void *opaque, hwaddr off, uint64_t val, unsigned size)
              * It is NOT a sticky control bit, and firmware is entitled to poll it:
              * the RM's own minor-loop-complete test is TCD_CSR[START] and
              * CH_CSR[ACTIVE] both reading 0. Leaving it set would hang that poll.
+             *
+             * The minor loop runs DEFERRED (via the service BH), never inline: the
+             * transfer must complete AFTER this write returns, or the SDK's
+             * InitCM7DMA (START -> W1C stale DONE -> poll DONE) sees its fresh DONE
+             * cleared and hangs.  DONE is cleared here because a just-started
+             * transfer is, by definition, not done.  See sw_start_pending in the
+             * header + edma_service_bh.
              */
             c->tcd_csr &= ~TCD_CSR_START;
             c->csr &= ~CH_CSR_DONE;
-            edma_start(s, n);
+            c->sw_start_pending++;
+            if (!timer_pending(s->sw_timer)) {
+                uint32_t nbytes = c->tcd_nbytes & NBYTES_MASK;
+                uint64_t dur = (uint64_t)nbytes * EDMA_SW_NS_PER_BYTE;
+                if (dur < EDMA_SW_MIN_NS) {
+                    dur = EDMA_SW_MIN_NS;
+                }
+                timer_mod(s->sw_timer,
+                          qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + dur);
+            }
         }
         return;
     case R_TCD_BITER: c->tcd_biter = v; return;
@@ -539,13 +594,15 @@ static void imxrt1180_edma_realize(DeviceState *dev, Error **errp)
      */
     qdev_init_gpio_in_named(dev, edma_req_set, "dma-req", IMXRT1180_EDMA_NUM_REQ);
     s->bh = qemu_bh_new(edma_service_bh, s);
+    s->sw_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, edma_sw_complete, s);
 }
 
 static const VMStateDescription vmstate_edma_chan = {
     .name = "imxrt1180-edma-chan",
-    .version_id = 1,
-    .minimum_version_id = 1,
+    .version_id = 2,
+    .minimum_version_id = 2,
     .fields = (const VMStateField[]) {
+        VMSTATE_UINT32(sw_start_pending, IMXRT1180EDMAChan),
         VMSTATE_UINT32(csr, IMXRT1180EDMAChan),
         VMSTATE_UINT32(es, IMXRT1180EDMAChan),
         VMSTATE_UINT32(intr, IMXRT1180EDMAChan),
@@ -569,14 +626,15 @@ static const VMStateDescription vmstate_edma_chan = {
 
 static const VMStateDescription vmstate_imxrt1180_edma = {
     .name = TYPE_IMXRT1180_EDMA,
-    .version_id = 1,
-    .minimum_version_id = 1,
+    .version_id = 2,
+    .minimum_version_id = 2,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32(mp_csr, IMXRT1180EDMAState),
         VMSTATE_UINT32(mp_es, IMXRT1180EDMAState),
         VMSTATE_UINT32_ARRAY(ch_grpri, IMXRT1180EDMAState, IMXRT1180_EDMA_MAX_CHANNELS),
-        VMSTATE_STRUCT_ARRAY(ch, IMXRT1180EDMAState, IMXRT1180_EDMA_MAX_CHANNELS, 1,
+        VMSTATE_STRUCT_ARRAY(ch, IMXRT1180EDMAState, IMXRT1180_EDMA_MAX_CHANNELS, 2,
                              vmstate_edma_chan, IMXRT1180EDMAChan),
+        VMSTATE_TIMER_PTR(sw_timer, IMXRT1180EDMAState),
         VMSTATE_END_OF_LIST()
     },
 };
