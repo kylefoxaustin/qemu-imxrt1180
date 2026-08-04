@@ -135,6 +135,25 @@ static bool s3mu_command_is_truthful(uint8_t command)
          * answer, not a fabricated one.
          */
         return true;
+    case 0xD2:
+        /*
+         * KICK CM7 (MCMGR_StartCore's `S3MUA->TR[0] = 0x17d20106`, reply
+         * 0xE1D20206 + 0xD6).  This is a COORDINATION command whose real
+         * OUTCOME -- the secondary Cortex-M7 boots -- this model genuinely
+         * reproduces: the CM7 start is driven by the M7_CFG.WAIT clear that
+         * MCMGR issues right after this handshake (hw/misc/imxrt1180_src.c),
+         * with its TCM already zeroed by the eDMA4 InitCM7DMA transfer.  So
+         * SUCCESS is the TRUTHFUL answer, exactly like PING / CLOCK_CHANGE:
+         * no cryptographic result is withheld.  (On silicon the enclave also
+         * authenticates the M7 image first; this model has no secure boot --
+         * the whole ROM/AHAB chain is skipped by the -kernel path and that gap
+         * is documented + allowlisted, e.g. the multicore_trigger XFAIL -- so
+         * within the model's "post-ROM, images trusted" scope the authorization
+         * is vacuously satisfied.  Reporting FAILURE would be the dishonest
+         * answer here: it says the enclave declined a core-start we in fact
+         * perform.)
+         */
+        return true;
     default:
         return false;
     }
