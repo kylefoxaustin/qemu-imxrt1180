@@ -248,8 +248,17 @@ honest gaps). Working today:
   outcome (the CM7 boots) the model genuinely reproduces, so SUCCESS is truthful, not
   a fabricated crypto result (`tests/imxrt1180-ele-corestart`). All mutation-proven;
   scorecard row `multicore_manager` PASS (Tier B, sysbuild). See
-  [[project-rt1180-rpmsg-arc]] — this is steps 2+3 of the RPMsg arc; the full RPMsg
-  vring ping-pong (step 4) builds on this working MU event path.
+  [[project-rt1180-rpmsg-arc]].
+- **RPMsg-lite (M33↔M7 vring ping-pong) — the whole arc CLOSED**: the stock NXP
+  **`rpmsg_lite_pingpong` runs end-to-end** — 50 bidirectional round-trips over
+  shared-OCRAM vrings + the MU cross-core doorbell, data incrementing to the terminal
+  `DATA = 101`, "RPMsg demo ends" (not "…with Errors"). It ran **first try with NO
+  model change**: the MU doorbell (GCR write → other side's GSR flag → NVIC IRQ),
+  coherent shared OCRAM between the two per-core views, and both cores' interrupt
+  routing were already right — the dual-core boot chain above was the hard part.
+  Scorecard row PASS; the oracle is the DATA VALUE, not the "RPMsg demo ends" banner
+  (whose failure form "…ends with Errors" contains that substring and would
+  false-PASS). This is step 4 (final) of the RPMsg arc.
 - **Ethernet (NETC/ENETC)**: real L2 over a QEMU socket netdev; 1180↔1180 verified
   byte-exact.
 - **FlexSPI NOR**: `rom_device` XIP window + a real `m25p80`; storage-write-verified
@@ -370,16 +379,14 @@ per-boot-nonce contract was proven live across three impls. See [[project-rt1180
 
 Open: the scorecard's live gap list — the **ELE FW-load** handshake (`ele_crypto_hsm`)
 and roadmap #3 (value-golden more peripherals through the real `fsl_*` drivers). The
-**MCMGR core-start path is now DONE** (dual-core AMP boot above — `multicore_manager`
-runs end-to-end); the remaining `multicore_trigger` XFAIL is a *different*,
-architectural gap — its `BOARD_GetCore1ImageAddrSize` parses an AHAB boot **container**
-the boot ROM leaves at FlexSPI `0x38001000`, which our `-kernel` direct-load bypasses
-(same class as the FlexSPI IP-command / XIP XFAILs; a PASS would require fabricating a
-container). The next dual-core step is the **RPMsg-lite vring ping-pong**
-([[project-rt1180-rpmsg-arc]] step 4), which builds on the now-working MU event path.
-The ASRC resampler is a bandlimited polyphase windowed-sinc FIR and its true-async
-ratio resolves SAI-bit-clock sources — both done; only NXP's unpublished FIR taps
-remain.
+**whole dual-core RPMsg arc is now DONE** — AMP boot + `multicore_manager` +
+`rpmsg_lite_pingpong`, all end-to-end above ([[project-rt1180-rpmsg-arc]]). The
+remaining `multicore_trigger` XFAIL is a *different*, architectural gap — its
+`BOARD_GetCore1ImageAddrSize` parses an AHAB boot **container** the boot ROM leaves at
+FlexSPI `0x38001000`, which our `-kernel` direct-load bypasses (same class as the
+FlexSPI IP-command / XIP XFAILs; a PASS would require fabricating a container). The
+ASRC resampler is a bandlimited polyphase windowed-sinc FIR and its true-async ratio
+resolves SAI-bit-clock sources — both done; only NXP's unpublished FIR taps remain.
 
 ## Fleet
 
