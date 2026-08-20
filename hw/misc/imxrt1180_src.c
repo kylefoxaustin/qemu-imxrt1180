@@ -20,6 +20,7 @@
 #include "qemu/osdep.h"
 #include "qemu/log.h"
 #include "qemu/main-loop.h"
+#include "system/reset.h"
 #include "hw/misc/imxrt1180_src.h"
 #include "migration/vmstate.h"
 #include "hw/core/cpu.h"
@@ -188,6 +189,33 @@ static void imxrt1180_src_reset(DeviceState *dev)
     s->m7_release_pending = false;
 }
 
+/*
+ * Force the M7 into a CLEAN, HELD state on every system reset.
+ *
+ * Registered with qemu_register_reset() so it runs AFTER the M7 CPU's own reset
+ * (registered earlier, at CPU realize).  This matters for a GUEST REBOOT: on the
+ * first boot the M33 released the M7 (cpu_resume + a running NVIC), and on a warm
+ * system_reset arm_cpu_reset re-applies start-powered-off -- but a pending NVIC/MU
+ * interrupt left over from the first boot makes arm_cpu_has_work() true even while
+ * halted, so the M7 WAKES and runs from its (now stale/zeroed) vector, faults, and
+ * locks up (Prefetch Abort -> UsageFault -> HardFault escalation) before the M33
+ * has re-established its image.  A fresh cpu_reset here clears the NVIC pending
+ * state, and set_cm7_run(false) parks it PSCI_OFF, so the M7 stays put until the
+ * M33 re-runs the two-gate release (SRC.SCR + CPUWAIT) on the new boot.  Without
+ * this, `boot -> QMP system_reset` aborts QEMU on the second boot.
+ */
+static void imxrt1180_src_hold_m7_reset(void *opaque)
+{
+    IMXRT1180SRCState *s = opaque;
+
+    if (s->cm7) {
+        cpu_reset(CPU(s->cm7));
+        imxrt1180_src_set_cm7_run(s->cm7, false);
+    }
+    s->cm7_running = false;
+    s->m7_release_pending = false;
+}
+
 static void imxrt1180_src_realize(DeviceState *dev, Error **errp)
 {
     IMXRT1180SRCState *s = IMXRT1180_SRC(dev);
@@ -199,6 +227,13 @@ static void imxrt1180_src_realize(DeviceState *dev, Error **errp)
     memory_region_init_io(&s->iomem_blk, OBJECT(s), &imxrt1180_blk_ops, s,
                           "imxrt1180.blk-ctrl-s-aonmix", IMXRT1180_SRC_WIN);
     sysbus_init_mmio(sbd, &s->iomem_blk);
+
+    /*
+     * Re-park the M7 held on EVERY system reset (a guest reboot).  Registered
+     * here, after the M7 CPU's own reset handler, so it runs last and leaves the
+     * M7 in a clean PSCI_OFF state -- see imxrt1180_src_hold_m7_reset.
+     */
+    qemu_register_reset(imxrt1180_src_hold_m7_reset, s);
 }
 
 static const VMStateDescription vmstate_imxrt1180_src = {
