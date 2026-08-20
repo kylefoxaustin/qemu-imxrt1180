@@ -501,10 +501,19 @@ static void imxrt1180_lpuart_realize(DeviceState *dev, Error **errp)
                              imxrt1180_lpuart_rx, NULL, NULL, s, NULL, true);
 }
 
+/* Migration: re-derive the IRQ line level from restored register state --
+ * qemu_irq output levels are not migrated, so a pending IRQ would be lost. */
+static int vmstate_imxrt1180_lpuart_post_load(void *opaque, int version_id)
+{
+    imxrt1180_lpuart_update_irq(opaque);
+    return 0;
+}
+
 static const VMStateDescription vmstate_imxrt1180_lpuart = {
     .name = TYPE_IMXRT1180_LPUART,
     .version_id = 1,
     .minimum_version_id = 1,
+    .post_load = vmstate_imxrt1180_lpuart_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32(global, IMXRT1180LPUARTState),
         VMSTATE_UINT32(pincfg, IMXRT1180LPUARTState),

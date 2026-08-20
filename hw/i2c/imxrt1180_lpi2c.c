@@ -455,10 +455,19 @@ static void imxrt1180_lpi2c_realize(DeviceState *dev, Error **errp)
     }
 }
 
+/* Migration: re-derive the IRQ line level from restored register state --
+ * qemu_irq output levels are not migrated, so a pending IRQ would be lost. */
+static int vmstate_imxrt1180_lpi2c_post_load(void *opaque, int version_id)
+{
+    lpi2c_update_irq(opaque);
+    return 0;
+}
+
 static const VMStateDescription vmstate_imxrt1180_lpi2c = {
     .name = TYPE_IMXRT1180_LPI2C,
     .version_id = 1,
     .minimum_version_id = 1,
+    .post_load = vmstate_imxrt1180_lpi2c_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32(mcr, IMXRT1180LPI2CState),
         VMSTATE_UINT32(msr_sticky, IMXRT1180LPI2CState),

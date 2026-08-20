@@ -685,10 +685,19 @@ static const Property imxrt1180_sai_props[] = {
     DEFINE_PROP_LINK("ccm", IMXRT1180SAIState, ccm, TYPE_IMXRT1180_CCM, void *),
 };
 
+/* Migration: re-derive the IRQ line level from restored register state --
+ * qemu_irq output levels are not migrated, so a pending IRQ would be lost. */
+static int vmstate_imxrt1180_sai_post_load(void *opaque, int version_id)
+{
+    imxrt1180_sai_update_irq(opaque);
+    return 0;
+}
+
 static const VMStateDescription vmstate_imxrt1180_sai = {
     .name = TYPE_IMXRT1180_SAI,
     .version_id = 2,
     .minimum_version_id = 2,
+    .post_load = vmstate_imxrt1180_sai_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32_ARRAY(regs, IMXRT1180SAIState, IMXRT1180_SAI_SIZE / 4),
         VMSTATE_UINT32_ARRAY(tx_fifo, IMXRT1180SAIState, IMXRT1180_SAI_FIFO_MAX),

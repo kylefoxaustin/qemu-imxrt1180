@@ -429,10 +429,22 @@ static void imxrt1180_pwm_realize(DeviceState *dev, Error **errp)
     qdev_init_gpio_out_named(dev, s->dma_req, "dma-req", IMXRT1180_PWM_NSM);
 }
 
+/* Migration: re-derive IRQ line levels from restored state (outputs are
+ * not migrated, so a pending per-unit IRQ would be lost). */
+static int vmstate_imxrt1180_pwm_post_load(void *opaque, int version_id)
+{
+    IMXRT1180PWMState *s = opaque;
+    for (unsigned sm = 0; sm < IMXRT1180_PWM_NSM; sm++) {
+        pwm_update_irq(s, sm);
+    }
+    return 0;
+}
+
 static const VMStateDescription vmstate_imxrt1180_pwm = {
     .name = TYPE_IMXRT1180_PWM,
     .version_id = 1,
     .minimum_version_id = 1,
+    .post_load = vmstate_imxrt1180_pwm_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT16_ARRAY(regs, IMXRT1180PWMState, IMXRT1180_PWM_SIZE / 2),
         VMSTATE_UINT16_ARRAY(buf_init, IMXRT1180PWMState, IMXRT1180_PWM_NSM),

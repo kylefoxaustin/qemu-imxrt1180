@@ -405,10 +405,19 @@ static void imxrt1180_lpspi_realize(DeviceState *dev, Error **errp)
     s->cs_active = -1;
 }
 
+/* Migration: re-derive the IRQ line level from restored register state --
+ * qemu_irq output levels are not migrated, so a pending IRQ would be lost. */
+static int vmstate_imxrt1180_lpspi_post_load(void *opaque, int version_id)
+{
+    lpspi_update_irq(opaque);
+    return 0;
+}
+
 static const VMStateDescription vmstate_imxrt1180_lpspi = {
     .name = TYPE_IMXRT1180_LPSPI,
     .version_id = 1,
     .minimum_version_id = 1,
+    .post_load = vmstate_imxrt1180_lpspi_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32(cr, IMXRT1180LPSPIState),
         VMSTATE_UINT32(sr_sticky, IMXRT1180LPSPIState),

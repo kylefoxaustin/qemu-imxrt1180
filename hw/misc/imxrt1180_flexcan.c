@@ -357,10 +357,19 @@ static void imxrt1180_flexcan_realize(DeviceState *dev, Error **errp)
     }
 }
 
+/* Migration: re-derive the IRQ line level from restored register state --
+ * qemu_irq output levels are not migrated, so a pending IRQ would be lost. */
+static int vmstate_imxrt1180_flexcan_post_load(void *opaque, int version_id)
+{
+    flexcan_update_irq(opaque);
+    return 0;
+}
+
 static const VMStateDescription vmstate_imxrt1180_flexcan = {
     .name = TYPE_IMXRT1180_FLEXCAN,
     .version_id = 1,
     .minimum_version_id = 1,
+    .post_load = vmstate_imxrt1180_flexcan_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32_ARRAY(regs, IMXRT1180FlexCanState, IMXRT1180_FLEXCAN_SIZE / 4),
         VMSTATE_END_OF_LIST()

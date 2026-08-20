@@ -227,10 +227,22 @@ static void imxrt1180_mu_realize(DeviceState *dev, Error **errp)
     }
 }
 
+/* Migration: re-derive IRQ line levels from restored state (outputs are
+ * not migrated, so a pending per-unit IRQ would be lost). */
+static int vmstate_imxrt1180_mu_post_load(void *opaque, int version_id)
+{
+    IMXRT1180MUState *s = opaque;
+    for (unsigned side = 0; side < 2; side++) {
+        imxrt1180_mu_update_irq(s, side);
+    }
+    return 0;
+}
+
 static const VMStateDescription vmstate_imxrt1180_mu = {
     .name = TYPE_IMXRT1180_MU,
     .version_id = 1,
     .minimum_version_id = 1,
+    .post_load = vmstate_imxrt1180_mu_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32_2DARRAY(chan, IMXRT1180MUState, 2, IMXRT1180_MU_NCHAN),
         VMSTATE_UINT8_ARRAY(full, IMXRT1180MUState, 2),

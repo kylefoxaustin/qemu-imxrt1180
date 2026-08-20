@@ -464,10 +464,19 @@ static const VMStateDescription vmstate_imxrt1180_adc_fifo = {
     },
 };
 
+/* Migration: re-derive the IRQ line level from restored register state --
+ * qemu_irq output levels are not migrated, so a pending IRQ would be lost. */
+static int vmstate_imxrt1180_adc_post_load(void *opaque, int version_id)
+{
+    adc_update_irq(opaque);
+    return 0;
+}
+
 static const VMStateDescription vmstate_imxrt1180_adc = {
     .name = TYPE_IMXRT1180_ADC,
     .version_id = 2,
     .minimum_version_id = 2,
+    .post_load = vmstate_imxrt1180_adc_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32_ARRAY(regs, IMXRT1180ADCState, IMXRT1180_ADC_SIZE / 4),
         VMSTATE_STRUCT_ARRAY(fifo, IMXRT1180ADCState, IMXRT1180_ADC_NFIFO, 1,

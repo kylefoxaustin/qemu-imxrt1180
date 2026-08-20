@@ -75,10 +75,18 @@ static void msgintr_realize(DeviceState *dev, Error **errp)
     sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq);
 }
 
+/* Migration: re-assert the aggregate IRQ from restored pending state. */
+static int vmstate_msgintr_post_load(void *opaque, int version_id)
+{
+    msgintr_update(opaque);
+    return 0;
+}
+
 static const VMStateDescription vmstate_msgintr = {
     .name = TYPE_IMXRT1180_MSGINTR,
     .version_id = 1,
     .minimum_version_id = 1,
+    .post_load = vmstate_msgintr_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32_ARRAY(pending, IMXRT1180MSGINTRState,
                              IMXRT1180_MSGINTR_CHANNELS),

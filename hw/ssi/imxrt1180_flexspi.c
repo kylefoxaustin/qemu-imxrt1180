@@ -752,10 +752,19 @@ static const Property flexspi_properties[] = {
                        0x01000000),     /* 16 MiB: the EVK's FlexSPI1 A1 NOR */
 };
 
+/* Migration: re-derive the IRQ line level from restored register state --
+ * qemu_irq output levels are not migrated, so a pending IRQ would be lost. */
+static int vmstate_flexspi_post_load(void *opaque, int version_id)
+{
+    flexspi_update_irq(opaque);
+    return 0;
+}
+
 static const VMStateDescription vmstate_flexspi = {
     .name = TYPE_IMXRT1180_FLEXSPI,
     .version_id = 2,
     .minimum_version_id = 2,
+    .post_load = vmstate_flexspi_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32_ARRAY(regs, IMXRT1180FlexSPIState,
                              IMXRT1180_FLEXSPI_NUM_REGS),

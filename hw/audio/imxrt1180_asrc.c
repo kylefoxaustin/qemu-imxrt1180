@@ -1,6 +1,7 @@
 /*
  * NXP i.MX RT1180 ASRC (Asynchronous Sample Rate Converter) — data-path model.
- * See the header for the rationale (real resampling, linear-interp not polyphase).
+ * See the header for the rationale.  The resampler is a Hann-windowed-sinc polyphase
+ * FIR (the CLASS the hardware uses, not NXP's unpublished taps) -- see asrc_winsinc.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include "qemu/osdep.h"
@@ -354,10 +355,19 @@ static void asrc_realize(DeviceState *dev, Error **errp)
     sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq);
 }
 
+/* Migration: re-derive the IRQ line level from restored register state --
+ * qemu_irq output levels are not migrated, so a pending IRQ would be lost. */
+static int vmstate_asrc_post_load(void *opaque, int version_id)
+{
+    asrc_update_irq(opaque);
+    return 0;
+}
+
 static const VMStateDescription vmstate_asrc = {
     .name = TYPE_IMXRT1180_ASRC,
     .version_id = 1,
     .minimum_version_id = 1,
+    .post_load = vmstate_asrc_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32_ARRAY(regs, IMXRT1180ASRCState, IMXRT1180_ASRC_NUM_REGS),
         VMSTATE_END_OF_LIST()
