@@ -1,10 +1,13 @@
 /*
  * NXP i.MX RT1180 crossover MCU SoC (Arm Cortex-M33 + Cortex-M7)
  *
- * MVP scaffold: the secure Cortex-M33 boot core, the on-chip memory map, and a
- * catch-all "unimplemented" peripheral window.  Peripherals (console LPUART,
- * clocks, ...) and the second core (Cortex-M7) are layered on top per the
- * -d unimp,guest_errors bring-up loop.
+ * Both cores (the secure Cortex-M33 boot core and the Cortex-M7 app core), the
+ * on-chip memory map with its TrustZone-M / power-domain aliases, and the modelled
+ * peripherals -- LPUART, eDMA3/4, LPADC, eFlexPWM, EQDC, QuadTimer, GPT, LPIT,
+ * LPSPI, LPI2C, SAI/ASRC, FlexSPI, NETC (ENETC + switch), MU/S3MU, SEMA42, CCM,
+ * SRC/BLK_CTRL, TRDC, XBAR and more -- over a catch-all "unimplemented" window that
+ * makes the -d unimp,guest_errors bring-up loop the prioritised to-do list for what
+ * is not yet modelled.  See PERIPHERALS.md for the per-block coverage table.
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
