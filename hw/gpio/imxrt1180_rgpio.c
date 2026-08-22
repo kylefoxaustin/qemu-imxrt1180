@@ -111,10 +111,20 @@ static void imxrt1180_rgpio_realize(DeviceState *dev, Error **errp)
     qdev_init_gpio_out(dev, s->output, IMXRT1180_RGPIO_PINS);
 }
 
+/* Migration: re-drive GPIO output pins from the restored data/dir registers */
+static int vmstate_imxrt1180_rgpio_post_load(void *opaque, int version_id)
+{
+    IMXRT1180RGPIOState *s = opaque;
+    /* Force-drive every pin to its restored level (changed vs inverse = all). */
+    rgpio_update_outputs(s, ~(s->pdor & s->pddr));
+    return 0;
+}
+
 static const VMStateDescription vmstate_imxrt1180_rgpio = {
     .name = TYPE_IMXRT1180_RGPIO,
     .version_id = 1,
     .minimum_version_id = 1,
+    .post_load = vmstate_imxrt1180_rgpio_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32(pdor, IMXRT1180RGPIOState),
         VMSTATE_UINT32(pddr, IMXRT1180RGPIOState),

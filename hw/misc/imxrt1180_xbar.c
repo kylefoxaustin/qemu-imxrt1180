@@ -113,10 +113,21 @@ static void imxrt1180_xbar_realize(DeviceState *dev, Error **errp)
     qdev_init_gpio_in_named(dev, xbar_input, "xbar-in", IMXRT1180_XBAR_NIN);
 }
 
+/* Migration: re-drive every output from the restored routing + input levels */
+static int vmstate_imxrt1180_xbar_post_load(void *opaque, int version_id)
+{
+    IMXRT1180XBARState *s = opaque;
+    for (unsigned o = 0; o < IMXRT1180_XBAR_NOUT; o++) {
+        qemu_set_irq(s->out[o], s->in_level[xbar_source(s, o)]);
+    }
+    return 0;
+}
+
 static const VMStateDescription vmstate_imxrt1180_xbar = {
     .name = TYPE_IMXRT1180_XBAR,
     .version_id = 1,
     .minimum_version_id = 1,
+    .post_load = vmstate_imxrt1180_xbar_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT16_ARRAY(regs, IMXRT1180XBARState, IMXRT1180_XBAR_SIZE / 2),
         VMSTATE_BOOL_ARRAY(in_level, IMXRT1180XBARState, IMXRT1180_XBAR_NIN),
