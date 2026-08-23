@@ -624,21 +624,10 @@ static const VMStateDescription vmstate_edma_chan = {
     },
 };
 
-/* Migration: re-assert each channel's IRQ line from restored state. */
-static int vmstate_imxrt1180_edma_post_load(void *opaque, int version_id)
-{
-    IMXRT1180EDMAState *s = opaque;
-    for (unsigned n = 0; n < s->num_channels; n++) {
-        edma_update_irq(s, n);
-    }
-    return 0;
-}
-
 static const VMStateDescription vmstate_imxrt1180_edma = {
     .name = TYPE_IMXRT1180_EDMA,
     .version_id = 2,
     .minimum_version_id = 2,
-    .post_load = vmstate_imxrt1180_edma_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32(mp_csr, IMXRT1180EDMAState),
         VMSTATE_UINT32(mp_es, IMXRT1180EDMAState),

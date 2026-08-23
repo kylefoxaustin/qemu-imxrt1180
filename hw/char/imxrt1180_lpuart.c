@@ -501,11 +501,13 @@ static void imxrt1180_lpuart_realize(DeviceState *dev, Error **errp)
                              imxrt1180_lpuart_rx, NULL, NULL, s, NULL, true);
 }
 
-/* Migration: re-derive the IRQ line level from restored register state --
- * qemu_irq output levels are not migrated, so a pending IRQ would be lost. */
+/* Migration: re-drive the DMA-request output line from restored state.  This is
+ * the DEVICE-TO-DEVICE line the eDMA sees -- unlike the NVIC IRQ (whose level the
+ * NVIC's own vmstate restores), nothing else re-asserts dma_req, so a migrate
+ * mid-DMA would stall the transfer on the destination without this. */
 static int vmstate_imxrt1180_lpuart_post_load(void *opaque, int version_id)
 {
-    imxrt1180_lpuart_update_irq(opaque);
+    imxrt1180_lpuart_update_dma(opaque);
     return 0;
 }
 

@@ -102,16 +102,8 @@ static void lptmr_realize(DeviceState *dev, Error **errp)
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
     sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq);
 }
-/* Migration: re-assert the IRQ line from restored state (outputs aren't migrated). */
-static int vmstate_lptmr_post_load(void *opaque, int version_id)
-{
-    lptmr_update(opaque);
-    return 0;
-}
-
 static const VMStateDescription vmstate_lptmr = {
     .name = TYPE_IMXRT1180_LPTMR, .version_id = 1, .minimum_version_id = 1,
-    .post_load = vmstate_lptmr_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32(csr, IMXRT1180LPTMRState), VMSTATE_UINT32(psr, IMXRT1180LPTMRState),
         VMSTATE_UINT32(cmr, IMXRT1180LPTMRState), VMSTATE_PTIMER(timer, IMXRT1180LPTMRState),

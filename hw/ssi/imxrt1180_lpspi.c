@@ -405,11 +405,13 @@ static void imxrt1180_lpspi_realize(DeviceState *dev, Error **errp)
     s->cs_active = -1;
 }
 
-/* Migration: re-derive the IRQ line level from restored register state --
- * qemu_irq output levels are not migrated, so a pending IRQ would be lost. */
+/* Migration: re-drive the DMA-request output line from restored state.  This is
+ * the DEVICE-TO-DEVICE line the eDMA sees -- unlike the NVIC IRQ (whose level the
+ * NVIC's own vmstate restores), nothing else re-asserts dma_req, so a migrate
+ * mid-DMA would stall the transfer on the destination without this. */
 static int vmstate_imxrt1180_lpspi_post_load(void *opaque, int version_id)
 {
-    lpspi_update_irq(opaque);
+    lpspi_update_dma(opaque);
     return 0;
 }
 

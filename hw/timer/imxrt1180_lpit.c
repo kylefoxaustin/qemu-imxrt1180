@@ -227,19 +227,10 @@ static void imxrt1180_lpit_realize(DeviceState *dev, Error **errp)
     sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq);
 }
 
-/* Migration: re-derive the IRQ line level from restored register state --
- * qemu_irq output levels are not migrated, so a pending IRQ would be lost. */
-static int vmstate_imxrt1180_lpit_post_load(void *opaque, int version_id)
-{
-    lpit_update_irq(opaque);
-    return 0;
-}
-
 static const VMStateDescription vmstate_imxrt1180_lpit = {
     .name = TYPE_IMXRT1180_LPIT,
     .version_id = 1,
     .minimum_version_id = 1,
-    .post_load = vmstate_imxrt1180_lpit_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32(mcr, IMXRT1180LPITState),
         VMSTATE_UINT32(msr, IMXRT1180LPITState),
