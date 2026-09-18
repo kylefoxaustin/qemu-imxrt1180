@@ -49,7 +49,7 @@
 | B | `ele_crypto/ele_crypto_hsm` | cm33 | **XFAIL** | documented gap: prints "ERROR: execution of commands on Security Sub-System failed!" at Load EdgeLock FW; ELE FW-load handshake not modeled (README ELE = partial) |
 | B | `driver_examples/wdog32` | cm33 | **XBUILD** | example not wired for evkmimxrt1180 in SDK 26.06.00 (board CMake gap, not a model fault) |
 | B | `driver_examples/asrc/asrc_m2m_polling` | cm33 | **PASS** | "ASRC m2m polling example finished" |
-| B | `motor_control/pmsm/mc_pmsm/pmsm_enc` | cm7 | **VALUE-PROVEN** | proof: closed-loop FOC spin (no console success string), pinned by tests/imxrt1180-cm7boot + adc-fifo-align (needs -icount) |
+| B | `demo_apps/mc_pmsm/pmsm_enc` | cm7 | **VALUE-PROVEN** | proof: closed-loop FOC spin (no console success string), pinned by tests/imxrt1180-cm7boot + adc-fifo-align (needs -icount). PATH: SDK 2026.06.00 = examples/demo_apps/mc_pmsm/pmsm_enc (MOVED from the older examples/motor_control/pmsm/mc_pmsm/pmsm_enc; a value row so scorecard.sh doesn't build it, but keep the path current so it doesn't silently FAIL-build after an SDK bump) |
 | B | `multicore_examples/multicore_manager/primary` | cm33 | **PASS** | "The secondary core application has been started." |
 | B | `multicore_examples/rpmsg_lite_pingpong/primary` | cm33 | **PASS** | "Message: Size=4, DATA = 101" |
 
