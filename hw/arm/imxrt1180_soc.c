@@ -514,6 +514,15 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     for (int i = 0; i < IMXRT1180_NUM_LPUART; i++) {
         if (i < 2) {
             qdev_prop_set_chr(DEVICE(&s->lpuart[i]), "chardev", serial_hd(i));
+        } else if (i == 11 && serial_hd(2)) {
+            /*
+             * LPUART12 is the CM7's console on the EVK (Zephyr's
+             * `zephyr,console = &lpuart12`; the NXP SDK corpus only ever uses
+             * LPUART1). Bind it to serial_hd(2) when a third -serial is given
+             * so a CM7 guest's console is observable; otherwise it stays
+             * modelled-but-unbound like LPUART3..11.
+             */
+            qdev_prop_set_chr(DEVICE(&s->lpuart[i]), "chardev", serial_hd(2));
         }
         if (!sysbus_realize(SYS_BUS_DEVICE(&s->lpuart[i]), errp)) {
             return;
