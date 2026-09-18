@@ -184,6 +184,25 @@ def probe(regs):
     return vals
 
 
+# COVERAGE FLOOR (count the files, not the OKs): the golden itself must not silently
+# shrink. A future extract-rm-golden.py / RM-format regression that drops tables
+# reduces len(golden), and every REMAINING entry could still PASS -- the gate would go
+# green while checking fewer registers. The `uncov` check below catches a shrink ONLY
+# if it removes an ALLOWLISTED register; a dropped currently-MATCHING register vanishes
+# with no trace. So assert the golden's SIZE against a floor held HERE, outside the
+# artifact. BUMP THIS UP when the golden legitimately grows; a drop FAILS -- fix the
+# extraction, never lower the floor to make it pass. (Prompted by rt1180renode's
+# manifest audit, 2026-09-18: `sha256sum -c` returned ALL-OK while pinning 11 of 103
+# files, because a checker only speaks about what it lists -- identical shape.)
+GOLDEN_FLOOR = 7193
+if len(golden) < GOLDEN_FLOOR:
+    print("FAIL: golden has %d entries, floor is %d -- the extraction SHRANK."
+          % (len(golden), GOLDEN_FLOOR))
+    print("      A smaller golden checks fewer registers while still printing PASS on")
+    print("      the ones that remain -- a coverage regression that reads as success.")
+    print("      Fix extract-rm-golden.py; do NOT lower the floor to make this pass.")
+    sys.exit(EXIT_LIES)
+
 vals = probe(golden)
 if len(vals) != len(golden):
     print("CANNOT TELL: asked %d questions, got %d answers." % (len(golden), len(vals)))
