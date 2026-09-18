@@ -536,16 +536,26 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     QEMU_BUILD_BUG_ON(ARRAY_SIZE(lpuart_cfg) != IMXRT1180_NUM_LPUART);
 
     for (int i = 0; i < IMXRT1180_NUM_LPUART; i++) {
-        if (i < 2) {
+        /*
+         * Route the DEFAULT -serial to the console of whichever core boots, so a
+         * plain `-serial ...` shows the running core's output with no special
+         * invocation:
+         *  - CM7-boot: the M33 is held, so LPUART1 (its debug console) is dead;
+         *    the CM7's console is LPUART12 (Zephyr `zephyr,console = &lpuart12`),
+         *    so bind LPUART12 -> serial_hd(0).
+         *  - M33-boot: LPUART1 -> serial_hd(0) (debug console), LPUART2 ->
+         *    serial_hd(1) (b2b link), and LPUART12 -> serial_hd(2) when a third
+         *    -serial is given (the dual-core case where both consoles are wanted).
+         * The other instances are modelled but unbound (an absent instance still
+         * answers -- see above).
+         */
+        if (s->boot_cm7) {
+            if (i == 11 && serial_hd(0)) {
+                qdev_prop_set_chr(DEVICE(&s->lpuart[i]), "chardev", serial_hd(0));
+            }
+        } else if (i < 2) {
             qdev_prop_set_chr(DEVICE(&s->lpuart[i]), "chardev", serial_hd(i));
         } else if (i == 11 && serial_hd(2)) {
-            /*
-             * LPUART12 is the CM7's console on the EVK (Zephyr's
-             * `zephyr,console = &lpuart12`; the NXP SDK corpus only ever uses
-             * LPUART1). Bind it to serial_hd(2) when a third -serial is given
-             * so a CM7 guest's console is observable; otherwise it stays
-             * modelled-but-unbound like LPUART3..11.
-             */
             qdev_prop_set_chr(DEVICE(&s->lpuart[i]), "chardev", serial_hd(2));
         }
         if (!sysbus_realize(SYS_BUS_DEVICE(&s->lpuart[i]), errp)) {
