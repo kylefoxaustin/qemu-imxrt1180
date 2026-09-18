@@ -25,6 +25,7 @@
 #include "hw/misc/imxrt1180_src.h"
 #include "hw/misc/imxrt1180_trdc.h"
 #include "hw/misc/imxrt1180_mu.h"
+#include "hw/misc/imxrt1180_mecc.h"
 #include "hw/i2c/imxrt1180_lpi2c.h"
 #include "hw/ssi/imxrt1180_lpspi.h"
 #include "hw/timer/imxrt1180_lpit.h"
@@ -90,6 +91,8 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 #define IMXRT1180_OCRAM1_SIZE     0x0007C000
 #define IMXRT1180_OCRAM2_BASE     0x20500000  /* OCRAM2                 256 KiB */
 #define IMXRT1180_OCRAM2_SIZE     0x00040000
+#define IMXRT1180_MECC1_BASE      0x42920000  /* MECC1 (OCRAM1 ECC), IRQ 91     */
+#define IMXRT1180_MECC2_BASE      0x42930000  /* MECC2 (OCRAM2 ECC), IRQ 92     */
 #define IMXRT1180_FLEXSPI1_BASE   0x28000000  /* FlexSPI1 NOR XIP window (NS)   */
 #define IMXRT1180_FLEXSPI1_SIZE   0x01000000  /* 16 MiB (EVK flash)             */
 #define IMXRT1180_FLEXSPI1_S_BASE 0x38000000  /* secure alias (TZ-M)            */
@@ -299,8 +302,9 @@ struct IMXRT1180State {
     MemoryRegion sys_tcm;    /* DTCM  @ 0x20000000 */
     MemoryRegion code_tcm_dma;  /* ITCM as a bus master sees it @ 0x201E0000 */
     MemoryRegion sys_tcm_dma;   /* DTCM as a bus master sees it @ 0x20200000 */
-    MemoryRegion ocram1;     /* OCRAM1 @ 0x20484000 */
-    MemoryRegion ocram2;     /* OCRAM2 @ 0x20500000 */
+    MemoryRegion ocram1;     /* OCRAM1 @ 0x20484000 (plain RAM; MECC1 regs-only) */
+    IMXRT1180MECCState mecc1;  /* MECC1 registers (OCRAM1 kept fast RAM)          */
+    IMXRT1180MECCState mecc2;  /* MECC2 + ECC-fronted OCRAM2 @ 0x20500000         */
     /*
      * No MemoryRegion for the FlexSPI1 NOR XIP window: it is the FlexSPI
      * controller's own AHB window (flexspi1_ctrl.ahb) backed by a real m25p80

@@ -849,6 +849,7 @@ config IMXRT1180_SOC
     select WM8962
     select IMXRT1180_NETC
     select IMXRT1180_MSGINTR
+    select IMXRT1180_MECC
 
 config MIMXRT1180_EVK
     bool

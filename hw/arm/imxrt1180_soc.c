@@ -86,6 +86,8 @@ static void imxrt1180_soc_instance_init(Object *obj)
     }
     object_initialize_child(obj, "src", &s->src, TYPE_IMXRT1180_SRC);
     object_initialize_child(obj, "mu1", &s->mu1, TYPE_IMXRT1180_MU);
+    object_initialize_child(obj, "mecc1", &s->mecc1, TYPE_IMXRT1180_MECC);
+    object_initialize_child(obj, "mecc2", &s->mecc2, TYPE_IMXRT1180_MECC);
     for (int i = 0; i < IMXRT1180_NUM_LPI2C; i++) {
         g_autofree char *iname = g_strdup_printf("lpi2c%d", i + 1);
         object_initialize_child(obj, iname, &s->lpi2c[i], TYPE_IMXRT1180_LPI2C);
@@ -329,10 +331,13 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
     memory_region_add_subregion(system_memory, IMXRT1180_OCRAM1_BASE,
                                 &s->ocram1);
 
-    memory_region_init_ram(&s->ocram2, OBJECT(dev), "imxrt1180.ocram2",
-                           IMXRT1180_OCRAM2_SIZE, &error_fatal);
-    memory_region_add_subregion(system_memory, IMXRT1180_OCRAM2_BASE,
-                                &s->ocram2);
+    /*
+     * OCRAM2 is provided by MECC2 as an ECC-fronted region (see the MECC wiring
+     * below), so writes/reads pass through the ECC error-injection/correction
+     * path.  (OCRAM1 is kept as plain fast RAM: MECC1 is modelled registers-only
+     * so the RPMsg-lite shared vrings in OCRAM1 stay a coherent, fast RAM between
+     * the two per-core views -- see the MECC1 note below.)
+     */
 
     /*
      * NOTE: the FlexSPI1 NOR XIP window (0x28000000) is NOT a memory region
@@ -579,6 +584,33 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         return;
     }
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->mu_rt_s3), 0, IMXRT1180_MU_RT_S3MU_BASE);
+
+    /*
+     * MECC — OCRAM ECC controllers.  MECC2 fully models its ECC data path: it
+     * PROVIDES OCRAM2 as an ECC-fronted region (mmio[1] mapped at OCRAM2_BASE),
+     * so the stock mecc_single_error demo's inject -> correct-on-read -> single-
+     * error IRQ round-trip works end to end.  MECC1 is modelled registers-only:
+     * OCRAM1 is left as plain fast RAM (above) so the RPMsg-lite shared vrings
+     * there stay coherent and fast between the two per-core views -- the SDK MECC
+     * example uses MECC2, and intercepting OCRAM1 would make it an IO region.
+     * (Flagged limitation: a MECC1-on-OCRAM1 ECC example is not supported.)
+     */
+    qdev_prop_set_uint32(DEVICE(&s->mecc1), "ocram-size", IMXRT1180_OCRAM1_SIZE);
+    if (!sysbus_realize(SYS_BUS_DEVICE(&s->mecc1), errp)) {
+        return;
+    }
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->mecc1), 0, IMXRT1180_MECC1_BASE);   /* regs */
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->mecc1), 0,
+                       qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]), 91));
+
+    qdev_prop_set_uint32(DEVICE(&s->mecc2), "ocram-size", IMXRT1180_OCRAM2_SIZE);
+    if (!sysbus_realize(SYS_BUS_DEVICE(&s->mecc2), errp)) {
+        return;
+    }
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->mecc2), 0, IMXRT1180_MECC2_BASE);   /* regs */
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->mecc2), 1, IMXRT1180_OCRAM2_BASE);  /* ECC OCRAM2 */
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->mecc2), 0,
+                       qdev_get_gpio_in(DEVICE(&s->armv7m[IMXRT1180_CPU_M33]), 92));
 
     /*
      * FlexSPI1 + the EVK's serial NOR flash.
