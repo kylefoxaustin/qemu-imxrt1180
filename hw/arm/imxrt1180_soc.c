@@ -409,6 +409,25 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
         qdev_prop_set_uint8 (cpudev, "num-prio-bits", cfg->core[i].num_prio_bits);
         qdev_prop_set_string(cpudev, "cpu-type",      cfg->core[i].cpu_type);
         qdev_prop_set_bit   (cpudev, "enable-bitband", false);
+        if (i == IMXRT1180_CPU_M7) {
+            /*
+             * The MIMXRT1189 Cortex-M7 has a 16-region MPU (MPU_TYPE.DREGION=16,
+             * as on the RT1170 M7).  QEMU's generic cortex-m7 defaults to only 8
+             * -- a wrong register COUNT: it silently under-reports the MPU.  A
+             * CONFIG_USERSPACE guest (Zephyr's ztest kernel suites) then computes
+             * too few dynamic MPU regions -- the board's static regions
+             * (mpu_regions.c: ITCM/DTCM/OCRAM/HyperRAM/QSPI...) leave no room --
+             * so k_mem_domain_init() fails and the kernel PANICs before the
+             * console is even up (silent hang).  Forward the real count to the
+             * CPU's pmsav7-dregion via the armv7m mpu-ns-regions property.  The
+             * M33 already reports 16 (cortex-m33 default == silicon), so only the
+             * M7 needs the override.  Verified against the NXP firmware: with 8
+             * the stock Zephyr ztest images panic in init_mem_domain_module; with
+             * 16 they boot (the vendor image, built for real hardware, is the
+             * oracle for the true count).
+             */
+            qdev_prop_set_uint32(cpudev, "mpu-ns-regions", 16);
+        }
         /*
          * Reset reads the vector table (initial SP + reset PC) from a vecbase.
          * The M33 is secure and reads vecbase[S] == init_svtor, pointed at its
