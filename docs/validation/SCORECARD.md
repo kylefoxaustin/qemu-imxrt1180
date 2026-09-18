@@ -46,22 +46,24 @@
 | B | `driver_examples/edma4/memory_to_memory_trigger` | cm33 | **XBUILD** | triggered variant not wired for evkmimxrt1180 in SDK 26.06.00 (board CMake gap) |
 | B | `driver_examples/s3mu` | cm33 | **PASS** | "End of Example with SUCCESS!!" |
 | B | `driver_examples/cache` | cm33 | **XFAIL** | documented gap: ARCHITECTURAL: the demo requires a real write-back data cache to hide DMA data (checks memcmp DIFFERS before Invalidate/Clean). QEMU memory is coherent -- the maintenance ops are correctly no-ops (see XCACHE), so the demo's stale-cache premise never holds and it can't pass. NOT an XCACHE bug (flexspi proves XCACHE completion works) |
-| B | `ele_crypto/ele_crypto_hsm` | cm33 | **XFAIL** | documented gap: prints "ERROR: execution of commands on Security Sub-System failed!" at Load EdgeLock FW; ELE FW-load handshake not modeled (README ELE = partial) |
+| B | `ele_crypto/ele_crypto_hsm` | cm33 | **XFAIL** | documented gap: PRINCIPLED (declining to fake crypto, not a model bug): aborts at step 1 ELE_LoadFw (the enclave FW-load handshake), and the demo break-aborts on any step's failure so ALL must pass to reach the SUCCESS banner. Past FW-load it runs a full HSM suite with round-trip checks -- AES-ECB + AES-GCM + HMAC-SHA256 (these WOULD be computable via QEMU's nettle crypto) AND ECDSA P256 + Brainpool sign/verify. QEMU's akcipher is RSA-ONLY (qapi/crypto.json: alg=['rsa']) -- no ECDSA -- so the signature steps cannot be computed, and faking a signature/ciphertext is exactly the forbidden "SUCCESS over an un-computed buffer" (the GET_RNG_RANDOM lesson at scale). A real PASS needs ECDSA (direct nettle-ECC in the S3MU model, or a QEMU-core akcipher extension) -- same class of honest XFAIL as multicore_trigger/cache, not a stub gap |
 | B | `driver_examples/wdog32` | cm33 | **XBUILD** | example not wired for evkmimxrt1180 in SDK 26.06.00 (board CMake gap, not a model fault) |
 | B | `driver_examples/asrc/asrc_m2m_polling` | cm33 | **PASS** | "ASRC m2m polling example finished" |
 | B | `demo_apps/mc_pmsm/pmsm_enc` | cm7 | **VALUE-PROVEN** | proof: closed-loop FOC spin (no console success string), pinned by tests/imxrt1180-cm7boot + adc-fifo-align (needs -icount). PATH: SDK 2026.06.00 = examples/demo_apps/mc_pmsm/pmsm_enc (MOVED from the older examples/motor_control/pmsm/mc_pmsm/pmsm_enc; a value row so scorecard.sh doesn't build it, but keep the path current so it doesn't silently FAIL-build after an SDK bump) |
 | B | `multicore_examples/multicore_manager/primary` | cm33 | **PASS** | "The secondary core application has been started." |
 | B | `multicore_examples/rpmsg_lite_pingpong/primary` | cm33 | **PASS** | "Message: Size=4, DATA = 101" |
+| B | `driver_examples/mecc/mecc_single_error` | cm33 | **PASS** | "MECC single error example finished successfully" |
+| B | `driver_examples/mecc/mecc_multi_error` | cm33 | **PASS** | "MECC Multiple error example finished successfully" |
 
 ## Tally (MEASURED — classes are NOT summed into a single headline)
 
 | class | count |
 |---|---|
-| PASS (ran to success) | 17 |
+| PASS (ran to success) | 19 |
 | BANNER (reached app, blocked on external host) | 5 |
 | XFAIL (documented gap) | 3 |
 | VALUE-PROVEN (pinned by a value-test) | 2 |
 | XBUILD (SDK build gap) | 2 |
 
-Coverage gate: Tier A 8/8, Tier B 21/21.
+Coverage gate: Tier A 8/8, Tier B 23/23.
 **Gate: PASS.**
