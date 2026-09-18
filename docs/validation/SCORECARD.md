@@ -24,7 +24,7 @@
 | tier | example | core | verdict | detail |
 |------|---------|------|---------|--------|
 | A | `demo_apps/hello_world` | cm33 | **PASS** | "hello world." |
-| A | `demo_apps/bubble_peripheral` | cm33 | **BANNER** | reaches app ("Welcome to the BUBBLE example"); then polls the FXOS8700 accel over LPI2C (sensor not modeled) |
+| A | `demo_apps/bubble_peripheral` | cm33 | **BANNER** | reaches app ("Welcome to the BUBBLE example"); reads the on-board FXLS8974 accel (U115, LPI2C2 @0x19), which IS modelled (hw/sensor/fxls8974.c); the sensor ACKs so the demo proceeds |
 | A | `demo_apps/led_blinky` | cm33 | **VALUE-PROVEN** | proof: RGPIO4[27] toggle observable in PDOR (no console output; README "What runs today") |
 | A | `demo_apps/multicore_trigger` | cm33 | **XFAIL** | documented gap: ARCHITECTURAL (boot-flow, not MCMGR): the failing call is BOARD_GetCore1ImageAddrSize, which parses an AHAB boot CONTAINER at FlexSPI 0x38001000 (secure alias) that the boot ROM leaves, describing the M7 image (tag 0x87, image_type=exec+core=CM7). Our -kernel direct-load bypasses boot-ROM setup so no container exists -- same class as the FlexSPI IP-command / XIP XFAILs -- and the demo ships no cm7 sub-image, so a PASS would require fabricating a container + a fake M7 image (a fake success). MCMGR is only reached AFTER image-info succeeds. |
 | A | `demo_apps/sai` | cm33 | **BANNER** | reaches app ("SAI Demo started!"); FreeRTOS+SD variant; waits for an SD card insertion (no SD host) |
