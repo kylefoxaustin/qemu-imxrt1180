@@ -1,18 +1,27 @@
 /*
- * Bare-metal ARMv8-M UsageFault-delivery probe for the i.MX RT1180 Cortex-M33.
+ * Bare-metal ARMv8-M UsageFault-delivery capability check for the i.MX RT1180
+ * Cortex-M33.
  *
- * Zephyr's tests/arch/arm/arm_interrupt deliberately executes `udf #90`
- * (encoding 0xde5a) and validates that the core delivers a UsageFault
- * (UFSR.UNDEFINSTR) to the guest handler.  The rt1180renode sibling measured
- * that Renode's Cortex-M33 core LOCKS UP on this (PC=0xEFFFFFFE, HFSR.FORCED)
- * instead of delivering the fault, while its Cortex-M7 passes.
- *
- * This probe asks the same architectural question of QEMU's Cortex-M33, with
- * NO Zephyr / external-memory / VTOR harness -- it links straight to the CM33
- * code TCM.  It distinguishes three outcomes unambiguously:
+ * Asserts a QEMU-side invariant: with SHCSR.USGFAULTENA set, a deliberate
+ * undefined instruction (`udf #90`, encoding 0xde5a -- the exact stimulus
+ * Zephyr's tests/arch/arm/arm_interrupt uses) is delivered to the guest
+ * UsageFault handler with UFSR.UNDEFINSTR set, NOT escalated to HardFault and
+ * NOT locked up.  Links straight to the CM33 code TCM -- no Zephyr / external-
+ * memory / VTOR harness.  Three unambiguous outcomes:
  *   PASS   : the UsageFault handler runs with UFSR.UNDEFINSTR set  (correct)
  *   ESCAL  : the HardFault handler runs (fault escalated, not delivered)
- *   LOCKUP : QEMU aborts with "Lockup" (matches Renode's CM33 defect)
+ *   LOCKUP : QEMU aborts with "Lockup"
+ *
+ * PROVENANCE / RETRACTION (2026-09-18): this probe was originally built to
+ * second-source a reported Renode Cortex-M33 lockup on arm_interrupt
+ * (PC=0xEFFFFFFE, HFSR.FORCED).  rt1180renode SUBSEQUENTLY RETRACTED that as a
+ * platform misconfiguration, NOT a core defect: its .repl left enableTrustZone
+ * unset (Renode defaults it FALSE), so on a non-TrustZone M33 running secure
+ * firmware, EXC_RETURN.ES could not be set and Zephyr's fault handler asserted
+ * (get_esf() -> NULL) before any delivery.  Setting enableTrustZone:true
+ * cleared it.  So the CROSS-TOOL comparison this probe once supported is VOID.
+ * What remains TRUE and useful is the QEMU-side capability it asserts on its
+ * own -- kept as a standalone regression test, not a Renode comparison.
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
