@@ -44,6 +44,22 @@ it."*) So, explicitly:
 > untouched buffer is a silent-wrong that no status check and no IRQ-counting
 > test will ever see.**
 
+> **Corollary, developer-facing (rt1180renode, 2026-09-18): a register that
+> ACCEPTS WRITES and CHANGES NOTHING is WORSE than an unimplemented one.** An
+> unimplemented register logs `Unhandled write` — the firmware *author*, reading
+> the run, sees the gap. A register that is register-backed but whose modelled
+> *effect* is absent passes every check the firmware can make (MSR succeeds, MRS
+> reads the value back) while the behaviour it gates is silently inert — *absent
+> while appearing present*. This is the mirror of the guest-facing rule above,
+> aimed at the developer instead of the guest: same sin — a gap that reaches
+> nobody who could act on it. The specimen was Renode's ARMv8-M `PSPLIM`/`MSPLIM`
+> (stored, never compared to SP, so `CONFIG_HW_STACK_PROTECTION` was inert while
+> looking configured); our side enforces it (`m_helper.c` STKOF UsageFault). So:
+> when a register's *effect* isn't modelled and firmware could depend on it,
+> prefer leaving it to the `LOG_UNIMP` catch-all (visible) over silently
+> accepting the write (invisible) — unless the effect is genuinely inert on
+> silicon too.
+
 | Block | Instances | Base(s) | Tier | Notes |
 |-------|-----------|---------|------|-------|
 | **Cortex-M33** (boot/secure) | 1 | — | ✅ core | ARMV7M, 239 IRQs, prio-bits 3, TrustZone-M |
