@@ -57,11 +57,22 @@ fi
 
 # --- run helpers ---------------------------------------------------------------
 # Run an ELF/bin under QEMU, capture console to $1, honour extra flags in $3.
+# Sets RUN_TIMED_OUT=1 if the run hit the wall-clock budget (timeout killed it),
+# else 0. A truncated run is INDISTINGUISHABLE from a finished one by its console
+# alone -- so the caller must be able to tell "oracle not printed because it
+# FAILED" from "oracle not printed because we CUT IT OFF" (rt1180renode's lesson:
+# any wall-clock guard penalises the slower path, which is the thing measured).
+# NOTE: a PASS example that prints its oracle and then loops forever ALSO times
+# out here -- that is fine, the oracle is already in the console; RUN_TIMED_OUT
+# only disambiguates the oracle-NOT-found case.
+RUN_TIMED_OUT=0
 qemu_run() { # console_out  image  extra_flags  secs
-    local con="$1" img="$2" extra="${3:-}" secs="${4:-14}"
+    local con="$1" img="$2" extra="${3:-}" secs="${4:-20}" rc
     timeout -k 3 "$secs" "$QEMU" -M mimxrt1180-evk -audio none -display none -monitor none \
         -kernel "$img" -serial "file:$con" $extra \
         -semihosting-config enable=on,target=native >/dev/null 2>&1
+    rc=$?
+    RUN_TIMED_OUT=$([ "$rc" -eq 124 ] || [ "$rc" -eq 137 ] && echo 1 || echo 0)
 }
 
 tierA_image() { # example -> path to prebuilt bin (echo), rc!=0 if none
@@ -142,7 +153,13 @@ while IFS=$'\t' read -r tier example core kind oracle oracle_src note; do
     fi
 
     con="$WORK/con_$(echo "${tier}_${example}_${core}" | tr '/' '_')"
-    qemu_run "$con" "$img" "$run_extra" 20
+    # -icount rows (cm7, multicore) run in lock-stepped virtual time and are much
+    # slower in host time -- give them a bigger wall-clock budget so a slow-to-
+    # print example is not truncated before it reaches its oracle. A wall-clock
+    # guard sized for the fast path would systematically penalise exactly the
+    # rows most likely to need the time (rt1180renode's harness lesson).
+    run_secs=20; [ -n "$run_extra" ] && run_secs=90
+    qemu_run "$con" "$img" "$run_extra" "$run_secs"
     [ -f "$con" ] || { missing_output+=1; }
     console="$(tr -d '\0' <"$con" 2>/dev/null)"
 
@@ -152,14 +169,18 @@ while IFS=$'\t' read -r tier example core kind oracle oracle_src note; do
       pass)
         if [ "$contains" = 1 ]; then verdict="PASS"; rows_pass+=1
             emit_row "$tier|$example|$core|PASS|\"$oracle\""
+        elif [ "$RUN_TIMED_OUT" = 1 ]; then verdict="FAIL(timeout)"; fail+=1
+            emit_row "$tier|$example|$core|FAIL|oracle \"$oracle\" not seen within ${run_secs}s -- run TIMED OUT (possible truncation, not a confirmed model failure; re-run with a larger budget)"
         else verdict="FAIL"; fail+=1
-            emit_row "$tier|$example|$core|FAIL|oracle \"$oracle\" NOT printed"
+            emit_row "$tier|$example|$core|FAIL|oracle \"$oracle\" NOT printed (ran to completion)"
         fi;;
       banner)
         if [ "$contains" = 1 ]; then verdict="BANNER"; rows_banner+=1
             emit_row "$tier|$example|$core|BANNER|reaches app (\"$oracle\"); $note"
+        elif [ "$RUN_TIMED_OUT" = 1 ]; then verdict="FAIL(timeout)"; fail+=1
+            emit_row "$tier|$example|$core|FAIL|banner \"$oracle\" not seen within ${run_secs}s -- run TIMED OUT (possible truncation, not a confirmed model failure; re-run with a larger budget)"
         else verdict="FAIL"; fail+=1
-            emit_row "$tier|$example|$core|FAIL|banner \"$oracle\" NOT printed"
+            emit_row "$tier|$example|$core|FAIL|banner \"$oracle\" NOT printed (ran to completion)"
         fi;;
       xfail)
         if [ "$contains" = 1 ]; then verdict="REGRESSED"; regress+=1
