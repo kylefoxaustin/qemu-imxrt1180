@@ -93,6 +93,18 @@ OBJECT_DECLARE_SIMPLE_TYPE(IMXRT1180State, IMXRT1180_SOC)
 #define IMXRT1180_OCRAM2_SIZE     0x00040000
 #define IMXRT1180_MECC1_BASE      0x42920000  /* MECC1 (OCRAM1 ECC), IRQ 91     */
 #define IMXRT1180_MECC2_BASE      0x42930000  /* MECC2 (OCRAM2 ECC), IRQ 92     */
+
+/*
+ * Per-core CPU clocks (drive SysTick when CLKSOURCE=processor). These are the
+ * post-board-clock-config rates, which is what firmware sees and what the CMSIS
+ * headers declare as DEFAULT_SYSTEM_CLOCK -- NOT invented:
+ *   M33: SYS_PLL3 (480 MHz) / 2 = 240 MHz  (system_MIMXRT1189_cm33.h:73 = 240000000,
+ *        SDK clock_config.c: kCLOCK_M33_ClockRoot_MuxSysPll3Out, div=2)
+ *   M7 : 792 MHz                            (system_MIMXRT1189_cm7.h:73  = 792000000)
+ * The two cores run at DIFFERENT rates, so they must NOT share one clock.
+ */
+#define IMXRT1180_M33_SYSCLK_HZ   240000000ULL
+#define IMXRT1180_M7_SYSCLK_HZ    792000000ULL
 #define IMXRT1180_FLEXSPI1_BASE   0x28000000  /* FlexSPI1 NOR XIP window (NS)   */
 #define IMXRT1180_FLEXSPI1_SIZE   0x01000000  /* 16 MiB (EVK flash)             */
 #define IMXRT1180_FLEXSPI1_S_BASE 0x38000000  /* secure alias (TZ-M)            */
@@ -314,8 +326,9 @@ struct IMXRT1180State {
     MemoryRegion ext_ram;    /* external RAM @ 0x14000000 (Zephyr) */
     MemoryRegion periph_secure; /* TZ-M secure peripheral aperture @ 0x50000000 */
 
-    Clock       *sysclk;
+    Clock       *sysclk;    /* M33 CPU clock (240 MHz)  */
     Clock       *refclk;
+    Clock       *m7clk;     /* M7 CPU clock  (792 MHz)  */
 
     const IMXRT1180Config *cfg;  /* resolved from "part" at realize time */
     char                  *part; /* settable property: selects the config */

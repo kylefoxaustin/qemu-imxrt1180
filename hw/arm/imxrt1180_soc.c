@@ -176,6 +176,7 @@ static void imxrt1180_soc_instance_init(Object *obj)
 
     s->sysclk = qdev_init_clock_in(DEVICE(s), "sysclk", NULL, NULL, 0);
     s->refclk = qdev_init_clock_in(DEVICE(s), "refclk", NULL, NULL, 0);
+    s->m7clk  = qdev_init_clock_in(DEVICE(s), "m7clk", NULL, NULL, 0);
 }
 
 /*
@@ -451,8 +452,18 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
             }
             qdev_prop_set_bit(cpudev, "start-powered-off", i != boot);
         }
-        qdev_connect_clock_in(cpudev, "cpuclk", s->sysclk);
-        qdev_connect_clock_in(cpudev, "refclk", s->refclk);
+        /*
+         * The two cores run at DIFFERENT rates (M33 240 MHz, M7 792 MHz), so
+         * each gets its own clock -- sharing one would give one core the other's
+         * SysTick rate (the M33 was running at 300 MHz, wrong on both counts).
+         */
+        if (i == IMXRT1180_CPU_M7) {
+            qdev_connect_clock_in(cpudev, "cpuclk", s->m7clk);
+            qdev_connect_clock_in(cpudev, "refclk", s->m7clk);
+        } else {
+            qdev_connect_clock_in(cpudev, "cpuclk", s->sysclk);
+            qdev_connect_clock_in(cpudev, "refclk", s->refclk);
+        }
         object_property_set_link(OBJECT(&s->armv7m[i]), "memory",
                                  OBJECT(&s->cpu_mem[i]), &error_abort);
         if (!sysbus_realize(SYS_BUS_DEVICE(&s->armv7m[i]), errp)) {

@@ -30,8 +30,8 @@
 #include "elf.h"                   /* EM_ARM / ELFDATA2LSB */
 #include "qom/object.h"
 
-/* CM33 boot core runs at 300 MHz on the RT1189 (M7 main core is 800 MHz). */
-#define IMXRT1180_M33_SYSCLK_HZ  300000000ULL
+/* CPU clock rates (M33 240 MHz, M7 792 MHz) live in imxrt1180_soc.h with their
+ * CMSIS citations -- the two cores run at different rates. */
 
 /*
  * Load the firmware into the GLOBAL system address space (not the per-cpu AS
@@ -298,7 +298,7 @@ static bool imxrt1180_kernel_is_cm7(const char *filename)
 static void mimxrt1180_evk_init(MachineState *machine)
 {
     IMXRT1180State *soc;
-    Clock          *sysclk, *refclk;
+    Clock          *sysclk, *refclk, *m7clk;
     DeviceState    *dev;
 
     /* Board-supplied source clocks. */
@@ -306,6 +306,8 @@ static void mimxrt1180_evk_init(MachineState *machine)
     clock_set_hz(sysclk, IMXRT1180_M33_SYSCLK_HZ);
     refclk = clock_new(OBJECT(machine), "REFCLK");
     clock_set_hz(refclk, IMXRT1180_M33_SYSCLK_HZ);
+    m7clk = clock_new(OBJECT(machine), "M7CLK");
+    clock_set_hz(m7clk, IMXRT1180_M7_SYSCLK_HZ);
 
     /* Instantiate the SoC. */
     soc = IMXRT1180_SOC(object_new(TYPE_IMXRT1180_SOC));
@@ -322,6 +324,7 @@ static void mimxrt1180_evk_init(MachineState *machine)
     }
     qdev_connect_clock_in(dev, "sysclk", sysclk);
     qdev_connect_clock_in(dev, "refclk", refclk);
+    qdev_connect_clock_in(dev, "m7clk", m7clk);
     sysbus_realize(SYS_BUS_DEVICE(soc), &error_fatal);
 
     /*

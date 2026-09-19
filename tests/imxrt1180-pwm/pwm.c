@@ -102,7 +102,16 @@
 #define XTAL_HZ           24000000u
 #define SYS_PLL2_HZ       (XTAL_HZ * 22u)              /* 528 MHz, fsl_clock.h */
 
-#define CPU_HZ            300000000u
+/*
+ * SysTick counts the M33 CPU clock (CLKSOURCE=processor). Anchor CPU_HZ to the
+ * DATASHEET, NOT the model: the MIMXRT1189 M33 runs at 240 MHz post board-config
+ * (SYS_PLL3 480 MHz / 2; CMSIS system_MIMXRT1189_cm33.h DEFAULT_SYSTEM_CLOCK =
+ * 240000000). It was 300 MHz here -- which happened to match a wrong 300 MHz in
+ * the model, so the test PASSED by echoing the model's own error (the exact
+ * golden-echoes-the-model trap this file's header warns about). The rt1180renode
+ * Renode port, built at the correct 240, exposed it as a uniform 0.8 = 240/300.
+ */
+#define CPU_HZ            240000000u
 #define PWM_PERIOD_TICKS  1000u
 #define PWM_PRESCALE      64u          /* CTRL.PRSC = 6 -> divide by 64 */
 #define CTRL_PRSC_6       (6u << 4)
