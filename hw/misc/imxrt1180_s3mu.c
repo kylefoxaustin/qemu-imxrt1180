@@ -383,7 +383,28 @@ static void imxrt1180_s3mu_realize(DeviceState *dev, Error **errp)
 {
     IMXRT1180S3MUState *s = IMXRT1180_S3MU(dev);
 
-    s->dma_as = &address_space_memory;   /* RNG entropy is delivered by pointer */
+    /*
+     * The RNG result is delivered BY POINTER to a guest-supplied address (see
+     * s3mu_do_rng).  This S3MU is the M33's mailbox to the ELE (MU_RT_S3MU), so
+     * the requester is always the M33 -- and the global system AS coincides with
+     * the M33's view for that buffer, because the M33 TCMs are mapped GLOBALLY at
+     * their CPU-local addresses (imxrt1180_soc.c: sys_tcm @0x20000000, code_tcm
+     * @0x0FFE0000).  So a context-less write from here reaches an M33-local DTCM
+     * buffer correctly.  (rt1180renode hit the sibling of this: its M33 DTCM was
+     * registered CPU-SCOPED, so a context-less write of real entropy landed in a
+     * hole and the enclave reported success over an unreadable buffer -- the
+     * "computed it, put it where nothing can read it, reported success" shape.)
+     *
+     * CAVEAT, so a future change does not silently regress it: correctness here
+     * RELIES on the M33 TCM being global at the CPU-local address AND on this MU
+     * only ever serving the M33.  If an M7 ELE path is ever routed through an
+     * S3MU instance, the M7's CPU-local 0x20000000 (its own DTCM, in the M7
+     * per-core view) is NOT what the global AS resolves 0x20000000 to -- that
+     * would need resolving in the requesting CPU's context.  Context-less is
+     * right for a bus MASTER (eDMA/NETC use the TCM master-aliases 0x201E0000/
+     * 0x20200000), wrong for a service acting on a CPU-supplied address.
+     */
+    s->dma_as = &address_space_memory;
     memory_region_init_io(&s->iomem, OBJECT(s), &imxrt1180_s3mu_ops, s,
                           TYPE_IMXRT1180_S3MU, 0x1000);
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
