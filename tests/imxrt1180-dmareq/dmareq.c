@@ -1,15 +1,21 @@
 /*
  * i.MX RT1180 — PERIPHERAL-TRIGGERED eDMA (Cortex-M33).
  *
- * The eDMA has TWO ways to move a byte and they are not the same thing:
+ * The eDMA has TWO ways to TRIGGER a move, and the difference is the trigger
+ * SOURCE, not the loop count — each trigger moves exactly ONE MINOR LOOP (NBYTES)
+ * and decrements CITER; a CITER=N major loop needs N triggers either way. (See
+ * tests/imxrt1180-edma, whose phase 2 pins one-START-one-minor-loop at CITER=4;
+ * the model was retracted from an earlier "whole major loop per START" that only
+ * looked right because every test used CITER=1, where the two are identical.)
  *
- *   TCD_CSR[START]  — software says "go", the whole major loop runs. This is the
- *                     one every mem-to-mem test exercises, and it needs no
- *                     peripheral at all.
- *   a REQUEST LINE  — a peripheral says "I have a byte" / "I can take a byte",
- *                     and ONE minor loop runs. This is how every real DMA-driven
- *                     driver in the SDK works, and it is the one that is easy to
- *                     have never implemented while all your tests pass.
+ *   TCD_CSR[START]  — SOFTWARE says "go". One minor loop, no peripheral needed.
+ *                     Mem-to-mem tests use it, usually with CITER=1 so a single
+ *                     START completes the transfer — which is exactly the case
+ *                     that hid the loop-count bug.
+ *   a REQUEST LINE  — a PERIPHERAL says "I have a byte" / "I can take a byte",
+ *                     one minor loop per assertion. This is how every real
+ *                     DMA-driven driver in the SDK works, and it is the one that
+ *                     is easy to have never implemented while all your tests pass.
  *
  * This test drives the second path END TO END over a real wire: LPUART2 (the b2b
  * port, 0x4439_0000, bound to a socket chardev with an echo peer). eDMA3 CH0 is
