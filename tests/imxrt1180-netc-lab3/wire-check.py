@@ -152,15 +152,121 @@ def send(f):
     rx.sendto(f, (GROUP, PORT))
 
 
-qemu = subprocess.Popen(
-    [QEMU, "-M", "mimxrt1180-evk", "-audio", "none", "-display", "none",
-     "-monitor", "none", "-semihosting-config", "enable=on,target=native",
-     "-kernel", ELF,
-     "-nic", "socket,mcast=%s:%d,mac=54:27:8d:00:00:00" % (GROUP, PORT),
-     "-serial", "stdio"],
-    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
+# ─────────────────────────────────────────────────────────────────────────────
+# ⭐ ONE SPAWN SITE. THIS IS THE HOLOBENCH SEAM.
+#
+# This harness used to build QEMU argv inline at THREE places (phases 1-7, the
+# legacy-peer node, and the never-armed-impostor node). That is why a peer
+# implementation could not be put under it: the emulator BINARY was already an
+# env var (QEMU=), but the argv was QEMU CLI GRAMMAR -- `-M mimxrt1180-evk`,
+# `-kernel`, `-nic socket,mcast=`. Swapping the binary was never the blocker;
+# the missing thing was a LAUNCH ABSTRACTION.
+#
+#   NODE=qemu    (default)  -- exactly the argv this file always built
+#   NODE=<other> + NODE_SPAWN=<prog>  -- prog <group> <port> <mac> <elf>
+#
+# The spawner's contract, and it is the whole contract:
+#   * join <group>:<port> as a multicast station carrying <mac>
+#   * run <elf>
+#   * PUT THE GUEST CONSOLE ON STDOUT, line-buffered
+#   * BE the emulator process, so .terminate() stops it and frees the socket
+#
+# Nothing about Renode, or any other peer, is encoded here -- that knowledge
+# lives in the peer's own tree, where it belongs. What this file gains is the
+# ability to assert the SAME EIGHT PHASES against a node it did not build.
+#
+#   ⭐ And note what this preserves: the peer under test still is not a copy of
+#      the checker. Making the checker able to launch a second implementation is
+#      the opposite of the bug this file was written to catch -- it widens the
+#      set of actors that are NOT us.
+NODE = os.environ.get("NODE", "qemu")
+NODE_SPAWN = os.environ.get("NODE_SPAWN")
+NODE_MAC = os.environ.get("NODE_MAC", "54:27:8d:00:00:00")
+# How long a node may take to reach its own banner. QEMU needs < 1 s; Renode
+# constructs its platform and compiles its C# peripherals first and needs ~10 s.
+# This bounds STARTUP ONLY -- it is not part of any phase's measurement window.
+BOOT_TIMEOUT = float(os.environ.get("NODE_BOOT_TIMEOUT", "60"))
+# The guest's earliest print, on any emulator: the SDK banner this firmware emits
+# before it touches the PHY. Matched against the node's console, so it must be
+# firmware output -- never an emulator's own startup chatter, which would make
+# the barrier measure the wrong process entirely.
+GUEST_ALIVE = os.environ.get("NODE_GUEST_ALIVE", r"MCUX SDK version|ENET-LAB3")
+
+
+def spawn_node(group, port, mac=NODE_MAC, elf=None, console=None,
+               wait_ready=True, label="node"):
+    """One emulator node on the multicast segment group:port.
+
+    Returns a Popen whose .stdout is the node's console.
+    """
+    elf = elf or ELF
+    if NODE == "qemu":
+        argv = [QEMU, "-M", "mimxrt1180-evk", "-audio", "none", "-display", "none",
+                "-monitor", "none", "-semihosting-config", "enable=on,target=native",
+                "-kernel", elf,
+                "-nic", "socket,mcast=%s:%d,mac=%s" % (group, port, mac),
+                "-serial", "stdio"]
+    else:
+        if not NODE_SPAWN:
+            sys.exit("NODE=%s requires NODE_SPAWN=<prog>; see spawn_node()." % NODE)
+        argv = [NODE_SPAWN, group, str(port), mac, elf]
+    proc = subprocess.Popen(argv, stdout=subprocess.PIPE,
+                            stderr=subprocess.DEVNULL, text=True, bufsize=1)
+    if wait_ready:
+        wait_for_guest(proc, console, label)
+    return proc
+
+
+def wait_for_guest(proc, console, label):
+    """Block until the GUEST has printed something, or fail.
+
+    ⭐ THE BARRIER LIVES IN THE SPAWNER SO NO CALL SITE CAN FORGET IT.
+    Every phase that spawns a node used to start measuring the instant Popen
+    returned, which silently charges the node for its EMULATOR's startup.
+    Invisible with QEMU (guest talking in ~0.3 s); fatal with one that builds a
+    platform and compiles peripherals first (~9 s). Phase 1 saw ONE beacon where
+    QEMU gives six; phase 8 sent all 80 of its frames and waited 1.5 s -- 5.5 s
+    total -- at a node that had not finished booting, then reported "the node
+    neither counted nor condemned them. Silence is not a verdict." It was not
+    silent. It was absent, and the harness said so about the node.
+
+    ⭐ THE BARRIER IS THE GUEST'S FIRST PRINT, NOT ITS 'UP' BANNER. Blocking on
+    the banner BREAKS QEMU: there, the banner does not appear until phase 1 is
+    already running -- phase 1's recv loop IS the wait for it. The first firmware
+    print is the earliest signal that exists on both, and the SUBJECT emits it.
+
+    Lines consumed here are handed to the caller's console list, so nothing the
+    guest said is lost to the phase that follows. NOTHING IS WEAKENED: every
+    count, sequence and body assertion is untouched. Only the clock's zero moves.
+    """
+    t0 = time.time()
+    while time.time() - t0 < BOOT_TIMEOUT:
+        ready, _, _ = select.select([proc.stdout], [], [], 0.1)
+        if not ready:
+            continue
+        line = proc.stdout.readline()
+        if not line:
+            break
+        if console is not None:
+            console.append(line.rstrip())
+        if re.search(GUEST_ALIVE, line):
+            print("  ok  %s guest alive after %.1f s (emulator startup, excluded "
+                  "from every phase window)" % (label, time.time() - t0))
+            return
+    print("FAIL: %s never printed anything matching %r in %.0f s (NODE=%s).\n"
+          "      The node did not reach its own firmware, so nothing measured\n"
+          "      after this point would be about its protocol."
+          % (label, GUEST_ALIVE, BOOT_TIMEOUT, NODE))
+    if console:
+        print("      last lines from the node:")
+        for l in console[-6:]:
+            print("        %s" % l)
+    proc.terminate()
+    sys.exit(1)
+
 
 console = []
+qemu = spawn_node(GROUP, PORT, console=console, label="node")
 
 
 def pump_console():
@@ -480,13 +586,8 @@ try:
                    struct.pack("4sl", socket.inet_aton(G3), socket.INADDR_ANY))
     rx3.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
     rx3.settimeout(0.05)
-    q3 = subprocess.Popen(
-        [QEMU, "-M", "mimxrt1180-evk", "-audio", "none", "-display", "none",
-         "-monitor", "none", "-semihosting-config", "enable=on,target=native",
-         "-kernel", ELF, "-nic", "socket,mcast=%s:%d,mac=54:27:8d:00:00:00" % (G3, P3),
-         "-serial", "stdio"],
-        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
     con3 = []
+    q3 = spawn_node(G3, P3, console=con3, label="phase-3 node")
 
     def pump3():
         while select.select([q3.stdout], [], [], 0)[0]:
@@ -701,14 +802,8 @@ try:
     rx2.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
     rx2.settimeout(0.05)
 
-    q2 = subprocess.Popen(
-        [QEMU, "-M", "mimxrt1180-evk", "-audio", "none", "-display", "none",
-         "-monitor", "none", "-semihosting-config", "enable=on,target=native",
-         "-kernel", ELF,
-         "-nic", "socket,mcast=%s:%d,mac=54:27:8d:00:00:00" % (G2, P2),
-         "-serial", "stdio"],
-        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
     con2 = []
+    q2 = spawn_node(G2, P2, console=con2, label="phase-8 node")
 
     def pump2():
         while select.select([q2.stdout], [], [], 0)[0]:
