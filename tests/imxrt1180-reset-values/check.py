@@ -29,8 +29,10 @@ out to hard-fault real firmware:
 
     ⭐ A ZERO RESET VALUE IS NOT THE ABSENCE OF A CLAIM.  IT IS A CLAIM.
 
-THE GOLDEN IS THE REFERENCE MANUAL (rm-golden.json, extracted from the MCX N RM
-rev 7 register tables and checked in), read back at the addresses CMSIS gives.  So
+THE GOLDEN IS THE REFERENCE MANUAL (rm-golden.json, extracted from the i.MX RT1180
+RM register tables via extract-rm-golden.py and checked in -- 7193 RT1180 entries:
+ADC/ENETC/NETC/EQDC/S3MU etc., NOT the MCX the harness was ported from), read back
+at the addresses CMSIS gives.  So
 this gate CANNOT BE SATISFIED BY THE MODEL AGREEING WITH ITSELF -- which is exactly
 how the LPI2C sub-block sat at the wrong address for months with a green test: the
 test had taken its addresses FROM THE MODEL.  A test that gets its addresses from
