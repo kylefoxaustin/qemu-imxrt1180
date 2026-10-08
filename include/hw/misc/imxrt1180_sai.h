@@ -52,6 +52,7 @@ struct IMXRT1180SAIState {
     MemoryRegion iomem;
     qemu_irq irq;
     qemu_irq dma_tx_req;    /* TX FIFO -> eDMA hardware request line */
+    qemu_irq dma_rx_req;    /* RX FIFO -> eDMA hardware request line */
     uint32_t regs[IMXRT1180_SAI_SIZE / 4];
 
     /* --- properties: what THIS instance of the silicon is --- */
@@ -90,6 +91,22 @@ struct IMXRT1180SAIState {
                                * from the guest for a short window past this, so the
                                * host audio backend can flush its own buffered tail
                                * to the wav before the guest exits (see the .c).    */
+
+    /* --- the receive path --- the codec/line-in SOURCE, mirror of TX ---
+     * No host input backend: the sample stream is a DETERMINISTIC function of the
+     * sample index (a shared spec with the rt1180renode Renode model, so both
+     * emulators produce the same RX stream with zero I/O -- see imxrt1180_sai.c).
+     * A fill_timer pushes sample(rx_n++) into rx_fifo at fs; the guest's eDMA
+     * drains it on the RX request line.  Mirror of drain_timer/tx_fifo, inverted:
+     * TX drains and requests on low-water, RX fills and requests on high-water.   */
+    uint32_t rx_fifo[IMXRT1180_SAI_FIFO_MAX];
+    uint32_t rx_count;      /* words currently in the RX FIFO */
+    uint32_t rx_rptr;       /* read pointer (for RFR0's RFP; guest/eDMA reads RDR) */
+    uint32_t rx_wptr;       /* write pointer (for RFR0's WFP; the generator fills) */
+    uint64_t rx_n;          /* generator sample index; resets on RCSR.RE 0->1      */
+    QEMUTimer *fill_timer;  /* fs-paced RX source, armed while RX is enabled        */
+    int64_t  fill_last_ns;
+    uint64_t fill_acc;      /* fractional words carried, words*1e9                  */
 };
 
 /*

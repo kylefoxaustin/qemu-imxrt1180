@@ -115,7 +115,8 @@
 #define CSR_STICKY_FLAGS  (CSR_FEF | CSR_SEF | CSR_WSF)
 
 /* Field accessors (CMSIS I2S_Type). */
-#define TCR1_TFW(v)   ((v) & 0x1Fu)                 /* FIFO watermark            */
+#define TCR1_TFW(v)   ((v) & 0x1Fu)                 /* TX FIFO watermark         */
+#define RCR1_RFW(v)   ((v) & 0x1Fu)                 /* RX FIFO watermark         */
 #define TCR2_DIV(v)   ((v) & 0xFFu)                 /* bit clock divider         */
 #define TCR2_BCD(v)   (((v) >> 24) & 0x1u)          /* 1 = bit clock MASTER      */
 #define TCR4_FRSZ(v)  (((v) >> 16) & 0x1Fu)         /* frame size - 1 (in words) */
@@ -415,6 +416,95 @@ static void imxrt1180_sai_tx_update(IMXRT1180SAIState *s)
     }
 }
 
+/*
+ * THE RX SOURCE -- a deterministic sample generator, NOT a host input device.
+ *
+ * There is no line-in backend; modelling one would be unverifiable against the
+ * oracle (and a Renode-only RX fill dressed up as equivalency is the trap we are
+ * avoiding).  Instead the RX stream is a pure function of the sample index, a
+ * spec SHARED VERBATIM with the rt1180renode Renode model so both emulators clock
+ * the IDENTICAL stream into RX with zero I/O and zero runtime coordination.  Then
+ * the stock SDK sai/edma_record_playback runs UNMODIFIED: it records over RX and
+ * plays the capture back over TX, so the TX byte stream becomes a function of the
+ * RX stream through the guest's own eDMA + driver -- and the two models' TX output
+ * is compared.  The generator is deliberately NOT a counter and NOT a constant: a
+ * ramp hides word-order and endianness bugs, a constant hides everything; this
+ * changes every sample and every byte.  Knuth multiplicative hash, seedless, one
+ * multiply, resettable (rx_n resets on RCSR.RE 0->1).
+ */
+static inline uint16_t imxrt1180_sai_rx_sample(uint64_t n)
+{
+    return (uint16_t)((uint32_t)(n * 2654435761u) >> 16);
+}
+
+/*
+ * Pace the RX fill at fs.  The generated STREAM is rate-independent (the eDMA
+ * records sample(0),sample(1),... in order regardless of how fast they arrive),
+ * so the equivalency comparison does not depend on this rate -- it only has to be
+ * fast enough not to starve the eDMA and slow enough not to overrun the FIFO,
+ * exactly like the TX drain.  record_playback enables TX too, so voice_hz carries
+ * the shared fs; fall back to 48 kHz if RX runs without TX.
+ */
+static uint32_t imxrt1180_sai_rx_fs(IMXRT1180SAIState *s)
+{
+    return s->voice_hz ? s->voice_hz : 48000u;
+}
+
+/* Push up to `budget` generated words into the RX FIFO.  A push into a FULL FIFO
+ * is an OVERRUN -> RCSR.FEF, mirroring the TX TDR-into-full-FIFO overrun. */
+static void imxrt1180_sai_fill(IMXRT1180SAIState *s, uint64_t budget)
+{
+    while (budget--) {
+        if (s->rx_count >= s->fifo_depth) {
+            s->regs[SAI_RCSR >> 2] |= CSR_FEF;   /* overrun: the codec outran the eDMA */
+            return;
+        }
+        s->rx_fifo[s->rx_wptr] = imxrt1180_sai_rx_sample(s->rx_n++);
+        s->rx_wptr = (s->rx_wptr + 1u) % IMXRT1180_SAI_FIFO_MAX;
+        s->rx_count++;
+    }
+}
+
+/* The codec's fs-paced fill (mirror of imxrt1180_sai_drain_tick). */
+static void imxrt1180_sai_fill_tick(void *opaque)
+{
+    IMXRT1180SAIState *s = IMXRT1180_SAI(opaque);
+    int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+    uint32_t fs = imxrt1180_sai_rx_fs(s);
+    uint64_t want;
+
+    if (!(s->regs[SAI_RCSR >> 2] & CSR_EN) || fs == 0) {
+        return;                 /* disarmed; rx_update re-arms when RX resumes */
+    }
+
+    s->fill_acc += (uint64_t)(now - s->fill_last_ns) * fs;
+    want = s->fill_acc / NANOSECONDS_PER_SECOND;
+    s->fill_acc -= want * NANOSECONDS_PER_SECOND;
+    s->fill_last_ns = now;
+
+    if (want) {
+        imxrt1180_sai_fill(s, want);
+        imxrt1180_sai_update_irq(s);
+    }
+    timer_mod(s->fill_timer, now + SAI_DRAIN_TICK_NS);
+}
+
+/* Arm/disarm the RX fill on RCSR.RE, resetting the generator on a 0->1 edge.
+ * Mirror of imxrt1180_sai_tx_update (no audio backend on the RX side). */
+static void imxrt1180_sai_rx_update(IMXRT1180SAIState *s, bool was_enabled)
+{
+    bool enabled = (s->regs[SAI_RCSR >> 2] & CSR_EN) != 0;
+
+    if (enabled && !was_enabled) {
+        s->rx_n = 0;            /* reset the generator on enable (spec: n=0 on RE 0->1) */
+        s->fill_last_ns = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+        s->fill_acc = 0;
+        timer_mod(s->fill_timer, s->fill_last_ns + SAI_DRAIN_TICK_NS);
+    } else if (!enabled && was_enabled) {
+        timer_del(s->fill_timer);
+    }
+}
+
 static void imxrt1180_sai_update_irq(IMXRT1180SAIState *s)
 {
     uint32_t tcsr = s->regs[SAI_TCSR >> 2];
@@ -466,11 +556,38 @@ static void imxrt1180_sai_update_irq(IMXRT1180SAIState *s)
     tflags |= tcsr & CSR_STICKY_FLAGS;
 
     uint32_t rflags = rcsr & CSR_STICKY_FLAGS;
+    bool dma_rx = false;
+
+    if (rcsr & CSR_EN) {
+        uint32_t rwatermark = RCR1_RFW(s->regs[SAI_RCR1 >> 2]);
+        /*
+         * RX is the inverse of TX:
+         *   FRF (Request) -- the FIFO has FILLED to/above the watermark: data is
+         *                    available to read.  This is what the DMA (FRDE) keys
+         *                    on to drain the capture, and what the polling driver
+         *                    reads for a ready sample.
+         *   FWF (Warning) -- the FIFO is FULL: overrun imminent (TX's FWF was empty).
+         */
+        if (s->rx_count > rwatermark) {
+            rflags |= CSR_FRF;
+        }
+        if (s->rx_count >= s->fifo_depth) {
+            rflags |= CSR_FWF;
+        }
+        /* RX DMA request: the eDMA services one minor loop per assertion, reading
+         * RDR and lowering rx_count past the watermark -- the line falls of its own
+         * accord, the same self-lowering handshake the TX side and the LPUART/LPI2C
+         * RX lines use. */
+        dma_rx = ((rcsr & CSR_FRDE) && (s->rx_count > rwatermark)) ||
+                 ((rcsr & CSR_FWDE) && (s->rx_count >= s->fifo_depth));
+    }
+
     bool tx = (((tflags >> 16) & 0x1Fu) & ((tcsr >> CSR_IE_TO_FLAG_SHIFT) & 0x1Fu)) != 0;
     bool rx = (((rflags >> 16) & 0x1Fu) & ((rcsr >> CSR_IE_TO_FLAG_SHIFT) & 0x1Fu)) != 0;
 
     qemu_set_irq(s->irq, tx || rx);
     qemu_set_irq(s->dma_tx_req, dma_tx);
+    qemu_set_irq(s->dma_rx_req, dma_rx);
 }
 
 static uint64_t imxrt1180_sai_read(void *opaque, hwaddr off, unsigned size)
@@ -502,7 +619,16 @@ static uint64_t imxrt1180_sai_read(void *opaque, hwaddr off, unsigned size)
         return v;
     case SAI_RCSR:
         v &= ~(CSR_SR | CSR_FR);
-        v &= ~(CSR_FRF | CSR_FWF | CSR_FEF);
+        v &= ~(CSR_FRF | CSR_FWF);   /* recompute these; FEF is sticky/W1C, keep it */
+        if (v & CSR_EN) {
+            uint32_t rfw = RCR1_RFW(s->regs[SAI_RCR1 >> 2]);
+            if (s->rx_count > rfw) {
+                v |= CSR_FRF;        /* data available at/above watermark */
+            }
+            if (s->rx_count >= s->fifo_depth) {
+                v |= CSR_FWF;        /* RX FIFO full (overrun warning) */
+            }
+        }
         return v;
     case SAI_TFR0:
     case SAI_TFR0 + 4: {
@@ -519,10 +645,28 @@ static uint64_t imxrt1180_sai_read(void *opaque, hwaddr off, unsigned size)
     }
     case SAI_RFR0:
     case SAI_RFR0 + 4:
-        return 0;   /* RX FIFO empty (RX path not modelled) */
+        /* REAL pointers now (RX path modelled): RFP = read ptr (guest/eDMA drains),
+         * WFP = write ptr (the generator fills).  Same field layout as TFR0. */
+        return ((s->rx_rptr & 0x3Fu) << TFR_RFP_SHIFT) |
+               ((s->rx_wptr & 0x3Fu) << TFR_WFP_SHIFT);
     case SAI_RDR0:
-    case SAI_RDR0 + 4:
+        /*
+         * THE CAPTURED SAMPLE.  A read POPS the RX FIFO -- this is how the eDMA (or
+         * a polling driver) drains the capture, and popping is what lowers rx_count
+         * past the watermark and deasserts the RX request.  Dataline 0 only; the
+         * record_playback example is single-line.  (A read of an empty FIFO returns
+         * 0 and does not underflow the pointer.)
+         */
+        if (s->rx_count > 0) {
+            uint32_t word = s->rx_fifo[s->rx_rptr];
+            s->rx_rptr = (s->rx_rptr + 1u) % IMXRT1180_SAI_FIFO_MAX;
+            s->rx_count--;
+            imxrt1180_sai_update_irq(s);   /* request/flags may change on drain */
+            return word;
+        }
         return 0;
+    case SAI_RDR0 + 4:
+        return 0;   /* dataline 1 not fed by the single-line generator */
     default:
         return v;
     }
@@ -567,11 +711,16 @@ static void imxrt1180_sai_write(void *opaque, hwaddr off, uint64_t value,
     }
     case SAI_RCSR: {
         uint32_t cur = s->regs[off >> 2];
+        bool was_enabled = (cur & CSR_EN) != 0;
 
         cur &= ~(val & CSR_FLAGS_W1C);
         cur = (cur & CSR_FLAGS_W1C) | (val & ~CSR_FLAGS_W1C);
-        cur &= ~(CSR_SR | CSR_FR);
+        if (val & CSR_FR) {              /* FIFO reset: really empty the RX FIFO */
+            s->rx_count = s->rx_rptr = s->rx_wptr = 0;
+        }
+        cur &= ~(CSR_SR | CSR_FR);       /* momentary */
         s->regs[off >> 2] = cur;
+        imxrt1180_sai_rx_update(s, was_enabled);   /* arm/disarm fill; reset gen on 0->1 */
         imxrt1180_sai_update_irq(s);
         return;
     }
@@ -629,9 +778,17 @@ static void imxrt1180_sai_reset(DeviceState *dev)
     s->drain_last_ns = 0;
     s->drain_acc = 0;
     s->drain_out_ns = 0;
+    s->rx_count = s->rx_rptr = s->rx_wptr = 0;
+    s->rx_n = 0;
+    s->fill_last_ns = 0;
+    s->fill_acc = 0;
     qemu_set_irq(s->dma_tx_req, false);
+    qemu_set_irq(s->dma_rx_req, false);
     if (s->drain_timer) {
         timer_del(s->drain_timer);
+    }
+    if (s->fill_timer) {
+        timer_del(s->fill_timer);
     }
     if (s->audio_be && s->voice) {
         audio_be_set_active_out(s->audio_be, s->voice, false);
@@ -662,6 +819,7 @@ static void imxrt1180_sai_realize(DeviceState *dev, Error **errp)
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
     sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq);
     qdev_init_gpio_out_named(dev, &s->dma_tx_req, "dma-tx-req", 1);
+    qdev_init_gpio_out_named(dev, &s->dma_rx_req, "dma-rx-req", 1);
 
     /*
      * No audiodev is not an error -- it is the common case, and it must not be a
@@ -675,6 +833,9 @@ static void imxrt1180_sai_realize(DeviceState *dev, Error **errp)
     /* The codec's fs-paced FIFO pull; armed by tx_update while TX is active. */
     s->drain_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL,
                                   imxrt1180_sai_drain_tick, s);
+    /* The codec's fs-paced RX source; armed by rx_update while RX is enabled. */
+    s->fill_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL,
+                                 imxrt1180_sai_fill_tick, s);
 }
 
 static const Property imxrt1180_sai_props[] = {

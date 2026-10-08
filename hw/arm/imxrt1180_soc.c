@@ -994,6 +994,19 @@ static void imxrt1180_soc_realize(DeviceState *dev, Error **errp)
             qdev_get_gpio_in_named(DEVICE(&s->edma[sai_tx_dma[i].edma]),
                                    "dma-req", sai_tx_dma[i].src));
     }
+    /*
+     * SAI RX FIFO -> eDMA request lines.  kDmaNRequestMuxSaiKRx (PERI_DMA4.h) =
+     * SAI1 Rx 22 (eDMA3); SAI2/3/4 Rx 181/183/185 (eDMA4) -- Tx+1 each, same
+     * controller split as Tx.  Feeds the record half of sai/edma_record_playback.
+     */
+    static const struct { unsigned edma; unsigned src; } sai_rx_dma[IMXRT1180_NUM_SAI] = {
+        { 0, 22 }, { 1, 181 }, { 1, 183 }, { 1, 185 },
+    };
+    for (int i = 0; i < IMXRT1180_NUM_SAI; i++) {
+        qdev_connect_gpio_out_named(DEVICE(&s->sai[i]), "dma-rx-req", 0,
+            qdev_get_gpio_in_named(DEVICE(&s->edma[sai_rx_dma[i].edma]),
+                                   "dma-req", sai_rx_dma[i].src));
+    }
 
     /*
      * LPSPI1/2 Tx+Rx DMA request lines -> eDMA3.  SRC = low byte of
